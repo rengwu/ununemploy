@@ -1,0 +1,730 @@
+import { profileReadiness } from "../core/profile/facts.ts";
+import {
+  assistantState,
+  startAssistant,
+  newAssistantChat,
+  enqueueAssistantMessage,
+} from "../core/assistant/service.ts";
+import { contextSchema } from "../core/assistant/types.ts";
+import {
+  profileState,
+  startProfileChat,
+  enqueueProfileMessage,
+  cancelProfileTurn,
+  retryProfileTurn,
+  restoreProfile,
+} from "../core/profile/chat.ts";
+import Fastify, { type FastifyRequest, type FastifyReply } from "fastify";
+import {
+  jobQuerySchema,
+  queryJobs,
+  jobSnapshot,
+  jobsRevision,
+} from "../core/job-query.ts";
+import type { Bootstrap } from "../core/api-types.ts";
+import staticPlugin from "@fastify/static";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+import { z } from "zod";
+import {
+  canLoadVueJobsDescription,
+  loadVueJobsDescription,
+  queueCoverLetterWithDetails,
+} from "../core/vuejobs.ts";
+import { config } from "../core/config.ts";
+import * as store from "../core/db/index.ts";
+import {
+  profileSchema,
+  sourceInputSchema,
+  cvDocumentSchema,
+  coverLetterDocumentSchema,
+} from "../core/types.ts";
+import { fromProfile, renderCv } from "../core/cv/render.ts";
+import { scan } from "../core/scan.ts";
+import {
+  exportPdf,
+  exportDocx,
+  exportCoverLetterDocx,
+} from "../core/cv/export.ts";
+import { xToken, setXToken } from "../core/x-auth.ts";
+import { web3Token, setWeb3Token } from "../core/web3-auth.ts";
+import { xBudgetKey } from "../core/x.ts";
+import { refreshAiStatus } from "../core/ai/generate.ts";
+import {
+  configureJev,
+  jevStatus,
+  queueJev,
+  resumeJev,
+  saveJevSettings,
+} from "../core/jev/service.ts";
+import { registerLatex } from "./latex.ts";
+
+export const app = Fastify({ logger: true, bodyLimit: 2 * 1024 * 1024 });
+if (!store.listCvVersions().length)
+  store.saveCv({
+    jobId: null,
+    kind: "master",
+    document: fromProfile(store.getProfile()),
+    template: store.getTemplate(),
+    profileRevision: store.getProfile().revision,
+    reviewNotes: [],
+    evidence: null,
+    parentId: null,
+  });
+app.addHook("onRequest", async (req, reply) => {
+  // The home app has no login. Cross-origin browser writes still have no purpose here.
+  if (!["GET", "HEAD", "OPTIONS"].includes(req.method) && req.headers.origin) {
+    const allowed = config.origin || `http://${req.headers.host}`;
+    const devOrigin = "http://127.0.0.1:5173";
+    if (
+      req.headers.origin !== allowed &&
+      req.headers.origin !== devOrigin &&
+      req.headers.origin !== "http://localhost:5173"
+    )
+      return reply.code(403).send({ error: "Cross-origin request rejected." });
+  }
+});
+app.setErrorHandler((error, req, reply) => {
+  const message = error instanceof Error ? error.message : "Request failed.";
+  const code =
+    error instanceof z.ZodError
+      ? 400
+      : /not found/i.test(message)
+        ? 404
+        : /another window|changed/i.test(message)
+          ? 409
+          : 400;
+  reply.code(code).send({ error: message });
+});
+registerLatex(app);
+app.get("/api/assistant", async (req, reply) =>
+  conditional(req, reply, assistantState()),
+);
+app.post("/api/assistant/start", async () => startAssistant());
+app.post("/api/assistant/new", async () => newAssistantChat());
+app.post("/api/assistant/messages", async (req, reply) => {
+  const body = z
+    .object({
+      message: z.string().trim().min(1).max(16000),
+      clientId: z.string().uuid(),
+      context: contextSchema,
+    })
+    .parse(req.body);
+  return reply
+    .code(202)
+    .send(enqueueAssistantMessage(body.message, body.clientId, body.context));
+});
+app.post<{ Params: { id: string } }>("/api/assistant/:id/cancel", async (req) =>
+  cancelProfileTurn(req.params.id),
+);
+app.post<{ Params: { id: string } }>(
+  "/api/assistant/:id/retry",
+  async (req) => {
+    const body = z
+      .object({ context: contextSchema.optional() })
+      .parse(req.body || {});
+    return store.transaction(() => {
+      const turn = retryProfileTurn(req.params.id);
+      if (body.context && turn.state === "queued")
+        store.db
+          .prepare(
+            "UPDATE profile_turns SET context=? WHERE id=? AND engine='assistant'",
+          )
+          .run(JSON.stringify(body.context), turn.id);
+      return turn;
+    });
+  },
+);
+app.get("/api/health", async (req, reply) => {
+  const heartbeat = store.setting<string | null>("workerHeartbeat", null);
+  const ok = !!heartbeat && Date.now() - Date.parse(heartbeat) < 90000;
+  return reply.code(ok ? 200 : 503).send({ ok, worker: heartbeat });
+});
+function conditional(req: FastifyRequest, reply: FastifyReply, value: unknown) {
+  const body = JSON.stringify(value);
+  const etag = `"${store.hash(body)}"`;
+  reply.header("ETag", etag).header("Cache-Control", "private, no-cache");
+  if (req.headers["if-none-match"] === etag) return reply.code(304).send();
+  return reply.type("application/json; charset=utf-8").send(body);
+}
+app.get("/api/bootstrap", async (req, reply) => {
+  const counts = store.db
+    .prepare(
+      `SELECT COUNT(*) AS total,
+    COUNT(*) FILTER (WHERE status != 'dismissed') AS jobs,
+    COUNT(*) FILTER (WHERE status IN ('saved','applied')) AS saved FROM jobs`,
+    )
+    .get() as Bootstrap["counts"];
+  const cvJobs = store.db
+    .prepare(
+      `SELECT id, json_extract(document,'$.title') AS title,
+    json_extract(document,'$.company') AS company FROM jobs
+    WHERE EXISTS (SELECT 1 FROM cv_versions WHERE job_id=jobs.id)
+    ORDER BY first_seen_at DESC,id`,
+    )
+    .all() as Bootstrap["cvJobs"];
+  const coverLetterJobs = store.db
+    .prepare(
+      `SELECT id, json_extract(document,'$.title') AS title,
+    json_extract(document,'$.company') AS company FROM jobs
+    WHERE json_extract(document,'$.savedAt') IS NOT NULL OR EXISTS (SELECT 1 FROM cover_letter_versions WHERE job_id=jobs.id)
+    ORDER BY first_seen_at DESC,id`,
+    )
+    .all() as Bootstrap["coverLetterJobs"];
+  const tasks = store.db
+    .prepare(
+      `SELECT json_remove(t.document,'$.input') AS document,
+    json_extract(j.document,'$.title') AS title FROM tasks t JOIN jobs j ON j.id=t.job_id ORDER BY t.created_at,t.rowid`,
+    )
+    .all()
+    .map((row) => ({
+      ...JSON.parse(row.document as string),
+      jobTitle: row.title,
+    })) as Bootstrap["tasks"];
+  const value: Bootstrap = {
+    jobsRevision: jobsRevision(),
+    profile: {
+      revision: store.getProfile().revision,
+      ...profileReadiness(store.getProfile()),
+    },
+    counts,
+    cvJobs,
+    coverLetterJobs,
+    tasks,
+    x: { configured: !!xToken(), used: store.getCounter(xBudgetKey()) },
+    web3: { configured: !!web3Token() },
+    jev: jevStatus(),
+    sources: store.listSources(),
+    settings: store.getSettings(),
+    runs: store.listRuns(),
+    ai: store.setting("aiStatus", {
+      state: "checking",
+      model: config.model,
+      reasoning: config.reasoning,
+    }),
+  };
+  return conditional(req, reply, value);
+});
+app.get("/api/jobs", async (req, reply) =>
+  conditional(req, reply, queryJobs(jobQuerySchema.parse(req.query))),
+);
+app.get("/api/job-locations", async (req, reply) => {
+  const snapshot = jobSnapshot();
+  return conditional(req, reply, {
+    options: snapshot.locations.options,
+    revision: snapshot.revision,
+  });
+});
+app.get<{ Params: { id: string } }>("/api/jobs/:id", async (req, reply) => {
+  const job = jobSnapshot().byId.get(req.params.id);
+  if (!job) throw new Error("Job not found.");
+  return conditional(req, reply, {
+    ...job,
+    canLoadDescription: canLoadVueJobsDescription(job),
+  });
+});
+app.get("/api/profile", async (req, reply) =>
+  conditional(req, reply, profileState()),
+);
+app.post("/api/profile/chat/start", async () => startProfileChat());
+app.post("/api/profile/chat", async (req, reply) => {
+  const body = z
+    .object({
+      message: z.string().trim().min(1).max(16000),
+      clientId: z.string().uuid(),
+      expectedRevision: z.number().int().positive(),
+    })
+    .parse(req.body);
+  return reply
+    .code(202)
+    .send(
+      enqueueProfileMessage(body.message, body.clientId, body.expectedRevision),
+    );
+});
+app.post<{ Params: { id: string } }>(
+  "/api/profile/chat/:id/cancel",
+  async (req) => cancelProfileTurn(req.params.id),
+);
+app.post<{ Params: { id: string } }>(
+  "/api/profile/chat/:id/retry",
+  async (req) => retryProfileTurn(req.params.id),
+);
+app.post("/api/profile/restore", async (req) => {
+  const { revision, expectedRevision } = z
+    .object({
+      revision: z.number().int().positive(),
+      expectedRevision: z.number().int().positive(),
+    })
+    .parse(req.body);
+  return restoreProfile(revision, expectedRevision);
+});
+app.get("/api/master", async (req, reply) =>
+  conditional(req, reply, {
+    profile: store.getProfile(),
+    template: store.getTemplate(),
+  }),
+);
+app.patch<{ Params: { id: string } }>("/api/jobs/:id", async (req) => {
+  const body = z
+    .object({
+      status: z.enum(["new", "saved", "dismissed", "applied"]).optional(),
+      notes: z.string().max(10000).optional(),
+      description: z.string().max(100000).optional(),
+    })
+    .parse(req.body);
+  const job = store.getJob(req.params.id);
+  if (!job) throw new Error("Job not found.");
+  if (body.notes !== undefined) job.notes = body.notes;
+  if (body.description !== undefined) {
+    job.description = body.description;
+    job.descriptionOverride = body.description;
+    job.descriptionQuality = body.description.trim() ? "full" : "unknown";
+    job.descriptionSource = {
+      name: "Manual edit",
+      url: job.url,
+      checkedAt: store.now(),
+    };
+  }
+  if (body.status === "saved") {
+    store.writeJob(job);
+    await queueCoverLetterWithDetails(job.id);
+    return store.getJob(job.id);
+  }
+  if (body.status) job.status = body.status;
+  return store.writeJob(job);
+});
+app.post<{ Params: { id: string } }>("/api/jobs/:id/seen", async (req) =>
+  store.markJobSeen(req.params.id),
+);
+app.post<{ Params: { id: string } }>("/api/jobs/:id/generate", async (req) =>
+  queueCoverLetterWithDetails(req.params.id, true),
+);
+app.post<{ Params: { id: string } }>(
+  "/api/jobs/:id/description/fetch",
+  async (req) => loadVueJobsDescription(req.params.id),
+);
+app.post("/api/jobs", async (req) => {
+  const item = z
+    .object({
+      title: z.string().min(1).max(200),
+      company: z.string().min(1).max(200),
+      url: z
+        .url()
+        .refine((s) => /^https?:\/\//.test(s), "Use an HTTP or HTTPS URL."),
+      description: z.string().max(100000),
+      location: z.string().max(300).default(""),
+      arrangement: z.string().max(100).default("Unspecified"),
+      sourceId: z.string().optional(),
+    })
+    .parse(req.body);
+  let source = item.sourceId ? store.getSource(item.sourceId) : undefined;
+  if (
+    item.sourceId &&
+    (!source || !["website", "public_board"].includes(source.type))
+  )
+    throw new Error("Choose a source that supports manual job entry.");
+  source ||= store.listSources().find((s) => s.identifier === "manual");
+  if (!source)
+    source = store.addSource({
+      name: "Manual",
+      type: "rss",
+      identifier: "manual",
+      enabled: false,
+      requestLimit: 1,
+    });
+  const { sourceId, ...content } = item;
+  const result = store.ingestJob(source, {
+    ...content,
+    sourceItemId: store.canonicalUrl(item.url),
+    salary: "",
+    employmentType: "Unspecified",
+    publishedAt: null,
+    kind: "opening",
+  });
+  store.saveSource({ ...source, jobCount: source.jobCount + result.added });
+  return result.job;
+});
+app.put("/api/profile", async (req) => {
+  const body = z
+    .object({ profile: profileSchema, expectedRevision: z.number() })
+    .parse(req.body);
+  return store.saveProfile(body.profile, body.expectedRevision);
+});
+app.get<{ Params: { revision: string } }>(
+  "/api/profile/:revision",
+  async (req) => {
+    const row = store.db
+      .prepare("SELECT document FROM profile_versions WHERE revision=?")
+      .get(Number(req.params.revision)) as { document: string } | undefined;
+    if (!row) throw new Error("Profile version not found.");
+    return JSON.parse(row.document);
+  },
+);
+const templateSchema = z.object({
+  html: z.string().min(1).max(100000),
+  css: z.string().max(100000),
+});
+app.put("/api/template", async (req) => {
+  const template = templateSchema.parse(req.body);
+  renderCv(fromProfile(store.getProfile()), template);
+  store.putSetting("template", template);
+  return template;
+});
+const previewSchema = z.union([
+  z.object({ profile: profileSchema, template: templateSchema }),
+  z.object({ document: cvDocumentSchema, template: templateSchema }),
+]);
+app.post("/api/cv/preview", async (req) => {
+  const body = previewSchema.parse(req.body);
+  return {
+    html: renderCv(
+      "profile" in body ? fromProfile(body.profile) : body.document,
+      body.template,
+    ),
+  };
+});
+app.put("/api/master", async (req) => {
+  const body = z
+    .object({
+      profile: profileSchema,
+      template: templateSchema,
+      expectedRevision: z.number(),
+      expectedCvId: z.string().optional(),
+    })
+    .parse(req.body);
+  renderCv(fromProfile(body.profile), body.template);
+  return store.transaction(() => {
+    if (
+      body.expectedCvId &&
+      store.listCvVersions(null)[0]?.id !== body.expectedCvId
+    )
+      throw new Error(
+        "The CV changed in another window. Reload before saving.",
+      );
+    const profile = store.saveProfile(body.profile, body.expectedRevision, {
+      template: body.template,
+    });
+    return { profile, cv: store.listCvVersions(null)[0] };
+  });
+});
+app.post<{ Params: { id: string } }>("/api/cv/:id/versions", async (req) => {
+  const previous = store.getCv(req.params.id);
+  if (!previous) throw new Error("CV not found.");
+  if (!previous.jobId)
+    throw new Error("Save master facts through the master editor.");
+  const body = z
+    .object({
+      document: cvDocumentSchema,
+      template: templateSchema,
+      expectedId: z.string().optional(),
+    })
+    .parse(req.body);
+  renderCv(body.document, body.template);
+  return store.transaction(() => {
+    if (
+      body.expectedId &&
+      store.listCvVersions(previous.jobId)[0]?.id !== body.expectedId
+    )
+      throw new Error(
+        "The CV changed in another window. Reload before saving.",
+      );
+    return store.saveCv({
+      ...previous,
+      ...body,
+      parentId: previous.id,
+      kind: "edited",
+    });
+  });
+});
+let exporting = false;
+app.post("/api/cv/export", async (req, reply) => {
+  if (exporting)
+    return reply
+      .code(429)
+      .send({ error: "An export is already running. Try again shortly." });
+  const input = req.body as Record<string, unknown>;
+  const body = previewSchema.parse(input);
+  const format = z.enum(["pdf", "docx", "html"]).parse(input.format);
+  const document =
+    "profile" in body ? fromProfile(body.profile) : body.document;
+  const filename =
+    document.name
+      .replace(/[^a-zA-Z0-9 -]/g, "")
+      .trim()
+      .replace(/ +/g, "-") || "CV";
+  exporting = true;
+  try {
+    const buffer =
+      format === "pdf"
+        ? await exportPdf(document, body.template)
+        : format === "docx"
+          ? await exportDocx(document)
+          : Buffer.from(renderCv(document, body.template));
+    return reply
+      .header(
+        "Content-Disposition",
+        `attachment; filename="${filename}-CV.${format}"`,
+      )
+      .type(
+        format === "pdf"
+          ? "application/pdf"
+          : format === "docx"
+            ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            : "text/html",
+      )
+      .send(buffer);
+  } finally {
+    exporting = false;
+  }
+});
+app.get("/api/cv", async (req) => {
+  const { jobId } = req.query as { jobId?: string };
+  return store.listCvVersions(jobId);
+});
+app.get<{ Params: { id: string } }>("/api/cv/:id", async (req) => {
+  const cv = store.getCv(req.params.id);
+  if (!cv) throw new Error("CV not found.");
+  return cv;
+});
+const letterPreviewSchema = z.object({
+  document: coverLetterDocumentSchema,
+  template: templateSchema,
+});
+app.get("/api/cover-letters", async (req) => {
+  const { jobId } = z.object({ jobId: z.string().min(1) }).parse(req.query);
+  return store.listCoverLetterVersions(jobId);
+});
+app.get<{ Params: { id: string } }>("/api/cover-letters/:id", async (req) => {
+  const letter = store.getCoverLetter(req.params.id);
+  if (!letter) throw new Error("Cover letter not found.");
+  return letter;
+});
+app.post("/api/cover-letters/preview", async (req) => {
+  const body = letterPreviewSchema.parse(req.body);
+  return { html: renderCv(body.document, body.template) };
+});
+app.post<{ Params: { id: string } }>(
+  "/api/cover-letters/:id/versions",
+  async (req) => {
+    const previous = store.getCoverLetter(req.params.id);
+    if (!previous) throw new Error("Cover letter not found.");
+    const body = letterPreviewSchema
+      .extend({ expectedId: z.string().optional() })
+      .parse(req.body);
+    renderCv(body.document, body.template);
+    return store.transaction(() => {
+      if (
+        body.expectedId &&
+        store.listCoverLetterVersions(previous.jobId)[0]?.id !== body.expectedId
+      )
+        throw new Error(
+          "The cover letter changed in another window. Reload before saving.",
+        );
+      return store.saveCoverLetter({
+        ...previous,
+        ...body,
+        parentId: previous.id,
+        kind: "edited",
+      });
+    });
+  },
+);
+app.post("/api/cover-letters/export", async (req, reply) => {
+  if (exporting)
+    return reply
+      .code(429)
+      .send({ error: "An export is already running. Try again shortly." });
+  const body = letterPreviewSchema
+    .extend({ format: z.enum(["pdf", "docx", "html"]) })
+    .parse(req.body);
+  const filename = `${body.document.name}-${body.document.company}-Cover-letter`
+    .replace(/[^a-zA-Z0-9 -]/g, "")
+    .replace(/ +/g, "-");
+  exporting = true;
+  try {
+    const buffer =
+      body.format === "pdf"
+        ? await exportPdf(body.document, body.template)
+        : body.format === "docx"
+          ? await exportCoverLetterDocx(body.document)
+          : Buffer.from(renderCv(body.document, body.template));
+    return reply
+      .header(
+        "Content-Disposition",
+        `attachment; filename="${filename}.${body.format}"`,
+      )
+      .type(
+        body.format === "pdf"
+          ? "application/pdf"
+          : body.format === "docx"
+            ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            : "text/html",
+      )
+      .send(buffer);
+  } finally {
+    exporting = false;
+  }
+});
+app.post<{ Params: { id: string } }>("/api/tasks/:id/retry", async (req) => {
+  const task = store.listTasks().find((t) => t.id === req.params.id);
+  if (!task) throw new Error("Task not found.");
+  if (task.kind !== "cover_letter")
+    throw new Error(
+      "Resume generation has been replaced. Generate a cover letter from the saved job.",
+    );
+  if (["running", "queued", "complete"].includes(task.state)) return task;
+  if (task.state === "needs_details") {
+    let job = store.getJob(task.jobId)!;
+    if (canLoadVueJobsDescription(job))
+      job = await loadVueJobsDescription(job.id);
+    if (store.needsJobDetails(job))
+      throw new Error("Add a complete job description before retrying.");
+    task.input.job = job;
+  }
+  task.state = "queued";
+  task.error = null;
+  task.updatedAt = store.now();
+  store.saveTask(task);
+  return { id: task.id, state: task.state };
+});
+app.post("/api/x/token", async (req) => {
+  const { token } = z
+    .object({
+      token: z
+        .string()
+        .trim()
+        .min(10)
+        .max(5000)
+        .regex(/^[A-Za-z0-9%._~+\/=-]+$/, "Enter the bearer token only."),
+    })
+    .parse(req.body);
+  setXToken(token);
+  return { configured: true };
+});
+app.post("/api/ai/check", async () => refreshAiStatus());
+app.post("/api/jev/key", async (req) => {
+  const { token } = z
+    .object({
+      token: z
+        .string()
+        .trim()
+        .min(1)
+        .max(5000)
+        .regex(/^[A-Za-z0-9%._~+\/=-]+$/, "Enter the API key only."),
+    })
+    .parse(req.body);
+  return configureJev(token);
+});
+app.delete("/api/jev/key", async () => configureJev(""));
+app.put("/api/jev/settings", async (req) =>
+  saveJevSettings(
+    z
+      .object({
+        enabled: z.boolean(),
+        dailyLimit: z.number().int().min(0).max(10000),
+      })
+      .parse(req.body),
+  ),
+);
+app.post("/api/jev/retry", async () => resumeJev());
+app.post<{ Params: { id: string } }>("/api/jobs/:id/jev", async (req, reply) =>
+  reply.code(202).send(queueJev(req.params.id)),
+);
+
+app.post("/api/web3/token", async (req) => {
+  const { token } = z
+    .object({
+      token: z
+        .string()
+        .trim()
+        .min(1)
+        .max(5000)
+        .regex(/^[A-Za-z0-9%._~+\/=-]+$/, "Enter the API token only."),
+    })
+    .parse(req.body);
+  setWeb3Token(token);
+  for (const source of store
+    .listSources()
+    .filter((s) => s.type === "web3" && s.state !== "running"))
+    store.saveSource({
+      ...source,
+      state: "idle",
+      lastError: null,
+      retryAt: null,
+      nextRunAt: null,
+    });
+  return { configured: true };
+});
+app.post("/api/scan", async (req, reply) => {
+  if (!profileReadiness(store.getProfile()).ready)
+    return reply
+      .code(409)
+      .send({ error: "Complete your User profile before scanning for jobs." });
+  const body = z
+    .object({ sourceId: z.string().optional() })
+    .parse(req.body || {});
+  void scan(body.sourceId, true).catch((error) => app.log.error(error));
+  return reply.code(202).send({ queued: true });
+});
+app.post("/api/sources", async (req) =>
+  store.addSource(sourceInputSchema.parse(req.body)),
+);
+app.patch<{ Params: { id: string } }>("/api/sources/:id", async (req) => {
+  const source = store.getSource(req.params.id);
+  if (!source) throw new Error("Source not found.");
+  const patch = sourceInputSchema.partial().parse(req.body);
+  if (source.state === "running")
+    throw new Error(
+      "Wait for the current scan to finish before editing this source.",
+    );
+  const changed =
+    (patch.type && patch.type !== source.type) ||
+    (patch.identifier && patch.identifier !== source.identifier);
+  return store.saveSource({
+    ...source,
+    ...patch,
+    ...(changed
+      ? {
+          checkpoint: {},
+          state: "idle",
+          lastError: null,
+          nextRunAt: null,
+          retryAt: null,
+        }
+      : {}),
+  });
+});
+app.put("/api/settings", async (req) => {
+  const settings = z
+    .object({
+      scanIntervalHours: z.number().min(4).max(168),
+      scheduleEnabled: z.boolean(),
+      timezone: z.string().refine((s) => {
+        try {
+          new Intl.DateTimeFormat("en", { timeZone: s });
+          return true;
+        } catch {
+          return false;
+        }
+      }, "Use a valid IANA time zone."),
+      xMonthlyPostLimit: z.number().int().min(0).max(100000),
+      xEnabled: z.boolean(),
+      aiEnabled: z.boolean(),
+    })
+    .parse(req.body);
+  store.putSetting("app", settings);
+  return settings;
+});
+if (existsSync(resolve("dist/index.html"))) {
+  await app.register(staticPlugin, { root: resolve("dist") });
+  app.setNotFoundHandler((req, reply) =>
+    req.url.startsWith("/api/")
+      ? reply.code(404).send({ error: "Not found." })
+      : reply.sendFile("index.html"),
+  );
+}
+if (process.env.JH_TEST_SERVER !== "1") {
+  await app.listen({ port: config.port, host: config.host });
+  for (const signal of ["SIGTERM", "SIGINT"] as const)
+    process.on(signal, () => void app.close().then(() => process.exit(0)));
+}
