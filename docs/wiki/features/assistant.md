@@ -1,4 +1,38 @@
+---
+title: App-wide assistant
+section: Features
+updated: 2026-10-07
+---
 # App-wide assistant
+
+Feature ID: `FEAT-assistant`
+
+## Intent and basis
+
+Support one persistent, restricted assistant that can coordinate attributable facts and real document edits. Based on the [accepted project boundaries](../decisions/index.md) and existing implementation documentation; this migration adds no product requirement.
+
+## Entry points and prerequisites
+
+Open assistant in the top-right page header; supplied job/document context and an available serialized Codex runtime are prerequisites for a real turn.
+
+## Expected outcomes
+
+The overlay preserves page bounds, context and unsent drafts; Escape restores focus. Atomic saves retain versions and report actual preview results. New chat clears conversation state while preserving saved facts and documents.
+
+## Verification recipe
+
+Use [shared verification setup](../verification/setup.md) for isolation, build identity, evidence and cleanup. `npm test` covers action/evidence/version boundaries. After `npm run build`, `npx tsx scripts/verify-assistant-ui.ts` drives the actual UI with synthetic data, simulated inference and real compilation. The detailed runtime command is below.
+
+Recipes are migrated from existing scripts and historical checks; they were not re-executed during the wiki migration.
+
+## Coverage and limitations
+
+The synthetic UI check does not establish current authentication or every interpretation. No unrestricted shell, filesystem, external writes, messaging or application actions are available.
+
+## Verification history
+
+[Historical implementation checks](../verification/history.md) record previous selected scenarios and limitations. Those entries are historical evidence; new reports belong in [verification runs](../verification/index.md).
+
 
 **New chat** in the assistant header clears the conversation, turn/action history, remembered document focus, and the current tab's unsent draft. Saved profile facts, source evidence, change quotes, document versions and jobs remain intact. There is no conversation archive. Wait for an active reply or use **Stop** before starting a new chat; the server also waits for the worker to release the chat before allowing a reset.
 
@@ -35,4 +69,4 @@ All edits create versions. Restore profile/CV/letter versions with their existin
 
 ## Verification commands
 
-`npm test` covers the action loop, capabilities, evidence, job filters, version conflicts, cancellation and rollback. `npx tsx scripts/verify-assistant-ui.ts` runs a synthetic browser workflow with simulated inference and actual PDF compilation. `npx tsx scripts/verify-assistant-runtime.ts` performs real subscription inference with synthetic profile/CV data in an isolated temporary database; it consumes allowance and does not edit the user's documents. See [verification results](VERIFICATION.md).
+`npm test` covers the action loop, capabilities, evidence, job filters, version conflicts, cancellation and rollback. `npx tsx scripts/verify-assistant-ui.ts` runs a synthetic browser workflow with simulated inference and actual PDF compilation. `npx tsx scripts/verify-assistant-runtime.ts` performs real subscription inference with synthetic profile/CV data in an isolated temporary database; it consumes allowance and does not edit the user's documents. See [verification results](../verification/history.md).

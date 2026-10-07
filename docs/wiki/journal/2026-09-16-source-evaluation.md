@@ -1,14 +1,21 @@
-# Job source evaluation
+---
+title: Job source evaluation — September 2026
+section: Journal
+updated: 2026-10-07
+---
+# Job source evaluation — September 2026
+
+Historical research from 16–17 September 2026, migrated without rechecking external sites. Counts, access results, recommendations and older CV terminology describe that period. Later public-board collection supersedes the original API-first/manual-only conclusions. Use [source coverage](../reference/source-coverage.md) and [discovery](../features/discovery.md) for the implemented contract.
 
 Reviewed: 16 September 2026. Scope: all visible sources in the user's screenshots, including the final nine-domain list.
 
 ## Coverage expansion — 17 September 2026
 
-The user has expanded the research scope to low-frequency public-page scraping, including sources without official APIs. See the [new coverage audit and prioritized adapter backlog](COVERAGE_EXPANSION.md), with local HTTP/browser/detail probes. Hiredly, LinkedIn public jobs, Wellfound, Built In, YC's broader directory, Japan Dev, Cake and Arc are the recommended first batch. Site restrictions and technical access are recorded separately. The earlier API-first/manual-only decisions below are historical. All 28 evaluated boards are now in the scan list; see the linked document’s current status table for verified imports, blocked sources and pending API configuration.
+The user has expanded the research scope to low-frequency public-page scraping, including sources without official APIs. See the [new coverage audit and prioritized adapter backlog](../reference/source-coverage.md), with local HTTP/browser/detail probes. Hiredly, LinkedIn public jobs, Wellfound, Built In, YC's broader directory, Japan Dev, Cake and Arc are the recommended first batch. Site restrictions and technical access are recorded separately. The earlier API-first/manual-only decisions below are historical. All 28 evaluated boards are now in the scan list; see the linked document’s current status table for verified imports, blocked sources and pending API configuration.
 
 ## Implementation update
 
-After this evaluation, the user authorized adding as many supported sources as possible. **21 new configurations are installed and live-verified**, bringing the workspace to 27 configured sources at that stage. The follow-up below adds four more, for 31 total. They cover the five recommended boards; WWR programming/design/product feeds; GolangProjects, LaraJobs, ClojureJobboard; HN's separate YC jobs feed; two Arbeitnow markets; Jobicy; and seven employer feeds. See [verification](VERIFICATION.md) and the [catalog](../core/source-catalog.ts).
+After this evaluation, the user authorized adding as many supported sources as possible. **21 new configurations are installed and live-verified**, bringing the workspace to 27 configured sources at that stage. The follow-up below adds four more, for 31 total. They cover the five recommended boards; WWR programming/design/product feeds; GolangProjects, LaraJobs, ClojureJobboard; HN's separate YC jobs feed; two Arbeitnow markets; Jobicy; and seven employer feeds. See [verification](../verification/history.md) and the catalog (`core/source-catalog.ts`).
 
 ### VueJobs detail follow-up — 17 September 2026
 

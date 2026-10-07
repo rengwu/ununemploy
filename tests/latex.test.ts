@@ -12,7 +12,10 @@ import { join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 const directory = mkdtempSync(join(tmpdir(), "ununemploy-latex-test-"));
 process.env.JH_DATA_DIR = directory;
-process.env.JH_PROFILE_SEED = new URL("./fixtures/profile.json", import.meta.url).pathname;
+process.env.JH_PROFILE_SEED = new URL(
+  "./fixtures/profile.json",
+  import.meta.url,
+).pathname;
 process.env.JH_TEST_SERVER = "1";
 const store = await import("../core/db/index.ts");
 const { app } = await import("../server/index.ts");
@@ -24,10 +27,13 @@ const starter = readFileSync(
   new URL("../core/latex/starter.tex", import.meta.url),
   "utf8",
 );
+const { findTectonic, latexSandboxExecutable } =
+  await import("../core/latex/runtime.ts");
+const compiler = findTectonic();
 const compilerAvailable =
-  spawnSync("tectonic", ["--version"]).status === 0 &&
-  (process.platform === "darwin" ||
-    existsSync("/usr/local/bin/ununemploy-tex-sandbox"));
+  !!compiler &&
+  spawnSync(compiler, ["--version"]).status === 0 &&
+  (process.platform === "darwin" || existsSync(latexSandboxExecutable()));
 after(async () => {
   await app.close();
   store.db.close();

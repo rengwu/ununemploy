@@ -32,7 +32,7 @@
 - The project and app name is `ununemploy`, always styled in lowercase.
 
 - Use Cloudflare's dashboard as the reference and the official `@cloudflare/kumo` React components, tokens, and documented patterns.
-- Apply Cloudflare's [kumo-design skill](https://github.com/cloudflare/kumo/blob/main/skills/kumo-design/SKILL.md). See `docs/UI_DESIGN.md` for the researched guidance and current decisions.
+- Apply Cloudflare's [kumo-design skill](https://github.com/cloudflare/kumo/blob/main/skills/kumo-design/SKILL.md). See `docs/wiki/decisions/dashboard-ui.md` for the researched guidance and current decisions.
 - No ornamental labels, captions, subcaptions, subtitles, or flourishes. Every visible string must identify content, explain a necessary state, or support an action. Use conventional, literal action labels.
 - Follow published Kumo guidance, established usability principles, and accessible interaction patterns. Do not substitute an invented visual system or generic dashboard template.
 - The user approved the job inbox with filters and a detail pane as the opening screen, plus a CV source editor with a rendered preview, and explicitly authorized implementation. Choose the document language as a routine implementation decision; keep career facts structured and presentation editable.
@@ -44,14 +44,24 @@
 
 - Use the official Codex runtime with the user's ChatGPT subscription, `gpt-5.6-sol`, and high reasoning. Persist the runtime's own authentication state; do not implement custom OAuth refresh or silently switch models or billing methods.
 - Serialize model jobs. Pause and report unavailable authentication, model access, or subscription allowance; preserve saved jobs and queued drafts.
-- The app-wide assistant may search collected jobs, read supplied public websites/repository READMEs, edit profiles, edit actual master LaTeX and data/HTML CVs, edit existing legacy CVs, and rewrite saved cover letters through `core/assistant` actions. It has no unrestricted shell, filesystem or external-write capabilities. Preserve user intent across follow-ups; never claim a profile update changed the independent LaTeX source. Stage coordinated changes, validate and save versions atomically, retain manual edits, and report actual save/preview results. See `docs/ASSISTANT.md`.
+- The app-wide assistant may search collected jobs, read supplied public websites/repository READMEs, edit profiles, edit actual master LaTeX and data/HTML CVs, edit existing legacy CVs, and rewrite saved cover letters through `core/assistant` actions. It has no unrestricted shell, filesystem or external-write capabilities. Preserve user intent across follow-ups; never claim a profile update changed the independent LaTeX source. Stage coordinated changes, validate and save versions atomically, retain manual edits, and report actual save/preview results. See `docs/wiki/features/assistant.md`.
 
-- Optional Jev assessment is explicitly authorized when a user configures a TypeSafe API key. Use it only for job fit, geography, work arrangement and applicability; preserve the no-key baseline and Codex cover-letter runtime. Keep unknown eligibility distinct from supported conflicts. See `docs/JEV.md`.
+- Optional Jev assessment is explicitly authorized when a user configures a TypeSafe API key. Use it only for job fit, geography, work arrangement and applicability; preserve the no-key baseline and Codex cover-letter runtime. Keep unknown eligibility distinct from supported conflicts. See `docs/wiki/features/jev.md`.
 
 ## State and deployment
 
+- The user also authorized a native macOS Go/WKWebView app. Opening it starts the local API and worker; closing its window keeps services running until explicit Quit. Preserve canonical appdata outside the bundle. See `docs/wiki/features/desktop.md` for build/install, lifecycle and verification contracts.
 - Target the user's Unraid server: a Docker image, Unraid XML template, persistent appdata, and an internal scheduler.
 - Fully local development and home-network hosting only. Do not register or deploy a Sites/ChatGPT/cloud-hosted domain. The user explicitly wants a local port without an application login.
 - Preserve saved jobs, candidate facts, CV versions, manual edits, collection checkpoints, and budget counters across restarts.
-- The application is implemented locally. See README.md and docs/VERIFICATION.md for tested behavior and remaining configuration requirements. Do not claim authenticated X collection or actual Unraid deployment until they have been verified.
-- See `docs/BUILD_PLAN.md` and `deploy/unraid/README.md` for the design and deployment contract.
+- The application is implemented locally. See README.md and docs/wiki/verification/history.md for tested behavior and remaining configuration requirements. Do not claim authenticated X collection or actual Unraid deployment until they have been verified.
+- See `docs/wiki/reference/architecture.md` and `docs/wiki/guides/unraid.md` for the design and deployment contract.
+
+## Documentation and jstack
+
+- Project documentation lives in `docs/wiki/`; start at [the wiki home](docs/wiki/index.md), [decisions](docs/wiki/decisions/index.md), [open follow-up](docs/wiki/discussions/open-questions.md), and the relevant [feature](docs/wiki/features/index.md) and dated journal/run when resuming work.
+- Use the task-relevant skills in `../jstack/skills/` and read `../jstack/references/stack-contract.md`. [Documentation maintenance](docs/wiki/guides/documentation.md) lists the skill entry points. Adoption does not require every skill for every change.
+- Keep Markdown authoritative. Update current decisions, feature expectations, recipes and dated records after substantive changes; preserve historical findings and distinguish intended, observed and untested behavior. Keep one current specification and link to it.
+- New verification reports use `docs/wiki/verification/runs/` with a tested revision/dirty-tree fingerprint, selected scenarios, Passed/Failed/Untested outcomes and sanitized evidence. Validate with `node ../jstack/skills/verify-change/scripts/check-reports.mjs docs/wiki`.
+- After documentation changes, run `node docs/wiki/_build.mjs` and `node docs/wiki/_build.mjs --check`. Never edit the generated HTML directly. Keep private candidate evidence, application records, generated CVs, credentials and raw local logs outside the wiki and its attachments.
+- `docs/MASTER_CV.md` remains ignored original candidate evidence; `core/profile/skills/build-user-profile/SKILL.md` remains the runtime skill. Root and directory READMEs remain entry points. Do not migrate these special-purpose files into the shareable reader.

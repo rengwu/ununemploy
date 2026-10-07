@@ -1,4 +1,38 @@
+---
+title: Matching and listing quality
+section: Features
+updated: 2026-10-07
+---
 # Matching and listing quality
+
+Feature ID: `FEAT-matching`
+
+## Intent and basis
+
+Explain role fit separately from eligibility, preserve listing evidence and group likely duplicate vacancies. Based on the [accepted project boundaries](../decisions/index.md) and existing implementation documentation; this migration adds no product requirement.
+
+## Entry points and prerequisites
+
+Jobs/Saved filters and Match tab; configured canonical facts determine evidence and eligibility.
+
+## Expected outcomes
+
+Unknown authorization stays under review; explicit conflicts remain accessible. Grouping preserves originals, notes and documents. Complete/manual descriptions take precedence and bounded feed absence does not close a job.
+
+## Verification recipe
+
+Use [shared verification setup](../verification/setup.md) for isolation, build identity, evidence and cleanup. `npx tsx --test tests/matching.test.ts tests/listing-quality.test.ts` covers fixtures. `npx tsx scripts/verify-listing-upgrade.ts` checks isolated migration/restart behavior. `npx tsx scripts/verify-matching-ui.ts` depends on named postings in the live local collection and may need fixture maintenance.
+
+Recipes are migrated from existing scripts and historical checks; they were not re-executed during the wiki migration.
+
+## Coverage and limitations
+
+Conservative heuristics and a small evaluation corpus do not establish broad matching accuracy or legal eligibility.
+
+## Verification history
+
+[Historical implementation checks](../verification/history.md) record previous selected scenarios and limitations. Those entries are historical evidence; new reports belong in [verification runs](../verification/index.md).
+
 
 Implemented locally on 16 September 2026.
 
@@ -14,18 +48,18 @@ The matcher uses an explicit, deterministic scoring rubric. It does not call an 
 
 ### Eligibility
 
-The candidate confirmed work authorization in Malaysia only and willingness to apply for visas. These are recorded in the master profile, including the confirmation source. `existingWorkAuthorizationsOutsideMalaysia: []` means confirmed none; `null` means unknown. Additional authorizations can be entered as country names in that profile field.
+Use only confirmed citizenship, current location, work-authorization and relocation facts from the canonical profile. `preferences.workAuthorizationCountries` records country names; `null` or omission means unknown and an empty array records no additional authorization beyond citizenship. The legacy `existingWorkAuthorizationsOutsideMalaysia` field remains supported. Candidate-specific answers stay in the local profile, not this documentation.
 
 Role fit is independent of eligibility. A technically strong vacancy can still be incompatible.
 
 - Explicit conflicting citizenship, existing authorization without an available route, or current-residency restrictions can produce **Incompatible**, with the supporting posting clause.
 - Foreign hiring-country restrictions normally produce **Needs review** because relocation remains possible. A listing's office location does not by itself establish a remote hiring restriction.
-- No sponsorship by itself stays under review because the candidate is open to obtaining a visa. An explicit existing-authorization requirement can establish a conflict.
+- No sponsorship by itself stays under review when the confirmed profile permits pursuing an independent visa route. An explicit existing-authorization requirement can establish a conflict.
 - Unclear or conditional sponsorship, conflicting company boilerplate, citizenship/residency alternatives, and independently obtainable visas stay under review. Security clearance alone does not imply a citizenship rule.
 - The default Jobs view uses **No known conflict**. **Any eligibility**, **Needs review**, and **Incompatible** remain selectable. Saved retains every saved/applied record.
 - Explicit hiring scope can indicate whether remote work from the candidate's current location is possible, restricted, or unknown; it does not establish legal eligibility.
 
-The parser recognizes a bounded English country/requirement vocabulary. It is conservative around unsupported countries, languages, ambiguous clauses, immigration routes, and clearance details. It is not a legal determination. Review the original posting when deciding whether to apply. Geography is still literal source data; cities are not geocoded to countries. Compensation remains a soft preference.
+The parser recognizes a bounded English country/requirement vocabulary. It is conservative around unsupported countries, languages, ambiguous clauses, immigration routes, and clearance details. It is not a legal determination. Review the original posting when deciding whether to apply. Original source location text is preserved; the bundled [geography lookup](../reference/geography.md) now adds country/region browsing facets without establishing eligibility. Compensation remains a soft preference.
 
 ## Duplicate listings
 
@@ -44,7 +78,7 @@ This favors missed duplicates over merging separate vacancies. Similar titles al
 
 Migration 002 adds per-source observations and immutable versions of changed source payloads. Empty responses and excerpts cannot overwrite an existing complete description. A newer complete description may legitimately be shorter. Manual description edits retain precedence. Employer ATS descriptions are preferred over board copies when complete; the source is shown in the detail pane.
 
-RSS/Atom normalization prefers complete content over summaries. API excerpt fallbacks remain marked as excerpts even when long. Incomplete descriptions wait for details before CV generation. No arbitrary truncation is applied to stored descriptions; the existing CV inference prompt still has its own context limit.
+RSS/Atom normalization prefers complete content over summaries. API excerpt fallbacks remain marked as excerpts even when long. Incomplete descriptions wait for details before cover-letter generation. No arbitrary truncation is applied to stored descriptions; the cover-letter inference prompt still has its own context limit.
 
 Availability uses all observations, with employer-board evidence taking priority:
 
@@ -67,7 +101,7 @@ npx tsx scripts/backup.ts
 npx tsx scripts/recover-cached-descriptions.ts
 ```
 
-The current collection was backed up and recovered this way. Old descriptions overwritten before this feature and absent from the cache cannot be reconstructed.
+The September 2026 local collection was backed up and recovered this way, as recorded in [verification history](../verification/history.md). Old descriptions overwritten before this feature and absent from the cache cannot be reconstructed.
 
 ## Evaluation
 

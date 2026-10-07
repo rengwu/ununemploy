@@ -36,6 +36,7 @@ COPY --from=build /app/dist ./dist
 COPY core ./core
 COPY server ./server
 COPY worker ./worker
+COPY scripts/setup-latex.ts ./scripts/setup-latex.ts
 COPY scripts/backup.ts ./scripts/backup.ts
 COPY scripts/recover-cached-descriptions.ts ./scripts/recover-cached-descriptions.ts
 COPY scripts/add-discovery-sources.ts ./scripts/add-discovery-sources.ts

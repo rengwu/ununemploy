@@ -7,13 +7,19 @@
     "node": ">=22.19"
   },
   "scripts": {
+    "predev": "tsx scripts/setup-latex.ts --startup",
+    "prestart": "tsx scripts/setup-latex.ts --startup",
+    "setup:latex": "tsx scripts/setup-latex.ts",
     "dev": "concurrently --kill-others --names api,web,worker 'tsx watch server/index.ts' 'vite --host 0.0.0.0' 'tsx watch worker/index.ts'",
     "build": "tsc --noEmit && vite build",
     "check": "tsc --noEmit",
     "start": "tsx server/index.ts",
     "worker": "tsx worker/index.ts",
     "test": "tsx --test tests/*.test.ts",
-    "scan": "tsx scripts/scan.ts"
+    "scan": "tsx scripts/scan.ts",
+    "desktop:build": "tsx scripts/build-desktop.ts",
+    "desktop:install": "tsx scripts/install-desktop.ts",
+    "desktop:test": "cd desktop && go test -race ./..."
   },
   "dependencies": {
     "@assistant-ui/react": "0.15.21",

@@ -1,54 +1,16 @@
-import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
-import { spawn } from "node:child_process";
-import { join, resolve } from "node:path";
-import { homedir, tmpdir } from "node:os";
-// Load app configuration, including .env, without opening the database.
+// Load .env without opening the database or reading candidate evidence.
 import "../core/config.ts";
-const cache = resolve(
-  process.env.JH_LATEX_CACHE ||
-    (process.platform === "darwin"
-      ? join(homedir(), "Library/Caches/TectonicProject.Tectonic")
-      : "/opt/ununemploy-tex-cache"),
-);
-const work = await mkdtemp(join(tmpdir(), "ununemploy-tex-setup-"));
+import { setupLatex } from "../core/latex/setup.ts";
+
 try {
-  await mkdir(cache, { recursive: true });
-  const starter = await readFile(
-    new URL("../core/latex/starter.tex", import.meta.url),
-    "utf8",
+  await setupLatex();
+} catch (error) {
+  console.error(
+    `LaTeX setup: ${error instanceof Error ? error.message : String(error)}`,
   );
-  // Only the repository's generic, trusted package fixture is compiled online.
-  // No candidate profile, resume, database, or credentials are supplied.
-  for (const size of [10, 11, 12]) {
-    await writeFile(
-      join(work, "starter.tex"),
-      starter.replace("[11pt,a4paper]", `[${size}pt,a4paper]`),
-    );
-    await new Promise<void>((resolvePromise, reject) => {
-      const child = spawn(
-        process.env.JH_TECTONIC_BIN || "tectonic",
-        ["--untrusted", "starter.tex"],
-        {
-          cwd: work,
-          stdio: "inherit",
-          env: {
-            PATH: process.env.PATH,
-            HOME: work,
-          TECTONIC_CACHE_DIR: cache,
-          XDG_CACHE_HOME: cache,
-            TECTONIC_UNTRUSTED_MODE: "1",
-          },
-        },
-      );
-      child.on("error", reject);
-      child.on("exit", (code) =>
-        code === 0
-          ? resolvePromise()
-          : reject(new Error(`LaTeX setup failed (${code}).`)),
-      );
-    });
-  }
-  console.log(`LaTeX packages ready in ${cache}`);
-} finally {
-  await rm(work, { recursive: true, force: true });
+  console.error(
+    "Run npm run setup:latex to retry. Saved documents are preserved.",
+  );
+  // Allow the rest of the app to start if first-run downloads are unavailable.
+  if (!process.argv.includes("--startup")) process.exitCode = 1;
 }

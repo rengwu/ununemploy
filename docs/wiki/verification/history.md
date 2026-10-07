@@ -1,4 +1,19 @@
-# Verification
+---
+title: Verification history
+section: Verification
+updated: 2026-10-07
+---
+# Verification history
+
+Preserved implementation and verification notes from 15 September–3 October 2026. Entries describe the version and local inventory at their recorded time; later entries supersede older navigation, resume-generation, geography and source-count statements. These notes are not new runs or a permanent certification. Most older entries lack an exact revision fingerprint, and their private `.local-data/` artifacts are not bundled in this wiki. New runs use [the run format](../guides/documentation.md#verification-records).
+
+## Automatic local LaTeX setup — 3 October 2026
+
+- Local startup now reuses installed Tectonic (including Homebrew with a restricted launcher PATH), or installs a pinned, checksum-verified compiler under appdata and prepares the generic template's packages. Explicit overrides fail visibly. Failed setup leaves documents intact and permits the rest of the app to start; `npm run setup:latex` retries it.
+- Nine targeted tests pass with no skips, covering runtime detection, invalid overrides, archive integrity, failed-download cleanup, real offline PDF compilation, version preservation, private-file isolation and disabled shell escape. TypeScript and production build pass; the existing bundle-size advisory remains. Logs: `.local-data/verification/latex-managed-tests.log` and `latex-managed-build.log`.
+- A clean macOS arm64 install downloaded and verified the official binary, populated an empty package cache, compiled all three template font sizes inside the sandbox with a restricted PATH, and repeated setup offline successfully. The initial two-minute download limit was too short on this connection and was increased to five minutes before this passing check. Log: `latex-managed-setup.log`.
+- The isolated LaTeX browser workflow passes preview rendering, zoom, save/reload, source/PDF downloads, error recovery, version restore and mobile layout, with no browser errors or external requests. Log: `latex-managed-browser.log`; report: `latex-browser.json`. The current saved CV also compiled successfully through the running local API without changing its source.
+- Docker already bundles the compiler, cache and sandbox. This change does not verify an actual Unraid deployment or additional Linux/macOS architectures.
 
 ## Job loading with a larger collection — 27 September 2026
 
@@ -24,7 +39,7 @@
 - `scripts/verify-assistant-ui.ts` passed against an isolated synthetic app with simulated inference and actual PDF compilation. Checks include onboarding, unchanged page bounds, drafts across navigation/reload, profile and actual LaTeX/PDF refresh, cover-letter editor refresh, HTML presentation refresh, job links, Stop, unsaved-editor preservation, keyboard focus/Escape, light/dark desktop and 390px mobile. Screenshots `assistant-onboarding.png`, `assistant-cv-desktop.png`, `assistant-cv-dark.png` and `assistant-mobile.png` under `.local-data/verification/` were visually inspected. The old profile UI verification entry point now delegates to this workflow.
 - `scripts/verify-assistant-runtime.ts` passed a real four-round Codex action loop with **gpt-5.6-sol**, **high** reasoning and existing ChatGPT authentication. It updated synthetic project facts and the actual synthetic LaTeX source together, preserved unrelated content, compiled a PDF and returned saved-version receipts. An initial larger-fixture attempt timed out during inference without committing edits; the successful run used a smaller valid LaTeX fixture. This verifies the coordinated path, not every document layout or reference interpretation.
 - The public-reference reader independently retrieved both `https://chartr.dev/` and `https://github.com/rengwu/chartr`, including current Rust/GPUI text. These were read-only unauthenticated requests. Runtime/browser fixtures did not change the user's profile, CV, letters or saved jobs.
-- The existing local development frontend returned HTTP 200 on port 5173, and the API on port 4317 reported a healthy worker. No new Docker image or Unraid deployment was performed. Logs: `.local-data/verification/assistant-suite.log`, `assistant-build.log`, `assistant-browser.log`, `assistant-runtime.log` and `assistant-references.log`. See [assistant behavior and limits](ASSISTANT.md).
+- The existing local development frontend returned HTTP 200 on port 5173, and the API on port 4317 reported a healthy worker. No new Docker image or Unraid deployment was performed. Logs: `.local-data/verification/assistant-suite.log`, `assistant-build.log`, `assistant-browser.log`, `assistant-runtime.log` and `assistant-references.log`. See [assistant behavior and limits](../features/assistant.md).
 
 ## User profile — 22 September 2026
 
@@ -52,7 +67,7 @@
 ## Public-board expansion — 17 September 2026
 
 - Registered all **28 evaluated boards**: 26 new entries and in-place upgrades for Wellfound and Welcome to the Jungle. The local installation has **57 source configurations**. Both catalog installers return zero additions on a repeated run and preserve existing pauses/settings.
-- First bounded scans imported **646 listings from 18 boards**, with **321 full descriptions** after cached-page parser corrections. Seventeen sources have working listing/detail collection. Arc returned 60 leads, then blocked details with HTTP 403. Four other sources returned 403, NodeFlair timed out, two returned unreadable shells, and three API-dependent entries remain pending credentials and adapter work. See [the current status table](COVERAGE_EXPANSION.md).
+- First bounded scans imported **646 listings from 18 boards**, with **321 full descriptions** after cached-page parser corrections. Seventeen sources have working listing/detail collection. Arc returned 60 leads, then blocked details with HTTP 403. Four other sources returned 403, NodeFlair timed out, two returned unreadable shells, and three API-dependent entries remain pending credentials and adapter work. See [the current status table](../reference/source-coverage.md).
 - New `public_board` collectors have strict job routes, one configuration per board, at most two scans/day and 12 HTTP requests/scan, with redirects/failures counted. Manual scans respect limits. Migration 005 persists the description queue, retry times and page checkpoints. Complete text and provenance survive excerpt refreshes; existing ingestion preserves user edits. Partial results never close unseen listings. Blocked/unreadable sources back off for 24 hours.
 - Live pages exposed additional issues: Hiredly and Wantedly truncate schema; TryRemote needs its visible body; No Fluff has separate requirement/task sections; Relocate.me and Remote Game Jobs publish raw control characters inside JSON-LD. Narrow parsing repairs and source-specific sections recover complete text. Reprocessing cached HTML made zero external requests. Remote.com's full rendered body was checked separately in an ordinary browser. Cake general inventory works, but keyword-route HTTP access is blocked; LinkedIn deep pagination is not established. Hiredly pagination is zero-based.
 - **115 tests pass**, TypeScript and changed-code formatting pass, and the production build succeeds. Added checks cover URL/identity restrictions, gated/shell responses, schema repair, full descriptions, Hiredly page numbering, pagination filter retention, queued work resumption, cached text reuse, stable API/detail IDs, cooldowns, API-pending zero-request behavior and idempotent legacy upgrades. Existing bundle-size advisory remains.
@@ -131,7 +146,7 @@
 - Current grouping identifies **20 groups / 21 extra copies**. It retains separate employer requisitions, differing locations/levels, truncated excerpts and organic posts. These are conservative inferred groups, not verified employer identities. Current eligibility counts are 98 incompatible, 691 needing review, and 3,381 unknown. Nothing is deleted. Results: `.local-data/verification/matching-collection.json`.
 - Desktop and 390px mobile browser checks passed: filtering and evidence, reload persistence, duplicate grouping and original links, excerpt handling, and no horizontal overflow or page errors. Screenshots: `.local-data/verification/matching-eligibility.png`, `matching-duplicates.png`, `matching-mobile.png`, `matching-mobile-list.png`; results: `matching-browser.json` in the same directory.
 - TypeScript and production build pass. The existing Vite large-bundle advisory remains. Local `linux/amd64` image `job-hunter:local` was rebuilt as **f43a001a2325**. Fresh-container startup, health, migration tables, seeded authorization preferences, and the cache-recovery script were verified with collection disabled. No Unraid or cloud deployment occurred.
-- See [matching rules and limits](MATCHING_AND_LISTING_QUALITY.md). Server-side pagination/detail fetching and the complete CV browser workflow were completed in the 17 September follow-up above.
+- See [matching rules and limits](../features/matching.md). Server-side pagination/detail fetching and the complete CV browser workflow were completed in the 17 September follow-up above.
 
 Initial checks: 15 September 2026. Source expansion checked on 16 September 2026 (Malaysia time).
 

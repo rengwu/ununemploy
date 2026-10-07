@@ -8,10 +8,15 @@ import {
   realpath,
   stat,
 } from "node:fs/promises";
-import { existsSync, realpathSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { existsSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { LatexDiagnostic } from "./types.ts";
+import {
+  findTectonic,
+  latexCacheDirectory,
+  latexSandboxExecutable,
+} from "./runtime.ts";
 
 export class LatexCompileError extends Error {
   constructor(
@@ -41,24 +46,12 @@ export function parseLatexDiagnostics(log: string): LatexDiagnostic[] {
   return result.slice(0, 30);
 }
 function executable() {
-  if (process.env.JH_TECTONIC_BIN)
-    return realpathSync(process.env.JH_TECTONIC_BIN);
-  for (const directory of (process.env.PATH || "").split(":")) {
-    const candidate = join(directory, "tectonic");
-    if (existsSync(candidate)) return realpathSync(candidate);
-  }
+  const bin = findTectonic();
+  if (bin) return bin;
   throw new LatexCompileError(
-    "LaTeX compiler unavailable. Install Tectonic or configure JH_TECTONIC_BIN; your saved source is preserved.",
+    "LaTeX compiler setup is incomplete. Run npm run setup:latex, then recompile. Your saved source is preserved.",
     [],
     503,
-  );
-}
-function cacheDirectory() {
-  return resolve(
-    process.env.JH_LATEX_CACHE ||
-      (process.platform === "darwin"
-        ? join(homedir(), "Library/Caches/TectonicProject.Tectonic")
-        : "/opt/ununemploy-tex-cache"),
   );
 }
 export function macSandbox(work: string, cache: string, bin: string) {
@@ -102,9 +95,9 @@ export async function compileLatex(
   let work: string | undefined;
   try {
     const bin = executable();
-    const cache = await realpath(cacheDirectory()).catch(() => {
+    const cache = await realpath(latexCacheDirectory()).catch(() => {
       throw new LatexCompileError(
-        "LaTeX packages are unavailable. Run the documented LaTeX setup before compiling; your source is preserved.",
+        "LaTeX package setup is incomplete. Run npm run setup:latex, then recompile. Your source is preserved.",
         [],
         503,
       );
@@ -127,8 +120,7 @@ export async function compileLatex(
       command = "/usr/bin/sandbox-exec";
       args = ["-p", macSandbox(work, cache, bin), bin, ...compilerArgs];
     } else if (process.platform === "linux") {
-      command =
-        process.env.JH_LATEX_SANDBOX || "/usr/local/bin/ununemploy-tex-sandbox";
+      command = latexSandboxExecutable();
       if (!existsSync(command))
         throw new LatexCompileError(
           "LaTeX sandbox unavailable. Use the Docker image or install the documented Linux sandbox helper.",

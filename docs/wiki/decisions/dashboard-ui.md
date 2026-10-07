@@ -1,6 +1,11 @@
+---
+title: Dashboard UI
+section: Decisions
+updated: 2026-10-07
+---
 # Dashboard UI
 
-Status: implemented locally with Kumo. See `VERIFICATION.md` for the scope of browser checks.
+Status: implemented locally with Kumo. See [verification history](../verification/history.md) for the scope of browser checks.
 
 ## User decisions
 

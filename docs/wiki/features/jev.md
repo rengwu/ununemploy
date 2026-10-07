@@ -1,4 +1,38 @@
+---
+title: Optional Jev assessment
+section: Features
+updated: 2026-10-07
+---
 # Optional Jev assessment
+
+Feature ID: `FEAT-jev`
+
+## Intent and basis
+
+Optionally supplement fit, geography, arrangement and applicability assessment when the user configures TypeSafe. Based on the [accepted project boundaries](../decisions/index.md) and existing implementation documentation; this migration adds no product requirement.
+
+## Entry points and prerequisites
+
+Settings → Jev configures the key and limits; Match → Assess with Jev prioritizes a job. No key means no requests.
+
+## Expected outcomes
+
+Disabling the integration restores baseline behavior. Unknown eligibility remains distinct from supported conflicts. Keys stay server-side; stale responses and limits are enforced. Codex still generates cover letters.
+
+## Verification recipe
+
+Use [shared verification setup](../verification/setup.md) for isolation, build identity, evidence and cleanup. `npx tsx --test tests/jev.test.ts` uses simulated provider responses. After `npm run build`, `npx tsx scripts/verify-jev-ui.ts` drives isolated settings and job assessment UI with simulated inference.
+
+Recipes are migrated from existing scripts and historical checks; they were not re-executed during the wiki migration.
+
+## Coverage and limitations
+
+Authenticated TypeSafe access and actual assessment quality remain unverified. Provider inference is separately billed.
+
+## Verification history
+
+[Historical implementation checks](../verification/history.md) record previous selected scenarios and limitations. Those entries are historical evidence; new reports belong in [verification runs](../verification/index.md).
+
 
 Jev supplements local job matching through TypeSafe AI's official `POST https://api.typesafe.ai/v1/systemone` endpoint using `jev-latest`. It is a separately configured integration, not a fallback for Codex. Cover letters still use the configured official Codex runtime.
 
