@@ -6,11 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Button } from "@cloudflare/kumo/components/button";
-import { Select } from "@cloudflare/kumo/components/select";
-import { Input, InputArea } from "@cloudflare/kumo/components/input";
-import { Dialog } from "@cloudflare/kumo/components/dialog";
-import { Banner } from "@cloudflare/kumo/components/banner";
+import { Button, Select, Input, InputArea, Dialog, Banner } from "./ui.tsx";
 import { api, jsonBody, time, type Bootstrap } from "./api.ts";
 import {
   coverLetterDocumentSchema,

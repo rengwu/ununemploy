@@ -1,6 +1,6 @@
 # ununemploy
 
-Local job discovery, fit assessment, private cover letters and master CV management. React, TypeScript, Vite, Cloudflare Kumo, Fastify, SQLite and an internal worker. Runs locally or on a home-network Unraid server, without an application login.
+Local job discovery, fit assessment, private cover letters and master CV management. React, TypeScript, Vite, Base UI, Fastify, SQLite and an internal worker. Runs locally or on a home-network Unraid server, without an application login.
 
 ## Run locally
 

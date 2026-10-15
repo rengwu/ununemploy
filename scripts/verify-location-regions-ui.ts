@@ -7,7 +7,8 @@ const errors: string[] = [];
 page.on("pageerror", (error) => errors.push(error.message));
 page.setDefaultTimeout(15000);
 try {
-  await page.goto("http://127.0.0.1:5173/#jobs");
+  await page.goto("http://127.0.0.1:2839/#jobs");
+  await page.getByRole("button", { name: /^Filters(?: · Active)?$/ }).click();
   const trigger = page.getByRole("combobox", { name: "Location", exact: true });
   await trigger.click();
   await page.getByRole("option", { name: "APAC", exact: true }).waitFor();
@@ -60,6 +61,7 @@ try {
   await page.keyboard.press("Escape");
   assert.match(await trigger.innerText(), /Southeast Asia/);
   await page.reload();
+  await page.getByRole("button", { name: /^Filters(?: · Active)?$/ }).click();
   await trigger.waitFor();
   assert.match(await trigger.innerText(), /Southeast Asia/);
   await trigger.click();

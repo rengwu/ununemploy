@@ -28,6 +28,8 @@ Codex uses its own existing ChatGPT authentication; an unavailable sign-in, mode
 - Native Save dialogs handle downloads. A local-origin file input uses a native Open dialog for ZIP import. Explicit external HTTP(S) links open in the user's browser. Remote top-level pages do not replace the local app; no unrestricted native JavaScript bridge is exposed.
 - Existing scanning, model serialization, saved-job behavior and manual application boundaries remain in effect. Scanning requires the app to be running and the Mac awake. It does not start at login or wake a sleeping computer.
 
+The 16 October redesign uses a 44px unified header with real traffic lights and a transparent title bar. The app-name region supports native dragging and double-click zoom, while the page and assistant controls remain interactive. Browser-only instances omit the native inset. See the [current UI specification](../decisions/dashboard-ui.md).
+
 ## Data locations
 
 The installed app keeps its canonical data in `~/Library/Application Support/ununemploy/`, outside the application bundle:
@@ -60,9 +62,13 @@ Native UI checks: open the app, edit/save a synthetic LaTeX CV, compile and insp
 
 The bundle is approximately 1.1 GB because it includes the model/runtime and document-export dependencies. Its native UI uses the system webview. The build is locally ad-hoc signed, not Developer ID signed or notarized for distribution. No Windows/Linux desktop package, automatic update system, login item, or tray icon is provided. Unraid remains an independent supported hosting target; no server deployment is implied.
 
+The [Windows and Linux assessment — 16 October 2026](../journal/2026-10-16-desktop-portability.md) records the observed portability blockers, proposed limited initial scope, rough effort estimates and required release checks. Port implementation has not been authorized or verified.
+
 Window routing/filter state is tied to the saved local origin. If another application occupies its port, a new port is used and origin-specific browser preferences may start afresh; SQLite records remain intact. Service failure requires quitting/reopening the app after the displayed error. Existing startup recovery preserves queued work and pauses interrupted model jobs.
 
 ## Verification history
+
+[Cursor-inspired UI redesign — 16 October 2026](../verification/runs/2026-10-16-cursor-redesign.md) records the replacement controls, responsive/theme checks, preserved workflows and native installation.
 
 [Lean cleanup installation — 16 October 2026](../verification/runs/2026-10-16-lean-native-install.md) records the successful rebuild/install, unchanged canonical records, passing packaged lifecycle and healthy reopened app. The existing large-inbox refresh timeout remains unresolved.
 

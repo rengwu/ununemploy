@@ -1,8 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Dialog } from "@cloudflare/kumo/components/dialog";
-import { Button } from "@cloudflare/kumo/components/button";
-import { Input, InputArea } from "@cloudflare/kumo/components/input";
-import { Banner } from "@cloudflare/kumo/components/banner";
+import { Dialog, Button, Input, InputArea, Banner } from "./ui.tsx";
 import type { Source } from "../core/types.ts";
 
 export function AddJobDialog({

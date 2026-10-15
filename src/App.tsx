@@ -7,14 +7,16 @@ import {
   lazy,
   Suspense,
 } from "react";
-import { Button } from "@cloudflare/kumo/components/button";
-import { Input, InputArea } from "@cloudflare/kumo/components/input";
-import { Sidebar } from "@cloudflare/kumo/components/sidebar";
-import { Select } from "@cloudflare/kumo/components/select";
-import { Tabs } from "@cloudflare/kumo/components/tabs";
-import { Dialog } from "@cloudflare/kumo/components/dialog";
-import { Table } from "@cloudflare/kumo/components/table";
-import { Banner } from "@cloudflare/kumo/components/banner";
+import {
+  Button,
+  Input,
+  InputArea,
+  Select,
+  Tabs,
+  Dialog,
+  Table,
+  Banner,
+} from "./ui.tsx";
 import {
   BookmarkSimpleIcon,
   UserCircleIcon,
@@ -26,6 +28,9 @@ import {
   PlusIcon,
   ArrowSquareOutIcon,
   XIcon,
+  SidebarSimpleIcon,
+  ListIcon,
+  FunnelSimpleIcon,
 } from "@phosphor-icons/react";
 const CvPage = lazy(() =>
   import("./CvPage.tsx").then((m) => ({ default: m.CvPage })),
@@ -131,14 +136,36 @@ export function App() {
   const [dirty, setDirty] = useState(false);
   const [discardRevision, setDiscardRevision] = useState(0);
   const [pendingPage, setPendingPage] = useState<Page | null>(null);
-  const [theme, setTheme] = useState(
-    () => localStorage.getItem("jh-theme") || "light",
+  const [theme, setTheme] = useState(() =>
+    ["light", "dark"].includes(localStorage.getItem("jh-theme") || "")
+      ? localStorage.getItem("jh-theme")!
+      : "system",
   );
+  const [systemDark, setSystemDark] = useState(
+    () => matchMedia("(prefers-color-scheme: dark)").matches,
+  );
+  const resolvedTheme =
+    theme === "system" ? (systemDark ? "dark" : "light") : theme;
   useEffect(() => {
-    document.documentElement.dataset.theme = "kumo";
-    document.documentElement.dataset.mode = theme;
+    const media = matchMedia("(prefers-color-scheme: dark)");
+    const update = () => setSystemDark(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  useEffect(() => {
+    document.documentElement.dataset.mode = resolvedTheme;
     localStorage.setItem("jh-theme", theme);
-  }, [theme]);
+  }, [theme, resolvedTheme]);
+  const [navOpen, setNavOpen] = useState(true);
+  const [mobileNav, setMobileNav] = useState(false);
+  useEffect(() => {
+    const media = matchMedia("(min-width: 768px)");
+    const close = () => {
+      if (media.matches) setMobileNav(false);
+    };
+    media.addEventListener("change", close);
+    return () => media.removeEventListener("change", close);
+  }, []);
   useEffect(() => {
     const guard = (e: BeforeUnloadEvent) => {
       if (dirty) {
@@ -150,6 +177,7 @@ export function App() {
     return () => window.removeEventListener("beforeunload", guard);
   }, [dirty]);
   const navigate = (target: Page, query = "") => {
+    setMobileNav(false);
     if (target === page && query === routeQuery) {
       history.replaceState(null, "", `#${target}${query ? `?${query}` : ""}`);
       return;
@@ -188,96 +216,85 @@ export function App() {
       return false;
     }
   };
+  const navigation = (
+    <nav aria-label="Main navigation" className="navigation">
+      {(
+        [
+          ["jobs", BriefcaseIcon],
+          ["saved", BookmarkSimpleIcon],
+          ["profile", UserCircleIcon],
+          ["cv", FileTextIcon],
+          ["sources", RssIcon],
+          ["settings", GearSixIcon],
+        ] as const
+      ).map(([target, Icon]) => (
+        <button
+          key={target}
+          className="nav-item"
+          aria-current={page === target ? "page" : undefined}
+          onClick={() => navigate(target)}
+        >
+          <Icon size={16} aria-hidden />
+          <span>{titles[target]}</span>
+        </button>
+      ))}
+    </nav>
+  );
   return (
     <>
-      <Sidebar.Provider
-        className="app-frame"
-        defaultOpen
-        collapsible="icon"
-        animationDuration={0}
-      >
-        <Sidebar className="app-sidebar">
-          <Sidebar.Header className="app-sidebar-header">
-            <span className="app-name" title="ununemploy">
-              ununemploy
+      <div className="app-frame" data-nav-open={navOpen}>
+        <header className="page-header">
+          <div className="app-brand">
+            <span className="app-name">ununemploy</span>
+            <Button
+              variant="ghost"
+              shape="square"
+              icon={SidebarSimpleIcon}
+              className="desktop-nav"
+              aria-label="Toggle navigation"
+              aria-expanded={navOpen}
+              aria-controls="desktop-navigation"
+              onClick={() => setNavOpen((v) => !v)}
+            />
+            <Button
+              variant="ghost"
+              shape="square"
+              icon={ListIcon}
+              className="mobile-nav"
+              aria-label="Open navigation"
+              aria-expanded={mobileNav}
+              onClick={() => setMobileNav(true)}
+            />
+          </div>
+          <div className="page-heading">
+            <h1>{titles[page]}</h1>
+          </div>
+          {boot && (page === "jobs" || page === "saved") && (
+            <span className="header-count muted">
+              {page === "saved" ? boot.counts.saved : boot.counts.jobs} jobs
             </span>
-            <Sidebar.Trigger aria-label="Toggle navigation" />
-          </Sidebar.Header>
-          <Sidebar.Content>
-            <Sidebar.Group>
-              <Sidebar.Menu>
-                <Sidebar.MenuButton
-                  icon={BriefcaseIcon}
-                  tooltip="Jobs"
-                  active={page === "jobs"}
-                  onClick={() => navigate("jobs")}
-                >
-                  Jobs
-                </Sidebar.MenuButton>
-                <Sidebar.MenuButton
-                  icon={BookmarkSimpleIcon}
-                  tooltip="Saved"
-                  active={page === "saved"}
-                  onClick={() => navigate("saved")}
-                >
-                  Saved
-                </Sidebar.MenuButton>
-                <Sidebar.MenuButton
-                  icon={UserCircleIcon}
-                  tooltip="User profile"
-                  active={page === "profile"}
-                  onClick={() => navigate("profile")}
-                >
-                  User profile
-                </Sidebar.MenuButton>
-                <Sidebar.MenuButton
-                  icon={FileTextIcon}
-                  tooltip="CV"
-                  active={page === "cv"}
-                  onClick={() => navigate("cv")}
-                >
-                  CV
-                </Sidebar.MenuButton>
-                <Sidebar.MenuButton
-                  icon={RssIcon}
-                  tooltip="Sources"
-                  active={page === "sources"}
-                  onClick={() => navigate("sources")}
-                >
-                  Sources
-                </Sidebar.MenuButton>
-              </Sidebar.Menu>
-            </Sidebar.Group>
-          </Sidebar.Content>
-          <Sidebar.Footer className="app-sidebar-footer">
-            <Sidebar.Menu>
-              <Sidebar.MenuButton
-                icon={GearSixIcon}
-                tooltip="Settings"
-                active={page === "settings"}
-                onClick={() => navigate("settings")}
-              >
-                Settings
-              </Sidebar.MenuButton>
-            </Sidebar.Menu>
-          </Sidebar.Footer>
-        </Sidebar>
-        <main className="app-main">
-          <header className="page-header">
-            <div className="page-heading">
-              <Sidebar.Trigger
-                className="mobile-nav"
-                aria-label="Open navigation"
+          )}
+          <div className="page-header-actions" ref={setAssistantLauncher} />
+        </header>
+        <aside className="app-sidebar" id="desktop-navigation" inert={!navOpen}>
+          {navigation}
+        </aside>
+        <Dialog.Root open={mobileNav} onOpenChange={setMobileNav}>
+          <Dialog className="nav-sheet">
+            <div className="nav-sheet-header">
+              <Dialog.Title>ununemploy</Dialog.Title>
+              <Button
+                variant="ghost"
+                shape="square"
+                icon={XIcon}
+                aria-label="Close navigation"
+                onClick={() => setMobileNav(false)}
               />
-              <h1>{titles[page]}</h1>
             </div>
-            {boot && (page === "jobs" || page === "saved") && (
-              <span className="muted">
-                {page === "saved" ? boot.counts.saved : boot.counts.jobs} jobs
-              </span>
-            )}
-            <div className="page-header-actions" ref={setAssistantLauncher} />
-          </header>
+            {navigation}
+          </Dialog>
+        </Dialog.Root>
+        <main className="app-main">
           {(error || loadError) && (
             <div className="page-error">
               <Banner
@@ -349,7 +366,7 @@ export function App() {
                       `#${page}${query ? `?${query}` : ""}`,
                     );
                   }}
-                  theme={theme}
+                  theme={resolvedTheme}
                   refresh={refresh}
                   onDirty={setDirty}
                 />
@@ -363,7 +380,7 @@ export function App() {
                     boot={boot}
                     refresh={refresh}
                     onDirty={setDirty}
-                    theme={theme}
+                    theme={resolvedTheme}
                     initialJobId={routeParams.get("job")}
                     initialView={routeParams.get("view")}
                     onAssistantContext={setAssistantContext}
@@ -414,7 +431,7 @@ export function App() {
             </div>
           </Dialog>
         </Dialog.Root>
-      </Sidebar.Provider>
+      </div>
       {boot && (
         <Suspense fallback={null}>
           <AssistantPane
@@ -599,6 +616,7 @@ function JobsPage({
     setBusy(false);
     return ok;
   };
+  const [showFilters, setShowFilters] = useState(false);
   const scanning = boot.sources.some((s) => s.state === "running");
   return (
     <div className="jobs-page">
@@ -611,6 +629,45 @@ function JobsPage({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
+        <Button
+          variant="ghost"
+          icon={FunnelSimpleIcon}
+          aria-expanded={showFilters}
+          aria-controls="job-filters"
+          onClick={() => setShowFilters((v) => !v)}
+        >
+          Filters
+          {category !== "all" ||
+          arrangement !== "all" ||
+          locations.length > 0 ||
+          seen !== "all" ||
+          (!saved && (availability !== "current" || eligibility !== "possible"))
+            ? " · Active"
+            : ""}
+        </Button>
+        <div className="toolbar-spacer" />
+        <div className="toolbar-actions">
+          <Button
+            variant="secondary"
+            icon={PlusIcon}
+            onClick={() => setAddOpen(true)}
+          >
+            Add job
+          </Button>
+          <Button
+            variant="secondary"
+            icon={ArrowClockwiseIcon}
+            loading={scanning}
+            disabled={busy}
+            onClick={() =>
+              void run(() => api("/scan", { method: "POST", body: "{}" }))
+            }
+          >
+            Scan
+          </Button>
+        </div>
+      </div>
+      <div id="job-filters" className="filter-bar" hidden={!showFilters}>
         <Filter
           label="Match"
           value={category}
@@ -670,27 +727,6 @@ function JobsPage({
             }}
           />
         )}
-        <div className="toolbar-spacer" />
-        <div className="toolbar-actions">
-          <Button
-            variant="secondary"
-            icon={PlusIcon}
-            onClick={() => setAddOpen(true)}
-          >
-            Add job
-          </Button>
-          <Button
-            variant="secondary"
-            icon={ArrowClockwiseIcon}
-            loading={scanning}
-            disabled={busy}
-            onClick={() =>
-              void run(() => api("/scan", { method: "POST", body: "{}" }))
-            }
-          >
-            Scan
-          </Button>
-        </div>
       </div>
       <div
         className={`jobs-split ${selected || dirtyJobId ? "has-selection" : ""}`}
@@ -1037,8 +1073,7 @@ function JobDetail({
         </div>
         <h2>{job.title}</h2>
         <div className="detail-location">
-          {locationLabel(job)}
-          : {job.location || "Unspecified"}
+          {locationLabel(job)}: {job.location || "Unspecified"}
         </div>
         <div className="job-actions">
           <Button

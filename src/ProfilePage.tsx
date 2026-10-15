@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
-import { Button } from "@cloudflare/kumo/components/button";
-import { Select } from "@cloudflare/kumo/components/select";
-import { Banner } from "@cloudflare/kumo/components/banner";
+import { Button, Select, Banner } from "./ui.tsx";
 import { api, jsonBody, type Bootstrap } from "./api.ts";
 import { useRemote } from "./useRemote.ts";
 import { SafeMarkdown } from "./SafeMarkdown.tsx";
@@ -97,6 +95,14 @@ export function ProfilePage({
                 value={restoreRevision}
                 onValueChange={(v) => setRestoreRevision(String(v))}
                 placeholder="Previous versions"
+                items={Object.fromEntries(
+                  state.versions
+                    .filter((v) => v.revision !== state.profile.revision)
+                    .map((v) => [
+                      String(v.revision),
+                      `Revision ${v.revision} · ${new Date(v.createdAt).toLocaleDateString()}`,
+                    ]),
+                )}
               >
                 {state.versions
                   .filter((v) => v.revision !== state.profile.revision)

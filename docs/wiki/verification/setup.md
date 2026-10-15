@@ -25,6 +25,9 @@ Existing drivers store artifacts under `.local-data/verification/`. Keep raw/pri
 
 ## Existing checks and tools
 
+`npx tsx scripts/verify-ui-design.ts` checks the Cursor-inspired UI against a fresh synthetic database on an ephemeral loopback port. It covers System/explicit appearance, menus and keyboard location selection, dialog cancellation/focus return, Settings persistence, loading/error/empty states, all main pages, sidebar collapse, mobile navigation and reduced motion. It blocks external browser requests and writes synthetic screenshots and a concise result to `docs/wiki/evidence/2026-10-16-cursor-redesign/`. Build first and wait for completion; never replace `dist` while browser drivers are running because lazy chunks may still be requested. The script removes its temporary database and closes its own server/browser.
+
+
 `npx tsx scripts/verify-backup-ui.ts` runs the ZIP download/import workflow against an isolated synthetic database and saves reviewed-output candidates under `.local-data/verification/backup/`. `npx tsx --test tests/backup.test.ts` covers validation, overwrite, concurrency, rollback and persistence. See [ZIP backups](../features/backups.md).
 
 

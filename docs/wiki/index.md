@@ -1,7 +1,7 @@
 ---
 title: ununemploy wiki
 section: Overview
-updated: 2026-10-08
+updated: 2026-10-16
 order: 0
 ---
 # ununemploy wiki
@@ -26,6 +26,8 @@ Local job discovery, fit assessment, private cover-letter drafting and master CV
 
 ## Verification and history
 
+- [Cursor-inspired UI redesign — 16 October 2026](verification/runs/2026-10-16-cursor-redesign.md)
+
 - [Verification setup](verification/setup.md), [runs](verification/index.md), and [historical checks](verification/history.md)
 - [Source evaluation — September 2026](journal/2026-09-16-source-evaluation.md)
 - [Coverage research — 17 September 2026](journal/2026-09-17-coverage-research.md)
@@ -34,6 +36,7 @@ Local job discovery, fit assessment, private cover-letter drafting and master CV
 - [Accepted integration design — 8 October 2026](journal/2026-10-08-integration-design.md)
 - [jstack adoption — 7 October 2026](journal/2026-10-07-jstack-migration.md)
 - [Native desktop packaging — 7 October 2026](journal/2026-10-07-desktop.md)
+- [Windows and Linux desktop assessment — 16 October 2026](journal/2026-10-16-desktop-portability.md)
 
 ## Maintain this wiki
 

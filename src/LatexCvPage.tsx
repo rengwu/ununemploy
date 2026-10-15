@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button } from "@cloudflare/kumo/components/button";
-import { Select } from "@cloudflare/kumo/components/select";
-import { Dialog } from "@cloudflare/kumo/components/dialog";
+import { Button, Select, Dialog } from "./ui.tsx";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { StreamLanguage } from "@codemirror/language";
 import { stex } from "@codemirror/legacy-modes/mode/stex";
@@ -333,11 +331,7 @@ export function LatexCvPage({
                 {diagnostics.map((d, i) => (
                   <div key={i} className="latex-diagnostic">
                     {d.line && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => goToLine(d.line!)}
-                      >
+                      <Button variant="ghost" onClick={() => goToLine(d.line!)}>
                         Line {d.line}
                       </Button>
                     )}

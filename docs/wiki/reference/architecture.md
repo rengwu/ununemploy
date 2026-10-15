@@ -7,7 +7,7 @@ updated: 2026-10-16
 
 ## Runtime
 
-- React and TypeScript with Vite, official Cloudflare Kumo components, and CodeMirror.
+- React and TypeScript with Vite, shared Cursor-inspired controls and unstyled Base UI primitives, and CodeMirror.
 - Fastify HTTP API and static frontend serving in production.
 - SQLite through Node's built-in driver: WAL, versioned migrations, transactions, durable work queues and collection checkpoints.
 - A separate worker handles scheduling and serialized Codex generation. Profile conversations use the single app-wide assistant action loop; unfinished legacy turns are preserved by migration 011. Jev runtime, API, configuration and UI code are retired; its existing local data and archive compatibility remain. Supervisord runs API/worker together in the Unraid image, with automatic process restart.
@@ -25,7 +25,7 @@ X is a first-class adapter using official recent search. It supports editable sa
 
 ## Location filtering
 
-Jobs and Saved share a grouped Kumo multi-select, with APAC/EMEA/Americas, SEA/East Asia first, and countries/areas within geographic groups. Cities and original labels appear in search. `core/location-index.ts` enriches original tokens with country and region facets using an offline GeoNames lookup; it leaves ambiguous names/codes and exclusions unresolved. Region selection expands to narrower known areas, while a regional-only posting never becomes a claim about a specific hiring country. Worldwide, Unspecified and Unresolved remain independent choices. Original source text, location scope and eligibility assessment are unchanged. The server alone loads the gazetteer; no runtime network geocoding or database migration is needed. [Data provenance and definitions](geography.md).
+Jobs and Saved share a grouped Base UI multiselect, with APAC/EMEA/Americas, SEA/East Asia first, and countries/areas within geographic groups. Cities and original labels appear in search. `core/location-index.ts` enriches original tokens with country and region facets using an offline GeoNames lookup; it leaves ambiguous names/codes and exclusions unresolved. Region selection expands to narrower known areas, while a regional-only posting never becomes a claim about a specific hiring country. Worldwide, Unspecified and Unresolved remain independent choices. Original source text, location scope and eligibility assessment are unchanged. The server alone loads the gazetteer; no runtime network geocoding or database migration is needed. [Data provenance and definitions](geography.md).
 
 Seen state is an optional first-open timestamp in each existing job document. `POST /api/jobs/:id/seen` atomically adds it once, preserving all other fields and avoiding CV/task changes. The regular job revision triggers invalidate query caches; `/api/jobs?seen=seen|unseen|all` applies the filter before duplicate grouping. GETs and default previews do not mark jobs seen. An explicit selection stays open across background updates even if its new Seen state removes it from Unseen results, until the user changes filters/pages or selects another job.
 

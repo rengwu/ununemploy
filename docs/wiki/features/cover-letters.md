@@ -31,6 +31,8 @@ The browser driver uses a temporary database, a fictional candidate/job fixture 
 
 ## Verification history
 
+[Cursor-inspired UI redesign — 16 October 2026](../verification/runs/2026-10-16-cursor-redesign.md) records the replacement controls, responsive/theme checks, preserved workflows and native installation.
+
 [Historical implementation checks](../verification/history.md) record previous selected scenarios and limitations. Those entries are historical evidence; new reports belong in [verification runs](../verification/index.md).
 
 

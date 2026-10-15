@@ -2,6 +2,18 @@
 #import <WebKit/WebKit.h>
 #import "native.h"
 
+// Only the passive app-name region is a native drag target. It never covers
+// navigation, page actions, or the right-hand assistant's controls.
+@interface HeaderDragView : NSView
+@end
+@implementation HeaderDragView
+- (BOOL)isOpaque { return NO; }
+- (void)mouseDown:(NSEvent *)event {
+    if (event.clickCount == 2) [self.window performZoom:nil];
+    else [self.window performWindowDragWithEvent:event];
+}
+@end
+
 @interface DesktopDelegate : NSObject <NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate, WKDownloadDelegate>
 @property NSWindow *window;
 @property WKWebView *web;
@@ -16,9 +28,11 @@ static DesktopDelegate *desktop;
 - (void)applicationDidFinishLaunching:(NSNotification *)notification {
     self.downloads = [NSMapTable strongToStrongObjectsMapTable];
     self.window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1400, 900)
-        styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable
+        styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable | NSWindowStyleMaskFullSizeContentView
         backing:NSBackingStoreBuffered defer:NO];
     self.window.title = @"ununemploy";
+    self.window.titleVisibility = NSWindowTitleHidden;
+    self.window.titlebarAppearsTransparent = YES;
     self.window.minSize = NSMakeSize(720, 540);
     self.window.delegate = self;
     self.window.releasedWhenClosed = NO;
@@ -26,11 +40,19 @@ static DesktopDelegate *desktop;
     [self.window center];
     WKWebViewConfiguration *configuration = [WKWebViewConfiguration new];
     configuration.websiteDataStore = [WKWebsiteDataStore defaultDataStore];
+    [configuration.userContentController addUserScript:[[WKUserScript alloc]
+        initWithSource:@"window.__UNUNEMPLOY_DESKTOP__ = true;"
+        injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES]];
     self.web = [[WKWebView alloc] initWithFrame:self.window.contentView.bounds configuration:configuration];
     self.web.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     self.web.navigationDelegate = self;
     self.web.UIDelegate = self;
-    self.window.contentView = self.web;
+    NSView *content = [[NSView alloc] initWithFrame:self.window.contentView.bounds];
+    self.window.contentView = content;
+    [content addSubview:self.web];
+    HeaderDragView *drag = [[HeaderDragView alloc] initWithFrame:NSMakeRect(84, content.bounds.size.height - 44, 112, 44)];
+    drag.autoresizingMask = NSViewMinYMargin;
+    [content addSubview:drag];
     [self.web loadHTMLString:@"<!doctype html><meta name='color-scheme' content='light dark'><style>body{font:15px system-ui;display:grid;place-items:center;height:95vh;margin:0}</style><p>Starting ununemploy…</p>" baseURL:nil];
     if (self.origin) [self.web loadRequest:[NSURLRequest requestWithURL:self.origin]];
     [self showWindow:nil];

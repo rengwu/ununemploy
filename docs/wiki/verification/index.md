@@ -9,6 +9,8 @@ Use [shared setup](setup.md) before running selected checks. [Feature records](.
 
 ## Runs
 
+[Cursor-inspired UI redesign — 16 October 2026](runs/2026-10-16-cursor-redesign.md): Kumo removed, shared controls and all surfaces rebuilt, browser/native checks and data-preserving installation passed.
+
 [Lean cleanup native installation — 16 October 2026](runs/2026-10-16-lean-native-install.md): rebuild/install and data/lifecycle checks passed; the existing large-inbox refresh timeout remains (aggregate Failed).
 
 [Lean cover-letter editor — 16 October 2026](runs/2026-10-16-lean-cover-letters.md) verifies prose fields, shared layout, Copy text/PDF, preserved editing workflows, 184 tests and browser checks.

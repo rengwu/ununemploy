@@ -1,90 +1,73 @@
 ---
 title: Dashboard UI
 section: Decisions
-updated: 2026-10-08
+updated: 2026-10-16
 ---
 # Dashboard UI
 
-Status: implemented locally with Kumo. See [verification history](../verification/history.md) for the scope of browser checks.
+DEC-ui. Current specification for the Cursor-inspired ununemploy interface. The user's 16 October request explicitly replaces the earlier Cloudflare Kumo requirement. [Research and implementation journal](../journal/2026-10-16-cursor-redesign.md); [submitted design answers](../journal/2026-10-15-grill-75e68001-4fc1-4146-ba18-0c71e2f23d42.md).
 
-## User decisions
+## Direction and scope
 
-- Follow Cloudflare's dashboard and use official Kumo components.
-- No ornamental labels, captions, subcaptions, subtitles, or flourishes. Every string must serve a task.
-- Name actions plainly: Save, Edit, Dismiss, Retry, Copy text, Download PDF. These are examples for existing product actions, not a finalized toolbar.
-- Keep the app fully local.
-- The user approved the job inbox with filters and a detail pane, and the CV source editor with rendered preview. Career facts remain structured and CV presentation remains editable.
+Adapt Cursor's components and Clarity's implementation to job hunting. The user delegated the blend between the compact desktop and Agents interfaces; an IDE layout is not required. Keep lowercase ununemploy, literal task-focused copy, local hosting and all existing data boundaries. Do not add ornamental labels, editor tabs, terminals or product features merely to resemble Cursor.
 
-## Component system
+React, TypeScript and Vite remain. `src/ui.tsx` supplies ordinary semantic buttons, inputs, textareas, tables and feedback. Unstyled Base UI 1.8.0 supplies select, combobox, tabs, tooltip and modal interaction behavior. `src/ui.css` owns shared tokens and component appearance; `src/styles.css` owns app layout. Kumo imports, styles, tokens and the package dependency are removed. Phosphor icons and the assistant-ui conversation runtime remain.
 
-Use React, TypeScript, and Vite for the frontend. Kumo requires React and React DOM; use `@cloudflare/kumo` and its Phosphor icon peer dependency. This replaces the proposed SvelteKit frontend. The Node.js backend, worker, SQLite database, and Unraid deployment remain local. [Kumo installation](https://kumo-ui.com/installation/), [Vite guide](https://vite.dev/guide/).
+The reference study inspected Clarity's design-system document, renderer styles, settings controls and fictional-fixture screenshots, then the installed Cursor 3.23.12 Agents, IDE and Settings UI. Clarity's observed extraction revision is `27b83eb469f745968d3e0ce311a1f45952cba542`; the sibling checkout inspected was `713fa7d040fd208dbc5b7d639aa48714ee191ece`. These observations inform this specification; Clarity's product structure is not imported.
 
-Use Kumo semantic colors and supported component variants. Let its tokens carry theme differences. Prefer styled components; use primitives only when the library lacks the needed control. Consult component APIs before implementation. [Kumo colors](https://kumo-ui.com/colors/), [component documentation](https://kumo-ui.com/components/button/).
+## Visual language
 
-Kumo blocks are adaptable examples. Optional descriptions and documentation panels in a demo are not requirements for this product. Omit them when they conflict with the user's direction. [Resource list block](https://kumo-ui.com/blocks/resource-list/).
+| Role | Light | Dark |
+| --- | --- | --- |
+| Canvas | `#fcfcfc` | `#181818` |
+| Secondary panel | `#f3f3f3` | `#222222` |
+| Fields | `#ffffff` | `#181818` |
+| Raised surfaces | `#ffffff` | `#232323` |
+| Main text | `#242424` | `#e7e7e7` |
+| Secondary text | `#636363` | `#a0a0a0` |
+| Separator | `#14141412` | `#ffffff0f` |
+| Strong separator | `#14141425` | `#ffffff20` |
+| Focus | `#506f80` | `#adbec8` |
+| Selection | `#14141410` | `#ffffff12` |
 
-## Cloudflare design guidance
+Use system typography: 13px baseline, 12px controls/navigation, 11px metadata, 14px descriptions/chat with 1.65 line height. Document titles may use 20px. Controls use 5px radii and thin borders; menus/dialogs use 6px. Primary actions are neutral, with restrained semantic color plus meaningful text for errors/matches. Continuous panes replace card containers. Shadows are reserved for menus, dialogs, the assistant overlay and document paper.
 
-Apply the official [kumo-design skill](https://github.com/cloudflare/kumo/blob/main/skills/kumo-design/SKILL.md), also published in the [design guide](https://kumo-ui.com/skill/). Research notes:
+The shell and assistant header are 44px; pane toolbars/tabs are 36px. Desktop navigation is 210–248px, with 28px rows. Standard buttons/selects are at least 26px, labelled fields 34px, and coarse-pointer controls at least 36px. Content uses a 20px gutter, or 16px on narrow screens. Focus remains visible. Motion is brief and disabled under reduced-motion preferences.
 
-- Content and controls use 14px; larger sizes belong to headings.
-- Sentence-case headings; preserve product names.
-- Preserve font tracking. Use semibold headings and medium inline emphasis.
-- Group related text; account for line height in padding.
-- Hover colors change immediately.
-- Use rings with shadows and borders for sticky separators.
-- Closely nested corners use concentric radii.
-- Align icons with the first text line; reduce inline monospace size slightly.
-- Preserve content dimensions during collapse.
-- Avoid nested LayerCards.
-- Control dialog visibility through its open state.
+System is the default theme. Preserve existing explicit Light/Dark selections in `jh-theme`. System follows OS changes while the app is open; explicit selections win. Set the resolved theme before React renders to avoid an incorrect initial appearance. The code editor receives the same resolved theme; PDFs retain their document appearance.
 
-These are Cloudflare's conventions, not locally invented universal rules. User requirements govern product copy and scope; examples containing subtitles do not authorize adding subtitles here.
+## Shell and navigation
 
-## Usability and accessibility
+Jobs/Saved, User profile, CV, Sources and Settings remain labelled destinations. Settings stays at the bottom of the sidebar. Desktop navigation can collapse completely. At 767px and below, Open navigation opens a focus-isolated sheet and selecting a destination closes it. Keep existing routes, deep links and unsaved-edit guards.
 
-Review against Jakob Nielsen's published heuristics: consistent terms and controls, visible operation status, recoverable mistakes, discoverable actions, efficient repeated work, and only relevant information. For this application, that means distinguishing an empty result from a failed scan, showing whether a cover letter is saved or generating, retaining edits after failures, and keeping filter state understandable. The implementation applies these heuristics to the approved page layouts. [Nielsen Norman Group](https://www.nngroup.com/articles/ten-usability-heuristics/).
+The native WKWebView extends under a transparent macOS title bar. Real traffic lights share the header; the web UI reserves their space only inside the native wrapper. The passive app-name region is a native drag target and supports double-click zoom. Browser instances have no fake traffic lights. The wrapper's close, Quit, downloads and external-link restrictions remain in force.
 
-Retain Kumo's keyboard and focus behavior; provide visible focus, meaningful input labels, and accessible names for icon controls. Follow documented interaction patterns when composing custom controls. Review loading, empty, error, disabled, and unsaved states as part of each implemented workflow. [Kumo accessibility](https://kumo-ui.com/accessibility/), [WAI-ARIA patterns](https://www.w3.org/WAI/ARIA/apg/patterns/).
+## Jobs and Saved
 
-## Approved workflow
+Keep the opening inbox with an independently scrolling result list and detail pane. Search, Filters, Add job and Scan form the primary toolbar. Filters expands match, availability, work arrangement, location, Seen and eligibility. A visible Active indicator survives collapse whenever secondary filters differ from defaults. Review status, duplicate grouping, result count and sort remain beside the list. On narrow screens, opening a result switches to detail with Back to jobs.
 
-- Opening screen: job inbox with filters, paginated results, and an adjacent detail pane for complete profiles; User profile onboarding for new users.
-- Navigation: Jobs, Saved, User profile, CV, Sources, Settings.
-- The sidebar expand/collapse control belongs in its header: beside the app name when expanded and centered in place of the compact name when collapsed. The footer contains Settings. Light/dark appearance is selected inside Settings and saved immediately on this device.
-- CV: LaTeX source and rendered PDF; the user removed Data and HTML on 8 October 2026. Saved job → Cover letter: the complete job-specific letter editor, generation/retry, preview, versions and downloads live in the job detail. There is no separate Cover letters page or document picker. Old letter links redirect to the saved job tab. The 16 October lean interview replaces cover-letter code tabs with ordinary fields and plain-text paragraphs, one shared preview/PDF layout, Copy text and PDF output. Immutable saved versions remain. See [the current cover-letter specification](../features/cover-letters.md).
-- User authorized implementation after accepting these two recommended workflows.
+A selected row has a neutral selected background, an inset edge and `aria-current` on the title. Seen remains independent of review status; automatic first-result preview does not mark Seen. Literal match text and source/availability/eligibility evidence remain readable. Description, Match, Notes and Cover letter retain keyboard-operable tabs and unsaved guards. Errors show Retry; a failed request must not appear as an empty collection.
 
-Cloudflare Kumo supplies controls and semantic color tokens. Custom CSS arranges the application panes; it does not replace the component system. Text uses Kumo's text-color tokens, with light and dark modes.
+Location is a searchable grouped multiselect. APAC/EMEA/Americas and geographic country groups remain, with Malaysia first within Southeast Asia. Cities appear when searched or already selected. Worldwide, Unspecified and Unresolved stay distinct. Choices combine with OR, and other filters with AND. Work arrangement remains separate.
 
-## App-wide assistant
+## Documents and profile
 
-Kumo 2.13.2 has inputs, buttons, tabs and selects but no dedicated conversation/message/composer component. Use [assistant-ui's external-store runtime](https://www.assistant-ui.com/docs/runtimes/custom/external-store) with its unstyled [Thread](https://www.assistant-ui.com/docs/primitives/thread), [Message](https://www.assistant-ui.com/docs/primitives/message) and [Composer](https://www.assistant-ui.com/docs/primitives/composer) primitives. This fits the existing SQLite-backed Codex queue without introducing a second inference provider. Controls remain Kumo, and presentation uses Kumo tokens. AI Elements and other shadcn-oriented kits were considered but would introduce another styled component system without improving the existing runtime integration.
+CV remains an independent LaTeX source editor with rendered PDF preview, source download, compile diagnostics, zoom, versions and dirty guards. Cover letters remain inside Saved → job → Cover letter, with ordinary fields and paragraph text, preview, Copy text, PDF download, generation/retry and versions. No per-job resume generation or HTML/template editor is restored.
 
-The assistant is a 520px viewport-fixed overlay that slides in from the right without resizing or shifting the underlying page. A neutral chat-icon button in the top-right page header opens it, with an Open assistant tooltip below on hover/focus. The button participates in the header’s normal flex layout; Hide or Escape slides it offscreen and returns focus. It remains mounted so conversation, scroll and unsent text survive hiding and navigation. Unsent text also survives reload in the current browser tab. Reduced-motion settings disable the slide. The desktop overlay is nonmodal, allowing navigation while chatting; at 600px and below it fills the screen, traps keyboard focus and makes the underlying app inert while open.
+User profile remains a read-only Markdown view of canonical SQLite facts, with readiness, version restore and Edit with assistant in its toolbar. Reading content uses a constrained width; no separate profile chat is introduced.
 
-The drawer omits the page-context/model strip and composer keyboard hint; page/document context remains internal, and model/status information remains in Settings. The composer supports Enter to send, Shift+Enter for a newline, cancellation and recovery after failure, with Send/Stop aligned right. Activity text reports actual read/edit/compile stages. Saved-document links navigate to the actual job, letter or CV editor and hide the overlay. Clean editors refresh after changes; unsaved text and historical views are retained with a notice about the newer version. Markdown has no raw HTML or remote images.
+## Sources and Settings
 
-User Profile is now a read-only facts viewer with Build profile/Edit with assistant. Facts include missing information, preferences, evidence references and additional fact status; historical sources are distinguished from current facts. Previous versions restore into a new revision. New users see the onboarding conversation in the same global assistant.
+Sources uses compact tables, restrained status text and an accessible Add/Edit source dialog. Wide tables scroll inside their region on mobile. Scanning/provider semantics are unchanged.
 
-Profile readiness, previous-version controls and the assistant action share one toolbar above the facts, wrapping together on narrow screens. There is no redundant Profile facts heading or separate version footer; see [User profile](../features/profile.md).
+Settings has General, Collection, AI and Connections navigation. General contains theme and ZIP backup controls. Sections stay mounted so switching between them preserves edits. Labels and fields align across rows, then stack in narrow containers. Explicit save behavior and credential handling remain unchanged; no new inference or delivery provider is added.
 
-## Layout alignment
+## Assistant
 
-The page heading, filters, result controls, and outer table cells share a 24px horizontal gutter (16px on mobile). The page, sidebar and assistant drawer headers share Kumo's fixed 58px sidebar-header height, including the bottom border. CV editor tabs and preview actions share a 56px row, so their borders and content start together.
+The user reaffirmed the right-hand overlay contract: 520px desktop width, fixed to the viewport, with no resize or shift of the page. Open assistant sits at the top right; Hide/Escape returns focus. At 600px and below it fills the viewport, traps focus and makes the background inert. Conversation, scroll and unsent text survive hiding/navigation; unsent text survives reload within the tab.
 
-Pane tabs use Kumo's `listClassName` extension to fit this row, with one separator and enough room for the library's keyboard focus ring. The native-control focus fallback lives in the base CSS layer so it does not override Kumo's focus styles. Notes fill the detail pane and resize vertically. Preview actions can scroll horizontally in very narrow panes.
+The message viewport scrolls independently above a rounded composer. Assistant messages sit directly on the canvas; user messages use a subdued panel. Enter sends, Shift+Enter adds a newline, Stop cancels, and errors remain retryable. Existing actual-save/compile receipts, context, draft preservation and links to edited documents remain. Markdown cannot execute raw HTML or load remote images.
 
-## Location filtering
+## Verification
 
-Jobs and Saved use Kumo’s documented grouped, searchable multi-select Combobox pattern: Group, GroupLabel and Collection retain library keyboard/focus behavior. APAC/EMEA/Americas provide broad filters, followed by SEA/East Asia country groups and other geographic groups. Malaysia appears first within SEA. Cities are searchable, and selected cities remain visible when the query clears. Worldwide, Unspecified and Unresolved remain independent options. Selections combine with OR and other filters with AND. [Kumo Combobox](https://kumo-ui.com/components/combobox/).
-
-Location is distinct from work arrangement. The detail header identifies source-provided hiring restrictions without repeating the same location in the facts grid. Desktop, keyboard, light/dark themes, reload persistence, and the 390px mobile layout were checked for this control.
-
-## Seen and selected rows
-
-Seen is independent of review status and row selection. The Seen status filter uses the existing Kumo Select; seen rows show a literal Seen label. A deliberate open records the flag; automatically previewing the first result does not. Selection has a Kumo brand-tinted background, a 3px inset edge marker, an emphasized link-colored title and `aria-current` on the title button. Both color and the edge marker distinguish it from alternating table backgrounds. The same layout works in light and dark modes without shifting cell padding.
-
-## Match, eligibility and listing quality
-
-The existing Kumo Select controls now expose eligibility, stale/closed availability, and reversible duplicate grouping. Eligibility also appears in the job facts, independently of the match label. The Match tab shows score components and exact restriction evidence, with conflicts before general review notes. The description pane identifies its source, incomplete/stale states, and related posting links. Toolbar actions stay together when wrapping. Saved retains individual saved records. Desktop and 390px mobile checks cover these additions.
+Use the isolated scenario driver `npx tsx scripts/verify-ui-design.ts` after `npm run build`, plus affected assistant, cover-letter, backup and native workflows. [Verification setup](../verification/setup.md) explains isolation and prerequisites. The known large-inbox request timeout is independent of this redesign; no performance fix is implied. Dated observations belong in [verification history](../verification/history.md).

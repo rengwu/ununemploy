@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Combobox } from "@cloudflare/kumo/components/combobox";
-import { Button } from "@cloudflare/kumo/components/button";
+import { Combobox } from "@base-ui/react/combobox";
+import { Button } from "./ui.tsx";
 import { searchLocation, type LocationOption } from "../core/locations.ts";
 import { locationRegions } from "../core/location-regions.ts";
 
@@ -57,7 +57,7 @@ export function LocationFilter({
     return [...result].map(([value, items]) => ({ value, items }));
   }, [options, value, query]);
   return (
-    <Combobox
+    <Combobox.Root
       multiple
       items={groups}
       value={selected}
@@ -70,63 +70,74 @@ export function LocationFilter({
       }}
       filter={null}
     >
-      <Combobox.TriggerValue
-        className="location-filter"
-        render={
-          <button
-            aria-label="Location"
-            title={
-              selected.map((item) => item.label).join(", ") || "Any location"
-            }
-          />
-        }
+      <Combobox.Trigger
+        className="ui-select location-filter"
+        aria-label="Location"
+        title={selected.map((item) => item.label).join(", ") || "Any location"}
       >
-        {() =>
-          value.length === 0
-            ? "Any location"
-            : value.length === 1
-              ? selected[0].label
-              : `Locations (${value.length})`
-        }
-      </Combobox.TriggerValue>
-      <Combobox.Content className="location-options">
-        <Combobox.Input
-          aria-label="Search locations"
-          placeholder="Search city, country, or region"
-        />
-        <Combobox.Empty>No locations found</Combobox.Empty>
-        <Combobox.List>
-          {(group: { value: string; items: LocationOption[] }) => (
-            <Combobox.Group key={group.value} items={group.items}>
-              <Combobox.GroupLabel>{group.value}</Combobox.GroupLabel>
-              <Combobox.Collection>
-                {(item: LocationOption) => (
-                  <Combobox.Item key={item.value} value={item}>
-                    {item.kind === "region" &&
-                    item.group !== "Regions" &&
-                    item.group !== "Other regions"
-                      ? `All ${item.label}`
-                      : item.label}
-                  </Combobox.Item>
-                )}
-              </Combobox.Collection>
-            </Combobox.Group>
-          )}
-        </Combobox.List>
-        {value.length > 0 && (
-          <div className="location-filter-actions">
-            <Button
-              variant="ghost"
-              onClick={() => {
-                onChange([]);
-                setQuery("");
-              }}
-            >
-              Clear locations
-            </Button>
-          </div>
-        )}
-      </Combobox.Content>
-    </Combobox>
+        {value.length === 0
+          ? "Any location"
+          : value.length === 1
+            ? selected[0].label
+            : `Locations (${value.length})`}
+        <span aria-hidden>⌄</span>
+      </Combobox.Trigger>
+      <Combobox.Portal>
+        <Combobox.Positioner
+          sideOffset={4}
+          align="start"
+          className="ui-positioner"
+        >
+          <Combobox.Popup className="ui-menu location-options">
+            <Combobox.Input
+              className="ui-input"
+              aria-label="Search locations"
+              placeholder="Search city, country, or region"
+            />
+            <Combobox.Empty className="ui-menu-empty">
+              No locations found
+            </Combobox.Empty>
+            <Combobox.List className="location-list">
+              {(group: { value: string; items: LocationOption[] }) => (
+                <Combobox.Group key={group.value} items={group.items}>
+                  <Combobox.GroupLabel className="ui-group-label">
+                    {group.value}
+                  </Combobox.GroupLabel>
+                  <Combobox.Collection>
+                    {(item: LocationOption) => (
+                      <Combobox.Item
+                        className="ui-option"
+                        key={item.value}
+                        value={item}
+                      >
+                        {item.kind === "region" &&
+                        item.group !== "Regions" &&
+                        item.group !== "Other regions"
+                          ? `All ${item.label}`
+                          : item.label}
+                        <Combobox.ItemIndicator>✓</Combobox.ItemIndicator>
+                      </Combobox.Item>
+                    )}
+                  </Combobox.Collection>
+                </Combobox.Group>
+              )}
+            </Combobox.List>
+            {value.length > 0 && (
+              <div className="location-filter-actions">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    onChange([]);
+                    setQuery("");
+                  }}
+                >
+                  Clear locations
+                </Button>
+              </div>
+            )}
+          </Combobox.Popup>
+        </Combobox.Positioner>
+      </Combobox.Portal>
+    </Combobox.Root>
   );
 }

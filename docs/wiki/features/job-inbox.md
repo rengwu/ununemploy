@@ -21,7 +21,7 @@ Opening a posting records Seen once; the default preview does not. Filters and p
 
 In Jobs and Saved, the whole posting row selects its detail pane: title, company, location, match, date and empty cell space. The title remains a keyboard-accessible button with Enter/Space activation. Row selection uses the existing Seen tracking and unsaved-edit guard; it does not save or apply to a job.
 
-The shared navigation follows the [dashboard UI decision](../decisions/dashboard-ui.md): expand/collapse stays in the sidebar header in both desktop states, Settings remains at the bottom, and the Light/Dark selector lives in Settings → Appearance. Changing appearance applies immediately and retains the existing device-local preference across navigation and restarts.
+The shared navigation follows the [dashboard UI decision](../decisions/dashboard-ui.md): expand/collapse stays in the unified header, Settings remains at the bottom, and System/Light/Dark lives in Settings → General → Appearance. Secondary job filters open through Filters; nondefault values keep a visible Active indicator when collapsed. Changing appearance applies immediately and retains the existing device-local preference across navigation and restarts.
 
 ## Verification recipe
 
@@ -36,6 +36,8 @@ For navigation/appearance changes, build and open the updated app. Toggle the si
 Live-dashboard recipes depend on inventory and were not rerun for this documentation migration.
 
 ## Verification history
+
+[Cursor-inspired UI redesign — 16 October 2026](../verification/runs/2026-10-16-cursor-redesign.md) records the replacement controls, responsive/theme checks, preserved workflows and native installation.
 
 [Lean cleanup first pass — 16 October 2026](../verification/runs/2026-10-15T165802Z-lean-first-pass.md): WebMCP removal, retired legacy CV writes with preserved downloads, and hidden/unscanned placeholder sources; 200 tests, build and isolated browser checks passed.
 
@@ -57,7 +59,7 @@ The API now returns `{items, total, page, pageSize, totalPages, revision}` from 
 ## Location filter
 
 
-In **Jobs** or **Saved**, open **Any location**. The menu groups countries under geographic areas, with **APAC**, **EMEA** and **Americas** available as broad filters. **Southeast Asia** and **East Asia** come first, with Malaysia first within SEA and individual countries/areas selectable. Search also finds cities and original source labels; these do not crowd the default country list. Multiple selections match any selected location and combine with the other job filters. **Clear locations** resets the filter. Selections persist across page switches and reloads in the same browser tab.
+In **Jobs** or **Saved**, open **Filters → Any location**. The menu groups countries under geographic areas, with **APAC**, **EMEA** and **Americas** available as broad filters. **Southeast Asia** and **East Asia** come first, with Malaysia first within SEA and individual countries/areas selectable. Search also finds cities and original source labels; these do not crowd the default country list. Multiple selections match any selected location and combine with the other job filters. **Clear locations** resets the filter. Selections persist across page switches and reloads in the same browser tab.
 
 Country filters include recognized cities using a bundled, server-only [GeoNames](https://www.geonames.org/) lookup. Regions include their member countries and narrower regions: Kuala Lumpur → Malaysia → Southeast Asia → APAC. Source text is preserved. Ambiguous codes/names such as bare CA, AZ or London are not assigned a country without sufficient context. **Unresolved** includes locations that could not be assigned a country/region; their original labels remain searchable. See [dataset attribution, coverage and exact regional definitions](../reference/geography.md).
 

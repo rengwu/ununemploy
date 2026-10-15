@@ -32,12 +32,12 @@
 
 - The project and app name is `ununemploy`, always styled in lowercase.
 
-- Use Cloudflare's dashboard as the reference and the official `@cloudflare/kumo` React components, tokens, and documented patterns.
-- Apply Cloudflare's [kumo-design skill](https://github.com/cloudflare/kumo/blob/main/skills/kumo-design/SKILL.md). See `docs/wiki/decisions/dashboard-ui.md` for the researched guidance and current decisions.
+- Follow Cursor's UI components and the studied Clarity design language, adapted to job hunting. The user's 16 October 2026 redesign replaces the earlier Cloudflare Kumo requirement; do not reintroduce Kumo.
+- See `docs/wiki/decisions/dashboard-ui.md` for the current tokens, controls, layouts and accepted design answers. Shared controls use native semantics and unstyled Base UI primitives.
 - No ornamental labels, captions, subcaptions, subtitles, or flourishes. Every visible string must identify content, explain a necessary state, or support an action. Use conventional, literal action labels.
-- Follow published Kumo guidance, established usability principles, and accessible interaction patterns. Do not substitute an invented visual system or generic dashboard template.
+- Follow the documented Cursor/Clarity-derived system, established usability principles and accessible interaction patterns. Keep the domain-specific inbox, documents and assistant workflows.
 - The user approved the job inbox with filters and a detail pane as the opening screen, plus a CV source editor with a rendered preview, and explicitly authorized implementation. Choose the document language as a routine implementation decision; keep career facts structured and presentation editable.
-- The frontend plan is React, TypeScript, and Vite, replacing the earlier SvelteKit proposal to use official Kumo components directly.
+- The frontend uses React, TypeScript and Vite. New installations default to System appearance; preserve existing explicit Light/Dark choices. The native app uses a unified header with real macOS traffic lights.
 - The assistant is a persistent overlay that slides in from the right, opened by a button in the top-right page header. It must not resize or shift page content. Keep conversations/drafts across navigation, support Escape and focus return, and use full width with isolated focus on mobile. User Profile retains its read-only facts viewer, without an embedded separate chat.
 - CV is LaTeX only. The Data and HTML CV editor and its assistant actions were removed at the user's request; existing legacy records remain stored.
 - ZIP backups contain only the current profile, scanned/saved jobs and their listing evidence, latest LaTeX source/matching PDF, and latest saved cover letters. Import overwrites personal records and histories without an automatic backup; preserve destination settings, source configuration, checkpoints, credentials and usage counters. See `docs/wiki/features/backups.md`.

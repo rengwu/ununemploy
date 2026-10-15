@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@assistant-ui/react": "0.15.21",
-    "@cloudflare/kumo": "2.13.2",
+    "@base-ui/react": "1.8.0",
     "@codemirror/language": "6.12.1",
     "@codemirror/legacy-modes": "6.5.2",
     "@codemirror/view": "6.39.11",

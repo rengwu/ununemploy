@@ -49,7 +49,13 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 const errors: string[] = [];
 page.on("pageerror", (error) => errors.push(error.message));
 page.setDefaultTimeout(15000);
+const revealFilters = async () => {
+  const toggle = page.getByRole("button", { name: /^Filters(?: · Active)?$/ });
+  if ((await toggle.getAttribute("aria-expanded")) !== "true")
+    await toggle.click();
+};
 const chooseSeen = async (value: string) => {
+  await revealFilters();
   await page
     .getByRole("combobox", { name: "Seen status", exact: true })
     .click();
@@ -96,7 +102,7 @@ try {
     .locator(".selected-row td")
     .first()
     .evaluate((el) => ({
-      background: getComputedStyle(el).backgroundColor,
+      background: getComputedStyle(el.closest("tr")!).backgroundColor,
       marker: getComputedStyle(el).boxShadow,
     }));
   assert.match(styles.marker, /inset/);
@@ -119,6 +125,7 @@ try {
   );
   await page.reload();
   await page.locator(".job-seen").waitFor();
+  await revealFilters();
   assert.match(
     await page
       .getByRole("combobox", { name: "Seen status", exact: true })

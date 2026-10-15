@@ -12,7 +12,15 @@ await page.route("**/api/jobs/*/seen", (route) =>
 try {
   await page.goto("http://127.0.0.1:2839/#jobs");
   await page.getByPlaceholder("Search jobs").waitFor();
+  const revealFilters = async () => {
+    const toggle = page.getByRole("button", {
+      name: /^Filters(?: · Active)?$/,
+    });
+    if ((await toggle.getAttribute("aria-expanded")) !== "true")
+      await toggle.click();
+  };
   const choose = async (label: string, value: string) => {
+    await revealFilters();
     await page.getByRole("combobox", { name: label, exact: true }).click();
     await page.getByRole("option", { name: value, exact: true }).click();
   };
@@ -35,6 +43,7 @@ try {
     fullPage: true,
   });
   await page.reload();
+  await revealFilters();
   await page.getByPlaceholder("Search jobs").waitFor();
   assert.match(
     await page

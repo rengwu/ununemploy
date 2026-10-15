@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@cloudflare/kumo/components/button";
-import { Banner } from "@cloudflare/kumo/components/banner";
+import { Button, Banner } from "./ui.tsx";
 import { api, readJson } from "./api.ts";
 import { MAX_ZIP_BYTES } from "../core/backup/limits.ts";
 

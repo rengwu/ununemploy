@@ -12,9 +12,7 @@ import {
   type AppendMessage,
   type TextMessagePartProps,
 } from "@assistant-ui/react";
-import { Button } from "@cloudflare/kumo/components/button";
-import { Tooltip, TooltipProvider } from "@cloudflare/kumo/components/tooltip";
-import { InputArea } from "@cloudflare/kumo/components/input";
+import { Button, Tooltip, TooltipProvider, InputArea } from "./ui.tsx";
 import {
   ArrowUpIcon,
   StopIcon,
