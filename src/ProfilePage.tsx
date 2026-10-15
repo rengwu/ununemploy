@@ -70,29 +70,63 @@ export function ProfilePage({
           />
         </div>
       )}
-      <header className="profile-pane-header">
-        <h2>Profile facts</h2>
-        <Button variant="secondary" onClick={openAssistant}>
-          {readiness.ready ? "Edit with assistant" : "Build profile"}
-        </Button>
-      </header>
-      <div className="profile-readiness" role="status">
-        {readiness.ready ? (
-          <p>
-            {boot.settings.scheduleEnabled
-              ? "Ready for job discovery."
-              : "Profile ready. Scheduled scanning is paused in Settings."}
-          </p>
-        ) : (
-          <>
-            <p>Job scanning is waiting for your profile.</p>
-            <p className="muted">
-              Still needed:{" "}
-              {readiness.missing.map((m) => m.label.toLowerCase()).join(", ")}.
+      <header className="profile-toolbar">
+        <div className="profile-readiness" role="status">
+          {readiness.ready ? (
+            <p>
+              {boot.settings.scheduleEnabled
+                ? "Ready for job discovery."
+                : "Profile ready. Scheduled scanning is paused in Settings."}
             </p>
-          </>
-        )}
-      </div>
+          ) : (
+            <>
+              <p>Job scanning is waiting for your profile.</p>
+              <p className="muted">
+                Still needed:{" "}
+                {readiness.missing.map((m) => m.label.toLowerCase()).join(", ")}
+                .
+              </p>
+            </>
+          )}
+        </div>
+        <div className="profile-toolbar-actions">
+          {!!state && state.versions.length > 1 && (
+            <div className="profile-version-actions">
+              <Select
+                aria-label="Profile version to restore"
+                value={restoreRevision}
+                onValueChange={(v) => setRestoreRevision(String(v))}
+                placeholder="Previous versions"
+              >
+                {state.versions
+                  .filter((v) => v.revision !== state.profile.revision)
+                  .map((v) => (
+                    <Select.Option key={v.revision} value={String(v.revision)}>
+                      Revision {v.revision} ·{" "}
+                      {new Date(v.createdAt).toLocaleDateString()}
+                    </Select.Option>
+                  ))}
+              </Select>
+              <Button
+                variant="secondary"
+                disabled={
+                  !restoreRevision ||
+                  saving ||
+                  ["queued", "running"].includes(state.turn?.state || "")
+                }
+                onClick={() => void restore()}
+              >
+                Restore version
+              </Button>
+            </div>
+          )}
+          {!readiness.ready && (
+            <Button variant="secondary" onClick={openAssistant}>
+              Build profile
+            </Button>
+          )}
+        </div>
+      </header>
       <div
         className="profile-facts-scroll"
         aria-label="Read-only profile facts"
@@ -103,36 +137,6 @@ export function ProfilePage({
           <p role="status">Loading profile…</p>
         )}
       </div>
-      {!!state && state.versions.length > 1 && (
-        <footer className="profile-version-actions">
-          <Select
-            aria-label="Profile version to restore"
-            value={restoreRevision}
-            onValueChange={(v) => setRestoreRevision(String(v))}
-            placeholder="Previous versions"
-          >
-            {state.versions
-              .filter((v) => v.revision !== state.profile.revision)
-              .map((v) => (
-                <Select.Option key={v.revision} value={String(v.revision)}>
-                  Revision {v.revision} ·{" "}
-                  {new Date(v.createdAt).toLocaleDateString()}
-                </Select.Option>
-              ))}
-          </Select>
-          <Button
-            variant="secondary"
-            disabled={
-              !restoreRevision ||
-              saving ||
-              ["queued", "running"].includes(state.turn?.state || "")
-            }
-            onClick={() => void restore()}
-          >
-            Restore version
-          </Button>
-        </footer>
-      )}
     </div>
   );
 }

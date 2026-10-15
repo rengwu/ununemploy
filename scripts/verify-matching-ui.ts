@@ -10,7 +10,7 @@ await page.route("**/api/jobs/*/seen", (route) =>
   route.fulfill({ json: { seenAt: new Date().toISOString() } }),
 );
 try {
-  await page.goto("http://127.0.0.1:5173/#jobs");
+  await page.goto("http://127.0.0.1:2839/#jobs");
   await page.getByPlaceholder("Search jobs").waitFor();
   const choose = async (label: string, value: string) => {
     await page.getByRole("combobox", { name: label, exact: true }).click();

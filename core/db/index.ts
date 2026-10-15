@@ -2,7 +2,6 @@ import { DatabaseSync } from "node:sqlite";
 import { mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { randomUUID, createHash } from "node:crypto";
-import { fromProfile } from "../cv/render.ts";
 import { emptyProfile } from "../profile/facts.ts";
 import { config } from "../config.ts";
 import { defaultCoverLetterTemplate } from "../cover-letter/template.ts";
@@ -24,6 +23,7 @@ import { assessJob, MATCH_VERSION } from "../matching.ts";
 import {
   descriptionQuality,
   preserveDescription,
+  sourceContent,
   selectContent,
   listingQuality,
   type Observation,
@@ -188,6 +188,39 @@ db.exec(
         new Date().toISOString(),
       );
     }
+    if (
+      !db
+        .prepare("SELECT version FROM schema_migrations WHERE version=10")
+        .get()
+    ) {
+      db.exec(
+        readFileSync(
+          new URL(
+            "./migrations/010_imported_observations.sql",
+            import.meta.url,
+          ),
+          "utf8",
+        ),
+      );
+      db.prepare("INSERT INTO schema_migrations VALUES (10, ?)").run(
+        new Date().toISOString(),
+      );
+    }
+    if (
+      !db
+        .prepare("SELECT version FROM schema_migrations WHERE version=11")
+        .get()
+    ) {
+      db.exec(
+        readFileSync(
+          new URL("./migrations/011_assistant_only.sql", import.meta.url),
+          "utf8",
+        ),
+      );
+      db.prepare("INSERT INTO schema_migrations VALUES (11, ?)").run(
+        new Date().toISOString(),
+      );
+    }
     db.exec("COMMIT");
   } catch (error) {
     db.exec("ROLLBACK");
@@ -255,7 +288,7 @@ export function getProfile(): Profile {
 export function saveProfile(
   input: unknown,
   expectedRevision: number,
-  options: { template?: Template; onCommit?: (profile: Profile) => void } = {},
+  options: { onCommit?: (profile: Profile) => void } = {},
 ) {
   const document = profileSchema.parse(input);
   return transaction(() => {
@@ -274,17 +307,6 @@ export function saveProfile(
       const job = parse<Job>(row)!;
       writeJob({ ...job, ...assessJob(job, document) });
     }
-    if (options.template) putSetting("template", options.template);
-    saveCv({
-      jobId: null,
-      kind: "master",
-      document: fromProfile(document),
-      template: getTemplate(),
-      profileRevision: document.revision,
-      reviewNotes: [],
-      evidence: null,
-      parentId: listCvVersions(null)[0]?.id || null,
-    });
     options.onCommit?.(document);
     return document;
   });
@@ -321,7 +343,7 @@ export function getSource(id: string) {
 }
 export function saveSource(source: Source) {
   if (source.type === "public_board") {
-    const board = boardFor(source.identifier);
+    boardFor(source.identifier);
     const duplicate = db
       .prepare(
         "SELECT id FROM sources WHERE type='public_board' AND identifier=? AND id!=?",
@@ -336,13 +358,6 @@ export function saveSource(source: Source) {
       requestLimit: Math.min(12, source.requestLimit),
       intervalHours: Math.max(12, source.intervalHours || 12),
     };
-    if (board.setup)
-      source = {
-        ...source,
-        state: "needs_setup",
-        nextRunAt: null,
-        lastError: board.setup,
-      };
   }
   if (source.type === "website") {
     const url = new URL(source.identifier);
@@ -448,14 +463,12 @@ export function getJob(id: string): Job | null {
   job.coverLetterId = letter?.id || null;
   job.cvState = null;
   job.cvId = cv?.id || null;
-  job.sourceLinks = (
-    db
-      .prepare(
-        "SELECT s.document, i.url FROM source_items i JOIN sources s ON s.id=i.source_id WHERE i.job_id=?",
-      )
-      .all(id) as { document: string; url: string }[]
-  ).map((x) => ({ name: JSON.parse(x.document).name, url: x.url }));
-  return { ...job, ...listingQuality(job, jobObservations(id)) };
+  const observations = jobObservations(id);
+  job.sourceLinks = observations.map((o) => ({
+    name: o.sourceName,
+    url: o.item.url,
+  }));
+  return { ...job, ...listingQuality(job, observations) };
 }
 export function listJobs(): Job[] {
   // Load each relation once. Calling getJob for every listing performs seven
@@ -494,6 +507,10 @@ export function listJobs(): Job[] {
   );
   const sources = new Map(listSources().map((source) => [source.id, source]));
   const observations = new Map<string, Observation[]>();
+  for (const row of db
+    .prepare("SELECT job_id, document FROM imported_observations")
+    .all())
+    observations.set(String(row.job_id), JSON.parse(String(row.document)));
   for (const job of jobs) {
     job.coverLetterState = (tasks.get(job.id) as Task["state"]) || null;
     job.coverLetterId = letters.get(job.id) || null;
@@ -507,15 +524,20 @@ export function listJobs(): Job[] {
     const job = byId.get(row.job_id),
       source = sources.get(row.source_id);
     if (!job || !source) continue;
-    job.sourceLinks!.push({ name: source.name, url: row.url });
     const entries = observations.get(job.id) || [];
-    entries.push(parseObservation(row, source, job));
-    observations.set(job.id, entries);
+    observations.set(
+      job.id,
+      mergeObservations(entries, [parseObservation(row, source, job)]),
+    );
   }
   const timestamp = Date.now();
   return groupDuplicates(
     jobs.map((job) => ({
       ...job,
+      sourceLinks: (observations.get(job.id) || []).map((o) => ({
+        name: o.sourceName,
+        url: o.item.url,
+      })),
       ...listingQuality(job, observations.get(job.id) || [], timestamp),
     })),
   );
@@ -585,13 +607,33 @@ export function jobObservations(jobId: string): Observation[] {
     .all(jobId) as unknown as (ObservationRow & { source_document: string })[];
   const legacy = () =>
     parse<Job>(db.prepare("SELECT document FROM jobs WHERE id=?").get(jobId))!;
-  return rows.map((r) =>
-    parseObservation(
-      r,
-      JSON.parse(r.source_document) as Source,
-      r.document ? undefined : legacy(),
+  const imported = db
+    .prepare("SELECT document FROM imported_observations WHERE job_id=?")
+    .get(jobId);
+  return mergeObservations(
+    imported ? JSON.parse(String(imported.document)) : [],
+    rows.map((r) =>
+      parseObservation(
+        r,
+        JSON.parse(r.source_document) as Source,
+        r.document ? undefined : legacy(),
+      ),
     ),
   );
+}
+function mergeObservations(
+  imported: Observation[],
+  live: Observation[],
+): Observation[] {
+  const key = (o: Observation) =>
+    JSON.stringify([
+      o.sourceType,
+      o.item.sourceItemId,
+      canonicalUrl(o.item.url),
+    ]);
+  const records = new Map(imported.map((o) => [key(o), o]));
+  for (const o of live) records.set(key(o), o);
+  return [...records.values()];
 }
 function refreshJobContent(job: Job): Job {
   const observations = jobObservations(job.id);
@@ -655,18 +697,46 @@ export function ingestJob(
     const byUrl = db
       .prepare("SELECT job_id FROM source_items WHERE url=? LIMIT 1")
       .get(item.url) as { job_id: string } | undefined;
+    const storedJob = (id: string) =>
+      parse<Job>(db.prepare("SELECT document FROM jobs WHERE id=?").get(id));
     const previous = link
-      ? getJob(link.job_id)
+      ? storedJob(link.job_id)
       : byUrl
-        ? getJob(byUrl.job_id)
+        ? storedJob(byUrl.job_id)
         : parse<Job>(
             db
               .prepare("SELECT document FROM jobs WHERE canonical_url=?")
               .get(url),
           );
-    const contentHash = hash(JSON.stringify(item));
-    const storedItem = link?.document
-      ? preserveDescription(JSON.parse(link.document), item)
+    const contentHash = hash(sourceContent(item));
+    let previousItem = link?.document
+      ? (JSON.parse(link.document) as IncomingJob)
+      : undefined;
+    // Older HTTP removals were stored as expiry dates. The closed queue retains
+    // the publisher's original expiry, so recover it when that URL is observed again.
+    if (
+      previousItem?.expiresAt &&
+      !previousItem.removedAt &&
+      item.removedAt &&
+      source.type === "public_board"
+    ) {
+      const queued = db
+        .prepare(
+          "SELECT document FROM board_queue WHERE source_id=? AND url=? AND state='closed'",
+        )
+        .get(source.id, item.url);
+      if (queued)
+        previousItem = {
+          ...previousItem,
+          expiresAt: JSON.parse(String(queued.document)).expiresAt ?? null,
+          removedAt: item.removedAt,
+        };
+    }
+    const unchanged =
+      link?.content_hash === contentHash ||
+      (!!previousItem && sourceContent(previousItem) === sourceContent(item));
+    const storedItem = previousItem
+      ? preserveDescription(previousItem, item)
       : { ...item, descriptionQuality: descriptionQuality(item) };
     const base = {
       ...item,
@@ -692,15 +762,16 @@ export function ingestJob(
         timestamp,
         timestamp,
       );
-    db.prepare(
-      `INSERT INTO source_item_versions VALUES (?,?,?,?,?) ON CONFLICT DO NOTHING`,
-    ).run(
-      source.id,
-      item.sourceItemId,
-      contentHash,
-      JSON.stringify(item),
-      timestamp,
-    );
+    if (!unchanged)
+      db.prepare(
+        `INSERT INTO source_item_versions VALUES (?,?,?,?,?) ON CONFLICT DO NOTHING`,
+      ).run(
+        source.id,
+        item.sourceItemId,
+        contentHash,
+        JSON.stringify(item),
+        timestamp,
+      );
     db.prepare(
       `INSERT INTO source_items (source_id,source_item_id,job_id,url,last_seen_at,document,content_hash,first_seen_at,changed_at,missing_at)
       VALUES (?,?,?,?,?,?,?,?,?,NULL) ON CONFLICT(source_id,source_item_id) DO UPDATE SET job_id=excluded.job_id,url=excluded.url,last_seen_at=excluded.last_seen_at,document=excluded.document,content_hash=excluded.content_hash,changed_at=excluded.changed_at,missing_at=NULL`,
@@ -713,14 +784,12 @@ export function ingestJob(
       JSON.stringify(storedItem),
       contentHash,
       timestamp,
-      link?.content_hash === contentHash
-        ? link.changed_at || timestamp
-        : timestamp,
+      unchanged ? link?.changed_at || timestamp : timestamp,
     );
     job.contentHash = contentHash;
     return {
       added: previous ? 0 : 1,
-      updated: previous && link?.content_hash !== contentHash ? 1 : 0,
+      updated: previous && !unchanged ? 1 : 0,
       job: refreshJobContent(job),
     };
   });
@@ -795,7 +864,7 @@ export function recoverCachedDescription(
     ).run(
       source.id,
       item.sourceItemId,
-      hash(JSON.stringify(item)),
+      hash(sourceContent(item)),
       JSON.stringify(item),
       checkedAt,
     );
@@ -925,7 +994,7 @@ export function queueCoverLetter(jobId: string, regenerate = false): Task {
   });
 }
 export function getCoverLetterTemplate(): Template {
-  return setting("coverLetterTemplate", defaultCoverLetterTemplate);
+  return defaultCoverLetterTemplate;
 }
 export function listCoverLetterVersions(jobId: string): CoverLetterVersion[] {
   return db
@@ -1031,7 +1100,7 @@ transaction(() => {
       kind: job.kind,
       applicationUrl: job.applicationUrl,
     };
-    const contentHash = hash(JSON.stringify(item));
+    const contentHash = hash(sourceContent(item));
     db.prepare(
       "UPDATE source_items SET document=?,content_hash=?,first_seen_at=?,changed_at=?,missing_at=? WHERE source_id=? AND source_item_id=?",
     ).run(

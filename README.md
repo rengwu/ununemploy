@@ -17,7 +17,7 @@ npx playwright install chromium
 npm run dev
 ```
 
-Open **http://127.0.0.1:5173**. Startup prepares the local LaTeX compiler; see [local development](docs/wiki/guides/local-development.md) for ports, persistence and setup details.
+Open **http://127.0.0.1:2839**. Startup prepares the local LaTeX compiler; see [local development](docs/wiki/guides/local-development.md) for ports, persistence and setup details.
 
 ## Documentation
 

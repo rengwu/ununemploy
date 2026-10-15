@@ -1,4 +1,4 @@
-import { JevSettings } from "./JevSettings.tsx";
+import { BackupSettings } from "./BackupSettings.tsx";
 import { useState, type FormEvent } from "react";
 import { Button } from "@cloudflare/kumo/components/button";
 import { Input } from "@cloudflare/kumo/components/input";
@@ -100,47 +100,41 @@ export function SourcesPage({
                 </Table.Cell>
                 <Table.Cell>{sourceTypes[s.type]}</Table.Cell>
                 <Table.Cell>
-                  {s.type === "public_board" &&
-                  publicBoards[s.identifier]?.setup
-                    ? "Needs API setup"
-                    : s.type === "website"
-                      ? "Manual"
-                      : s.type === "web3" &&
-                          (!boot.web3.configured || s.state === "needs_token")
-                        ? "Needs API token"
-                        : s.type === "x" && !boot.settings.xEnabled
-                          ? "Disabled in Settings"
-                          : s.enabled
-                            ? {
-                                idle: "Ready",
-                                running: "Scanning",
-                                partial: "Partial",
-                                failed: "Failed",
-                                blocked: "Blocked",
-                                unavailable: "Unavailable",
-                                needs_setup: "Needs API setup",
-                              }[s.state] || s.state
-                            : "Paused"}
+                  {s.type === "website"
+                    ? "Manual"
+                    : s.type === "web3" &&
+                        (!boot.web3.configured || s.state === "needs_token")
+                      ? "Needs API token"
+                      : s.type === "x" && !boot.settings.xEnabled
+                        ? "Disabled in Settings"
+                        : s.enabled
+                          ? {
+                              idle: "Ready",
+                              running: "Scanning",
+                              partial: "Partial",
+                              failed: "Failed",
+                              blocked: "Blocked",
+                              unavailable: "Unavailable",
+                              needs_setup: "Needs API setup",
+                            }[s.state] || s.state
+                          : "Paused"}
                 </Table.Cell>
                 <Table.Cell>
                   {s.type === "website" ? "—" : time(s.lastRunAt)}
                 </Table.Cell>
                 <Table.Cell>
-                  {s.type === "public_board" &&
-                  publicBoards[s.identifier]?.setup
-                    ? "Awaiting setup"
-                    : s.type === "website"
-                      ? "—"
-                      : s.type === "web3" &&
-                          (!boot.web3.configured || s.state === "needs_token")
-                        ? "Awaiting token"
-                        : s.enabled &&
-                            boot.settings.scheduleEnabled &&
-                            (s.type !== "x" || boot.settings.xEnabled)
-                          ? s.nextRunAt
-                            ? time(s.nextRunAt)
-                            : "Due"
-                          : "Paused"}
+                  {s.type === "website"
+                    ? "—"
+                    : s.type === "web3" &&
+                        (!boot.web3.configured || s.state === "needs_token")
+                      ? "Awaiting token"
+                      : s.enabled &&
+                          boot.settings.scheduleEnabled &&
+                          (s.type !== "x" || boot.settings.xEnabled)
+                        ? s.nextRunAt
+                          ? time(s.nextRunAt)
+                          : "Due"
+                        : "Paused"}
                 </Table.Cell>
                 <Table.Cell>{s.jobCount}</Table.Cell>
                 <Table.Cell>
@@ -196,8 +190,6 @@ export function SourcesPage({
                           variant="ghost"
                           disabled={
                             !s.enabled ||
-                            (s.type === "public_board" &&
-                              !!publicBoards[s.identifier]?.setup) ||
                             s.state === "running" ||
                             (s.type === "x" && !boot.settings.xEnabled) ||
                             (s.type === "web3" &&
@@ -328,6 +320,7 @@ function SourceDialog({
     hn_jobs: "Feed",
     himalayas: "Search keywords (separate with |)",
     remoteok: "Feed",
+    workingnomads: "Feed",
     remotive: "Feed",
     jobicy: "Feed",
     fourdayweek: "Categories (separate with commas)",
@@ -431,9 +424,13 @@ function SourceDialog({
 export function SettingsPage({
   boot,
   action,
+  theme,
+  onThemeChange,
 }: {
   boot: Bootstrap;
   action: Action;
+  theme: string;
+  onThemeChange: (theme: string) => void;
 }) {
   const [token, setToken] = useState("");
   const [tokenBusy, setTokenBusy] = useState(false);
@@ -448,6 +445,16 @@ export function SettingsPage({
   };
   return (
     <div className="standard-page settings-page">
+      <section>
+        <h2>Appearance</h2>
+        <Choice
+          label="Theme"
+          value={theme}
+          onChange={onThemeChange}
+          items={{ light: "Light", dark: "Dark" }}
+        />
+      </section>
+      <BackupSettings />
       <form
         onSubmit={async (e) => {
           e.preventDefault();
@@ -524,7 +531,6 @@ export function SettingsPage({
             </Button>
           </div>
         </section>
-        <JevSettings status={boot.jev} action={action} />
         <section>
           <h2>X</h2>
           <div className="form-stack">

@@ -168,10 +168,6 @@ function schemaJob(key: string, url: string, j: RecordValue): IncomingJob {
   const remote = /telecommute|remote/i.test(arr(j.jobLocationType).join(" "));
   const description = text(j.description);
   // Hiring countries are not office locations, and must not imply permission to work.
-  const restrictions =
-    hiring.length && hiring.length < 50
-      ? `Applicant locations: ${hiring.join(" · ")}`
-      : "";
   return {
     ...base,
     company:
@@ -185,12 +181,27 @@ function schemaJob(key: string, url: string, j: RecordValue): IncomingJob {
     salary: salary(j.baseSalary),
     publishedAt: sourceDate(j.datePosted),
     expiresAt: sourceDate(j.validThrough),
-    description: [description, restrictions].filter(Boolean).join("\n\n"),
+    description: retainHiringLocations(description, j),
     descriptionQuality:
       description.length >= 200 && !/(?:\.{3}|…)\s*$/.test(description)
         ? "full"
         : "excerpt",
   };
+}
+function retainHiringLocations(
+  description: string,
+  posting: RecordValue,
+): string {
+  const hiring = arr(posting.applicantLocationRequirements)
+    .map(place)
+    .filter(Boolean);
+  const restriction =
+    hiring.length && hiring.length < 50
+      ? `Applicant locations: ${hiring.join(" · ")}`
+      : "";
+  return restriction && !description.includes(restriction)
+    ? `${description}\n\n${restriction}`
+    : description;
 }
 function hiredlyJob(j: RecordValue): IncomingJob | null {
   const url = jobUrl("hiredly", `/jobs/${j.slug}`);
@@ -547,5 +558,6 @@ export function parseBoardDetail(
     throw new BoardUnavailableError(
       "A complete job description was not available on this page.",
     );
+  job.description = retainHiringLocations(job.description, candidates[0]);
   return job;
 }

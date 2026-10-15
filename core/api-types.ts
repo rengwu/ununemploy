@@ -30,7 +30,7 @@ export type JobSummary = Pick<
   | "cvState"
   | "coverLetterId"
   | "coverLetterState"
-> & { listingCount: number; matchSource?: "jev" };
+> & { listingCount: number };
 export type JobPage = {
   items: JobSummary[];
   total: number;
@@ -45,7 +45,6 @@ export type Bootstrap = {
   profile: import("./profile/facts.ts").ProfileReadiness & { revision: number };
   jobsRevision: string;
   counts: { total: number; jobs: number; saved: number };
-  cvJobs: Pick<Job, "id" | "title" | "company">[];
   coverLetterJobs: Pick<Job, "id" | "title" | "company">[];
   tasks: (Omit<Task, "input"> & { jobTitle: string })[];
   sources: Source[];
@@ -53,7 +52,6 @@ export type Bootstrap = {
   settings: AppSettings;
   x: { configured: boolean; used: number };
   web3: { configured: boolean };
-  jev: import("./jev/types.ts").JevStatus;
   ai: { state: string; model: string; reasoning: string; message?: string };
 };
 

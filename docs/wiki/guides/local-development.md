@@ -1,7 +1,7 @@
 ---
 title: Local development
 section: Guides
-updated: 2026-10-07
+updated: 2026-10-12
 ---
 # Local development
 
@@ -16,7 +16,7 @@ npx playwright install chromium
 npm run dev
 ```
 
-Open **http://127.0.0.1:5173**. The current workspace uses API port **4317** in `.env` because port 3000 was already occupied. Fresh installations default to API port 3000; change `JH_PORT` if needed. Vite proxies API requests to that port. No application login, hosted domain, or publishing service.
+Open **http://127.0.0.1:2839**. The current workspace uses API port **4317** in `.env` because port 3000 was already occupied. Fresh installations default to API port 3000; change `JH_PORT` if needed. Vite proxies API requests to that port. No application login, hosted domain, or publishing service.
 
 The development command prepares the local LaTeX compiler, then starts the API, frontend, and worker. First-run compiler/package downloads require internet access; subsequent CV compilation is offline. All persistent application data lives in `.local-data/` by default. The server must remain awake for scans to run; Unraid runs the same worker continuously.
 

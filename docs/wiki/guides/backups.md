@@ -1,9 +1,17 @@
 ---
 title: Backups and restore
 section: Guides
-updated: 2026-10-07
+updated: 2026-10-08
 ---
 # Backups and restore
+
+## Personal ZIP backup
+
+Open **Settings → Backup → Export to Backup** to download the current profile, scanned/saved jobs, latest LaTeX CV and latest cover letters. To restore, click **Restore from Backup** and choose the ZIP. Import overwrites personal content and history; there is no automatic backup. Export first if you want to keep the destination's current content.
+
+Settings, source configuration, checkpoints, budgets and credentials remain on the destination. Old versions and conversations are excluded. [ZIP backups](../features/backups.md) defines the archive, validation, size limits and verification recipe.
+
+## Full database snapshot
 
 ```sh
 npx tsx scripts/backup.ts

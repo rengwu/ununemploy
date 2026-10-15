@@ -1,3 +1,4 @@
+import { defaultCoverLetterTemplate } from "../cover-letter/template.ts";
 import { z } from "zod";
 import * as store from "../db/index.ts";
 import { queryJobs, jobQuerySchema, jobSnapshot } from "../job-query.ts";
@@ -9,14 +10,11 @@ import {
 } from "../profile/chat.ts";
 import {
   profileSchema,
-  cvDocumentSchema,
   coverLetterDocumentSchema,
   type Profile,
-  type CvVersion,
   type CoverLetterVersion,
-  type Template,
 } from "../types.ts";
-import { fromProfile, renderCv } from "../cv/render.ts";
+import { renderCv } from "../cv/render.ts";
 import * as latex from "../latex/store.ts";
 import { compileLatex, LatexCompileError } from "../latex/compile.ts";
 import {
@@ -27,12 +25,8 @@ import {
 } from "./references.ts";
 import type { AssistantContext, Receipt } from "./types.ts";
 
-const kind = z.enum(["latex", "html_cv", "cover_letter", "legacy_cv"]);
+const kind = z.enum(["latex", "cover_letter"]);
 const documentArgs = z.object({ kind, jobId: z.string().optional() }).strict();
-const templateSchema = z.object({
-  html: z.string().min(1).max(100000),
-  css: z.string().max(100000),
-});
 const replacements = z
   .array(
     z
@@ -76,23 +70,19 @@ export const actionSchemas = {
     .strict(),
   edit_document: z
     .object({
-      kind: z.enum(["html_cv", "cover_letter", "legacy_cv"]),
+      kind: z.literal("cover_letter"),
       jobId: z.string().optional(),
       expectedId: z.string().nullable(),
-      documentJson: z.string().max(120000).nullable().optional(),
-      html: z.string().max(100000).nullable().optional(),
-      css: z.string().max(100000).nullable().optional(),
+      documentJson: z.string().min(1).max(120000),
     })
     .strict(),
   preview_latex: z.object({}).strict(),
 };
 type Doc = {
-  kind: "html_cv" | "cover_letter" | "legacy_cv";
-  jobId?: string;
-  previous: CvVersion | CoverLetterVersion | null;
-  template: Template;
-  document: any;
-  originalTemplate: string;
+  kind: "cover_letter";
+  jobId: string;
+  previous: CoverLetterVersion;
+  document: CoverLetterVersion["document"];
   changed: boolean;
 };
 export type ActionDependencies = {
@@ -271,31 +261,18 @@ export class AssistantActions {
       const key = this.documentKey(input.kind, input.jobId);
       let doc = this.documents.get(key);
       if (!doc) {
-        if (input.kind !== "html_cv" && !input.jobId)
+        if (!input.jobId)
           throw new Error("Specify the job ID for this document.");
-        const previous =
-          input.kind === "cover_letter"
-            ? store.listCoverLetterVersions(input.jobId)[0]
-            : store.listCvVersions(
-                input.kind === "html_cv" ? null : input.jobId,
-              )[0];
-        if (!previous && input.kind !== "html_cv")
+        const previous = store.listCoverLetterVersions(input.jobId)[0];
+        if (!previous)
           throw new Error(
             "No saved document exists for this job. Open or generate its cover letter first.",
           );
         doc = {
-          kind: input.kind,
+          kind: "cover_letter",
           jobId: input.jobId,
-          previous: previous || null,
-          document:
-            input.kind === "html_cv"
-              ? fromProfile(this.profile)
-              : previous.document,
-          template:
-            input.kind === "html_cv" ? store.getTemplate() : previous.template,
-          originalTemplate: JSON.stringify(
-            input.kind === "html_cv" ? store.getTemplate() : previous.template,
-          ),
+          previous,
+          document: previous.document,
           changed: false,
         };
         this.documents.set(key, doc);
@@ -307,18 +284,7 @@ export class AssistantActions {
         version: doc.previous?.version || 0,
         profileRevision: this.baseProfile.revision,
         document: doc.document,
-        template: doc.template,
-        schema: z.toJSONSchema(
-          doc.kind === "cover_letter"
-            ? coverLetterDocumentSchema
-            : cvDocumentSchema,
-        ),
-        ...(doc.kind === "html_cv"
-          ? {
-              instructions:
-                "Master data is canonical profile facts; use read_profile/edit_profile for content, edit_document for HTML/CSS presentation.",
-            }
-          : {}),
+        schema: z.toJSONSchema(coverLetterDocumentSchema),
       };
     }
     if (name === "edit_profile") {
@@ -386,26 +352,11 @@ export class AssistantActions {
       const doc = this.documents.get(this.documentKey(input.kind, input.jobId));
       if (!doc || input.expectedId !== (doc.previous?.id || null))
         throw new Error("Read this document first and supply its exact ID.");
-      if (doc.kind === "html_cv" && input.documentJson != null)
-        throw new Error(
-          "Edit canonical master data with edit_profile; HTML/CSS presentation uses edit_document.",
-        );
-      const document =
-        input.documentJson == null
-          ? doc.document
-          : (doc.kind === "cover_letter"
-              ? coverLetterDocumentSchema
-              : cvDocumentSchema
-            ).parse(JSON.parse(input.documentJson));
-      const template = templateSchema.parse({
-        html: input.html ?? doc.template.html,
-        css: input.css ?? doc.template.css,
-      });
-      renderCv(
-        doc.kind === "html_cv" ? fromProfile(this.profile) : document,
-        template,
+      const document = coverLetterDocumentSchema.parse(
+        JSON.parse(input.documentJson),
       );
-      Object.assign(doc, { document, template, changed: true });
+      renderCv(document, defaultCoverLetterTemplate);
+      Object.assign(doc, { document, changed: true });
       return {
         staged: true,
         preview: "rendered",
@@ -447,11 +398,6 @@ export class AssistantActions {
       throw new Error(
         `No changes were saved because an edit failed: ${[...this.failures.values()].join(" ")}`,
       );
-    if (this.profileEdits.length)
-      renderCv(
-        fromProfile(this.profile),
-        this.documents.get("html_cv:master")?.template || store.getTemplate(),
-      );
     if (this.latexSource !== null) await this.previewLatex();
     this.signal.throwIfAborted();
   }
@@ -462,7 +408,6 @@ export class AssistantActions {
     const receipts: Receipt[] = [];
     if (
       (this.profileEdits.length ||
-        this.documents.has("html_cv:master") ||
         (this.profileRead &&
           (this.latexSource !== null ||
             [...this.documents.values()].some((d) => d.changed)))) &&
@@ -480,28 +425,17 @@ export class AssistantActions {
       );
     for (const doc of this.documents.values())
       if (doc.changed) {
-        const current =
-          doc.kind === "cover_letter"
-            ? store.listCoverLetterVersions(doc.jobId!)[0]
-            : store.listCvVersions(
-                doc.kind === "html_cv" ? null : doc.jobId,
-              )[0];
-        if (
-          (current?.id || null) !== (doc.previous?.id || null) ||
-          (doc.kind === "html_cv" &&
-            JSON.stringify(store.getTemplate()) !== doc.originalTemplate)
-        )
+        const current = store.listCoverLetterVersions(doc.jobId)[0];
+        if ((current?.id || null) !== doc.previous.id)
           throw new Error(
             "The document changed in another window. No assistant changes were saved.",
           );
       }
-    const html = this.documents.get("html_cv:master");
     if (this.profileEdits.length) {
       this.profile = store.saveProfile(
         this.profile,
         this.baseProfile.revision,
         {
-          ...(html?.changed ? { template: html.template } : {}),
           onCommit: (p) => {
             store.db
               .prepare("INSERT INTO profile_changes VALUES (?,?,?,?,?)")
@@ -521,14 +455,6 @@ export class AssistantActions {
         href: "#profile",
         version: this.profile.revision,
         preview: "none",
-      });
-      const cv = store.listCvVersions(null)[0];
-      receipts.push({
-        kind: "html_cv",
-        label: "CV data and HTML",
-        href: "#cv?view=html",
-        version: cv.version,
-        preview: "rendered",
       });
     }
     if (this.latexSource !== null) {
@@ -550,52 +476,22 @@ export class AssistantActions {
     }
     for (const doc of this.documents.values())
       if (doc.changed) {
-        if (doc.kind === "html_cv") {
-          if (this.profileEdits.length) continue;
-          store.putSetting("template", doc.template);
-          const saved = store.saveCv({
-            jobId: null,
-            kind: "master",
-            document: fromProfile(this.profile),
-            template: doc.template,
-            profileRevision: this.profile.revision,
-            parentId: doc.previous?.id || null,
-            reviewNotes: [],
-            evidence: null,
-          });
-          receipts.push({
-            kind: doc.kind,
-            label: "CV data and HTML",
-            href: "#cv?view=html",
-            version: saved.version,
-            preview: "rendered",
-          });
-        } else {
-          const input = {
-            ...doc.previous!,
-            document: doc.document,
-            template: doc.template,
-            profileRevision: this.profile.revision,
-            evidence: null,
-            kind: "edited" as const,
-            parentId: doc.previous!.id,
-          };
-          const saved =
-            doc.kind === "cover_letter"
-              ? store.saveCoverLetter(input as CoverLetterVersion)
-              : store.saveCv(input as CvVersion);
-          receipts.push({
-            kind: doc.kind,
-            label:
-              doc.kind === "cover_letter" ? "Cover letter" : "Saved resume",
-            href:
-              doc.kind === "cover_letter"
-                ? `#saved?job=${encodeURIComponent(doc.jobId!)}&tab=cover-letter`
-                : `#cv?job=${encodeURIComponent(doc.jobId!)}&view=html`,
-            version: saved.version,
-            preview: "rendered",
-          });
-        }
+        const saved = store.saveCoverLetter({
+          ...doc.previous,
+          document: doc.document,
+          template: defaultCoverLetterTemplate,
+          profileRevision: this.profile.revision,
+          evidence: null,
+          kind: "edited",
+          parentId: doc.previous.id,
+        });
+        receipts.push({
+          kind: "cover_letter",
+          label: "Cover letter",
+          href: `#saved?job=${encodeURIComponent(doc.jobId)}&tab=cover-letter`,
+          version: saved.version,
+          preview: "rendered",
+        });
       }
     return receipts;
   }

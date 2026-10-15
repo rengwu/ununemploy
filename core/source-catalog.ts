@@ -1,6 +1,14 @@
 import { publicBoards, boardSourceDefaults } from "./boards/catalog.ts";
 import type { Source } from "./types.ts";
 
+// Retain old database records without offering or scanning unimplemented adapters.
+export function isRetiredSource(source: Pick<Source, "type" | "identifier">) {
+  return (
+    source.type === "public_board" &&
+    ["adzuna", "jooble", "careerjet"].includes(source.identifier)
+  );
+}
+
 export const sourceTypes = {
   ashby: "Ashby",
   greenhouse: "Greenhouse",
@@ -11,6 +19,7 @@ export const sourceTypes = {
   x: "X",
   himalayas: "Himalayas",
   remoteok: "Remote OK",
+  workingnomads: "Working Nomads",
   remotive: "Remotive",
   fourdayweek: "4 Day Week",
   arbeitnow: "Arbeitnow",
@@ -23,6 +32,7 @@ export const fixedIdentifiers: Partial<Record<Source["type"], string>> = {
   hn: "whoishiring",
   hn_jobs: "jobstories",
   remoteok: "remoteok",
+  workingnomads: "workingnomads",
   remotive: "remotive",
   jobicy: "jobicy",
   web3: "web3",
@@ -32,6 +42,15 @@ export function sourcePolicy(
 ) {
   let minimumHours = 4;
   if (source.type === "himalayas") minimumHours = 24;
+  if (
+    source.type === "workingnomads" ||
+    (source.type === "rss" &&
+      [
+        "https://jobs.wordpress.net/feed/",
+        "https://www.remotejobs.com/jobs.rss",
+      ].includes(source.identifier))
+  )
+    minimumHours = 24;
   if (source.type === "remotive") minimumHours = 6;
   if (source.type === "web3" || source.type === "public_board")
     minimumHours = 12;
@@ -47,6 +66,27 @@ export const discoverySources: Pick<
   "name" | "type" | "identifier" | "enabled" | "requestLimit" | "intervalHours"
 >[] = [
   ...Object.keys(publicBoards).map(boardSourceDefaults),
+  {
+    name: "Working Nomads",
+    type: "workingnomads",
+    identifier: "workingnomads",
+    requestLimit: 1,
+    intervalHours: 24,
+  },
+  {
+    name: "WordPress Jobs",
+    type: "rss",
+    identifier: "https://jobs.wordpress.net/feed/",
+    requestLimit: 1,
+    intervalHours: 24,
+  },
+  {
+    name: "RemoteJobs.com",
+    type: "rss",
+    identifier: "https://www.remotejobs.com/jobs.rss",
+    requestLimit: 1,
+    intervalHours: 24,
+  },
   {
     name: "VueJobs",
     type: "rss",

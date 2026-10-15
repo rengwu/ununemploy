@@ -50,38 +50,18 @@ after(async () => {
   rmSync(directory, { recursive: true, force: true });
 });
 
-test("saving the master refreshes matching and invalidates the list without changing existing CV versions", async () => {
+test("saving profile facts refreshes matching without changing legacy CV versions", () => {
   const profile = store.getProfile();
   const before = jobsRevision();
-  const response = await app.inject({
-    method: "PUT",
-    url: "/api/master",
-    payload: {
-      profile,
-      template: store.getTemplate(),
-      expectedRevision: profile.revision,
-    },
-  });
-  assert.equal(response.statusCode, 200);
+  const legacy = store.listCvVersions();
+  const saved = store.saveProfile(profile, profile.revision);
   assert.notEqual(jobsRevision(), before);
   assert.equal(
     store.getJob(fixtures[0].id)?.matchProfileRevision,
-    response.json().profile.revision,
+    saved.revision,
   );
-  assert.equal(
-    (
-      await app.inject({
-        method: "PUT",
-        url: "/api/master",
-        payload: {
-          profile,
-          template: store.getTemplate(),
-          expectedRevision: profile.revision,
-        },
-      })
-    ).statusCode,
-    409,
-  );
+  assert.deepEqual(store.listCvVersions(), legacy);
+  assert.throws(() => store.saveProfile(profile, profile.revision), /changed/);
 });
 
 test("paged summaries retain server search/filter semantics without descriptions or private notes", async () => {

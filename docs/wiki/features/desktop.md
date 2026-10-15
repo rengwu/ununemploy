@@ -1,7 +1,7 @@
 ---
 title: Native desktop app
 section: Features
-updated: 2026-10-07
+updated: 2026-10-16
 ---
 # Native desktop app
 
@@ -25,8 +25,19 @@ Codex uses its own existing ChatGPT authentication; an unavailable sign-in, mode
 - One desktop instance owns each data directory. A second launch activates the first instance. Quit terminates the owned process group; unexpected parent termination closes a pipe that shuts down the services. Startup/runtime failure shows a native error with the local diagnostic log path.
 - Default appdata is `~/Library/Application Support/ununemploy`. The installer imports the former SQLite database with the backup API, verifies integrity, retains private assets/credentials locally, and preserves the original source data. Later installs do not overwrite an existing desktop database. Build and installation checks reject broken links or links that escape the application bundle. The local development `.env` is repointed to the same canonical data directory after installation.
 - The app bundle contains code and generic runtime assets, never the user's database, credentials or CVs. Copying the app alone to another Mac does not copy personal data or authentication.
-- Native Save dialogs handle downloads. Explicit external HTTP(S) links open in the user's browser. Remote top-level pages do not replace the local app; no unrestricted native JavaScript bridge is exposed.
+- Native Save dialogs handle downloads. A local-origin file input uses a native Open dialog for ZIP import. Explicit external HTTP(S) links open in the user's browser. Remote top-level pages do not replace the local app; no unrestricted native JavaScript bridge is exposed.
 - Existing scanning, model serialization, saved-job behavior and manual application boundaries remain in effect. Scanning requires the app to be running and the Mac awake. It does not start at login or wake a sleeping computer.
+
+## Data locations
+
+The installed app keeps its canonical data in `~/Library/Application Support/ununemploy/`, outside the application bundle:
+
+- `job-hunter.db`: jobs, saved status, notes, profile revisions, CV/cover-letter versions, assistant history, application settings, scan checkpoints and budget counters. LaTeX source versions and compiled PDF previews also live in SQLite.
+- `cv-sources/` and `resume/`: imported original evidence and legacy document files.
+- `secrets/` and `desktop.env`: locally retained provider credentials and runtime configuration.
+- `backups/`: database snapshots; `desktop.log`: runtime diagnostics. Other files track the active process and preferred local port.
+
+The current Mac installation uses the existing official Codex authentication home at `~/.codex`, separate from application records. Browser preferences such as theme belong to WKWebView's website store at `~/Library/WebKit/local.ununemploy.desktop/WebsiteData/`; an unsent assistant draft uses browser session storage rather than SQLite. Native window preferences are in `~/Library/Preferences/local.ununemploy.desktop.plist`. Downloaded documents go wherever the user chooses in the Save dialog. Replacing the `.app` bundle leaves these data locations intact. See [backups and restore](../guides/backups.md) for consistent database snapshots.
 
 ## Verification recipe
 
@@ -52,6 +63,10 @@ The bundle is approximately 1.1 GB because it includes the model/runtime and doc
 Window routing/filter state is tied to the saved local origin. If another application occupies its port, a new port is used and origin-specific browser preferences may start afresh; SQLite records remain intact. Service failure requires quitting/reopening the app after the displayed error. Existing startup recovery preserves queued work and pauses interrupted model jobs.
 
 ## Verification history
+
+[Lean cleanup installation — 16 October 2026](../verification/runs/2026-10-16-lean-native-install.md) records the successful rebuild/install, unchanged canonical records, passing packaged lifecycle and healthy reopened app. The existing large-inbox refresh timeout remains unresolved.
+
+[ZIP backups and LaTeX-only CV — 8 October 2026](../verification/runs/2026-10-07T182813Z-backups.md) records archive validation/replacement, the two-button browser and native flows, LaTeX/assistant checks and installation.
 
 [Desktop portability follow-up — 7 October 2026](../verification/runs/2026-10-07T114528Z-desktop-portable.md) passed the corrected bundle audit, 175-test suite, packaged lifecycle and final startup.
 

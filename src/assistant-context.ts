@@ -10,21 +10,3 @@ export function onAssistantUpdate(listener: (update: AssistantUpdate) => void) {
   window.addEventListener("jh-assistant-updated", handler);
   return () => window.removeEventListener("jh-assistant-updated", handler);
 }
-export function contextLabel(context: AssistantContext) {
-  if (context.document)
-    return {
-      latex: "LaTeX CV",
-      html_cv: "CV data and HTML",
-      cover_letter: "Selected cover letter",
-      legacy_cv: "Saved resume",
-    }[context.document];
-  return {
-    jobs: "Jobs",
-    saved: "Saved jobs",
-    profile: "User profile",
-    cv: "CV",
-    letters: "Cover letters",
-    sources: "Sources",
-    settings: "Settings",
-  }[context.page];
-}

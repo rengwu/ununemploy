@@ -3,29 +3,22 @@ import {
   Suspense,
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
 import { Button } from "@cloudflare/kumo/components/button";
 import { Select } from "@cloudflare/kumo/components/select";
-import { Tabs } from "@cloudflare/kumo/components/tabs";
+import { Input, InputArea } from "@cloudflare/kumo/components/input";
 import { Dialog } from "@cloudflare/kumo/components/dialog";
 import { Banner } from "@cloudflare/kumo/components/banner";
-import CodeMirror from "@uiw/react-codemirror";
-import { json } from "@codemirror/lang-json";
-import { html } from "@codemirror/lang-html";
-import { css } from "@codemirror/lang-css";
 import { api, jsonBody, time, type Bootstrap } from "./api.ts";
-import type { CvContext } from "../core/api-types.ts";
-import type {
-  CvVersion,
-  CoverLetterVersion,
-  Profile,
-  Template,
+import {
+  coverLetterDocumentSchema,
+  type CoverLetterVersion,
+  type CoverLetterDocument,
 } from "../core/types.ts";
 
-import { defaultCoverLetterTemplate } from "../core/cover-letter/template.ts";
+import { coverLetterText } from "../core/cover-letter/template.ts";
 import {
   onAssistantUpdate,
   type AssistantContext,
@@ -33,7 +26,15 @@ import {
 const LatexCvPage = lazy(() =>
   import("./LatexCvPage.tsx").then((m) => ({ default: m.LatexCvPage })),
 );
-type DocumentVersion = CvVersion | CoverLetterVersion;
+type DocumentVersion = CoverLetterVersion;
+type LetterDraft = Omit<CoverLetterDocument, "paragraphs"> & { body: string };
+const draftFrom = ({
+  paragraphs,
+  ...fields
+}: CoverLetterDocument): LetterDraft => ({
+  ...fields,
+  body: paragraphs.join("\n\n"),
+});
 type Target = { jobId: string; versionId?: string };
 const message = (e: unknown) =>
   e instanceof Error ? e.message : "Request failed.";
@@ -49,82 +50,24 @@ type CvPageProps = {
   embedded?: boolean;
 };
 export function CvPage(props: CvPageProps) {
-  const [view, setView] = useState(
-    props.initialView === "html" || props.initialJobId ? "html" : "latex",
-  );
-  const [dirty, setDirty] = useState(false);
-  const [pendingView, setPendingView] = useState<string | null>(null);
-  const onDirty = useCallback(
-    (value: boolean) => {
-      setDirty(value);
-      props.onDirty(value);
-    },
-    [props.onDirty],
-  );
-  if (props.mode === "cover-letter") return <HtmlCvPage {...props} />;
+  if (props.mode === "cover-letter") return <CoverLetterEditor {...props} />;
   return (
-    <div className="cv-workspace">
-      <Tabs
-        variant="underline"
-        className="pane-tabs"
-        listClassName="pane-tab-list"
-        value={view}
-        onValueChange={(next) => {
-          if (next === view) return;
-          if (dirty) setPendingView(next);
-          else setView(next);
-        }}
-        tabs={[
-          { value: "latex", label: "LaTeX" },
-          { value: "html", label: "Data and HTML" },
-        ]}
+    <Suspense fallback={<div className="empty">Loading editor…</div>}>
+      <LatexCvPage
+        theme={props.theme}
+        onDirty={props.onDirty}
+        onAssistantContext={props.onAssistantContext}
       />
-      <Suspense fallback={<div className="empty">Loading editor…</div>}>
-        {view === "latex" ? (
-          <LatexCvPage
-            theme={props.theme}
-            onDirty={onDirty}
-            onAssistantContext={props.onAssistantContext}
-          />
-        ) : (
-          <HtmlCvPage {...props} onDirty={onDirty} />
-        )}
-      </Suspense>
-      <Dialog.Root
-        open={pendingView !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingView(null);
-        }}
-      >
-        <Dialog className="app-dialog">
-          <Dialog.Title>Discard unsaved changes?</Dialog.Title>
-          <div className="dialog-actions">
-            <Button variant="secondary" onClick={() => setPendingView(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                setView(pendingView!);
-                setPendingView(null);
-              }}
-            >
-              Discard changes
-            </Button>
-          </div>
-        </Dialog>
-      </Dialog.Root>
-    </div>
+    </Suspense>
   );
 }
-function HtmlCvPage({
+
+function CoverLetterEditor({
   boot,
   refresh,
   onDirty,
-  theme,
   initialJobId,
   onAssistantContext,
-  mode = "cv",
   embedded = false,
 }: {
   boot: Bootstrap;
@@ -136,24 +79,19 @@ function HtmlCvPage({
   mode?: "cv" | "cover-letter";
   embedded?: boolean;
 }) {
-  const letterMode = mode === "cover-letter";
-  const label = letterMode ? "Cover letter" : "CV";
-  const apiBase = letterMode ? "/cover-letters" : "/cv";
-  const [defaultTarget] = useState(() =>
-    letterMode ? boot.coverLetterJobs[0]?.id || "" : "master",
-  );
+  const label = "Cover letter";
+  const apiBase = "/cover-letters";
+  const [defaultTarget] = useState(() => boot.coverLetterJobs[0]?.id || "");
   const initialTarget = initialJobId || defaultTarget;
   const [jobId, setJobId] = useState(initialTarget);
-  const [source, setSource] = useState("");
-  const [template, setTemplate] = useState<Template>({ html: "", css: "" });
-  const [file, setFile] = useState("data");
+  const [source, setSource] = useState<LetterDraft | null>(null);
+  const [copied, setCopied] = useState(false);
   const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
   const [previewError, setPreviewError] = useState("");
   const [loadError, setLoadError] = useState("");
   const loadTarget = useRef<Target>({ jobId: initialTarget });
   const [saved, setSaved] = useState("");
-  const [revision, setRevision] = useState(0);
   const [versions, setVersions] = useState<DocumentVersion[]>([]);
   const [current, setCurrent] = useState<DocumentVersion | null>(null);
   const [busy, setBusy] = useState(false);
@@ -161,11 +99,10 @@ function HtmlCvPage({
   const [pending, setPending] = useState<Target | null>(null);
   const [showNotes, setShowNotes] = useState(false);
   const requestId = useRef(0);
-  const currentSnapshot = JSON.stringify({ source, template });
+  const currentSnapshot = JSON.stringify(source);
   const dirty = !!saved && currentSnapshot !== saved;
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
-  const [context, setContext] = useState<CvContext | null>(null);
   const load = useCallback(
     async (target: Target, protectEdits = false) => {
       loadTarget.current = target;
@@ -179,24 +116,14 @@ function HtmlCvPage({
         return;
       }
       try {
-        const master = target.jobId === "master";
-        const context = await api<CvContext>("/master");
         const versions = await api<DocumentVersion[]>(
-          master
-            ? "/cv"
-            : `${apiBase}?jobId=${encodeURIComponent(target.jobId)}`,
+          `${apiBase}?jobId=${encodeURIComponent(target.jobId)}`,
         );
         const cv =
           versions.find((v) => v.id === target.versionId) ||
           versions[0] ||
           null;
-        let data: unknown;
-        if (master) {
-          data =
-            target.versionId && cv
-              ? await api<Profile>(`/profile/${cv.profileRevision}`)
-              : context.profile;
-        } else data = cv?.document || null;
+        const data = cv?.document || null;
         if (request !== requestId.current) return;
         if (protectEdits && dirtyRef.current) {
           setError(
@@ -204,20 +131,12 @@ function HtmlCvPage({
           );
           return;
         }
-        const nextSource = data ? JSON.stringify(data, null, 2) : "";
-        const nextTemplate =
-          (master && !target.versionId ? context.template : cv?.template) ||
-          (letterMode ? defaultCoverLetterTemplate : context.template);
-        setContext(context);
+        const nextSource = data ? draftFrom(data) : null;
         setSource(nextSource);
-        setTemplate(nextTemplate);
         setVersions(versions);
         setCurrent(cv);
         setJobId(target.jobId);
-        setRevision(context.profile.revision);
-        setSaved(
-          JSON.stringify({ source: nextSource, template: nextTemplate }),
-        );
+        setSaved(JSON.stringify(nextSource));
         setShowNotes(false);
       } catch (e) {
         if (request === requestId.current) setLoadError(message(e));
@@ -225,30 +144,26 @@ function HtmlCvPage({
         if (request === requestId.current) setLoading(false);
       }
     },
-    [apiBase, letterMode],
+    [apiBase],
   );
   useEffect(() => {
     void load({ jobId: initialTarget });
   }, [load, initialTarget]);
   useEffect(() => {
     onAssistantContext?.({
-      page: letterMode ? "saved" : "cv",
-      document: letterMode
-        ? "cover_letter"
-        : jobId === "master"
-          ? "html_cv"
-          : "legacy_cv",
-      ...(jobId !== "master" ? { jobId } : {}),
+      page: "saved",
+      document: "cover_letter",
+      jobId,
       dirty,
     });
-  }, [letterMode, jobId, dirty, onAssistantContext]);
+  }, [jobId, dirty, onAssistantContext]);
   useEffect(
     () =>
       onAssistantUpdate(({ receipts }) => {
-        const relevant = receipts.some((r) =>
-          jobId === "master"
-            ? r.kind === "profile" || r.kind === "html_cv"
-            : r.href.includes(`job=${encodeURIComponent(jobId)}`),
+        const relevant = receipts.some(
+          (r) =>
+            r.kind === "cover_letter" &&
+            r.href.includes(`job=${encodeURIComponent(jobId)}`),
         );
         if (!relevant) return;
         if (dirtyRef.current || loadTarget.current.versionId)
@@ -263,14 +178,9 @@ function HtmlCvPage({
     onDirty(dirty);
     return () => onDirty(false);
   }, [dirty, onDirty]);
-  const task =
-    jobId === "master"
-      ? null
-      : [...boot.tasks]
-          .reverse()
-          .find(
-            (t) => letterMode && t.kind === "cover_letter" && t.jobId === jobId,
-          );
+  const task = [...boot.tasks]
+    .reverse()
+    .find((t) => t.kind === "cover_letter" && t.jobId === jobId);
   useEffect(() => {
     if (
       task?.state === "complete" &&
@@ -280,13 +190,49 @@ function HtmlCvPage({
     )
       void load({ jobId });
   }, [task?.state, task?.resultId, current, jobId, load]);
-  const payload = useCallback(
-    () => ({
-      [jobId === "master" ? "profile" : "document"]: JSON.parse(source),
-      template,
-    }),
-    [jobId, source, template],
-  );
+  const payload = useCallback(() => {
+    if (!source) throw new Error("No cover letter loaded.");
+    const { body, ...fields } = source;
+    if (!body.trim()) throw new Error("Enter the letter body.");
+    return {
+      document: coverLetterDocumentSchema.parse({
+        ...fields,
+        paragraphs: body
+          .split(/\n\s*\n/)
+          .map((p) => p.trim())
+          .filter(Boolean),
+      }),
+    };
+  }, [source]);
+  useEffect(() => setCopied(false), [source]);
+  const copy = async () => {
+    setError("");
+    try {
+      const text = coverLetterText(payload().document);
+      if (navigator.clipboard?.writeText)
+        await navigator.clipboard.writeText(text);
+      else {
+        const focused = document.activeElement as HTMLElement | null;
+        const field = document.createElement("textarea");
+        field.value = text;
+        field.style.cssText = "position:fixed;opacity:0;pointer-events:none";
+        document.body.append(field);
+        field.select();
+        try {
+          if (!document.execCommand("copy"))
+            throw new Error(
+              "Copy failed. Select and copy the letter text manually.",
+            );
+        } finally {
+          field.remove();
+          focused?.focus();
+        }
+      }
+      setCopied(true);
+    } catch (e) {
+      setError(message(e));
+    }
+  };
   useEffect(() => {
     if (!source) {
       setPreview("");
@@ -316,31 +262,13 @@ function HtmlCvPage({
       active = false;
       clearTimeout(timer);
     };
-  }, [source, template, payload, apiBase]);
+  }, [source, payload, apiBase]);
   const save = useCallback(async () => {
     if (!source) return;
     setBusy(true);
     setError("");
     try {
-      if (jobId === "master") {
-        const result = await api<{ profile: Profile; cv: CvVersion }>(
-          "/master",
-          {
-            method: "PUT",
-            body: jsonBody({
-              ...payload(),
-              expectedRevision: revision,
-              expectedCvId: versions[0]?.id,
-            }),
-          },
-        );
-        const next = JSON.stringify(result.profile, null, 2);
-        setSource(next);
-        setRevision(result.profile.revision);
-        setCurrent(result.cv);
-        setVersions((v) => [result.cv, ...v]);
-        setSaved(JSON.stringify({ source: next, template }));
-      } else if (current) {
+      if (current) {
         const cv = await api<DocumentVersion>(
           `${apiBase}/${current.id}/versions`,
           {
@@ -350,7 +278,7 @@ function HtmlCvPage({
         );
         setCurrent(cv);
         setVersions((v) => [cv, ...v]);
-        setSaved(JSON.stringify({ source, template }));
+        setSaved(JSON.stringify(source));
       }
       await refresh();
     } catch (e) {
@@ -358,17 +286,7 @@ function HtmlCvPage({
     } finally {
       setBusy(false);
     }
-  }, [
-    source,
-    jobId,
-    payload,
-    revision,
-    current,
-    template,
-    refresh,
-    apiBase,
-    versions,
-  ]);
+  }, [source, payload, current, refresh, apiBase, versions]);
   useEffect(() => {
     const listener = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
@@ -432,23 +350,9 @@ function HtmlCvPage({
       setBusy(false);
     }
   };
-  const value =
-    file === "data"
-      ? source
-      : file === "template"
-        ? template.html
-        : template.css;
-  const extensions = useMemo(
-    () =>
-      file === "data" ? [json()] : file === "template" ? [html()] : [css()],
-    [file],
-  );
-  const candidates = letterMode ? boot.coverLetterJobs : boot.cvJobs;
+  const candidates = boot.coverLetterJobs;
   const activeTask = task && ["running", "queued"].includes(task.state);
-  const notes =
-    jobId === "master"
-      ? context?.profile.openItems.map((i) => i.question) || []
-      : current?.reviewNotes || [];
+  const notes = current?.reviewNotes || [];
   return (
     <div className={`cv-page ${embedded ? "embedded-letter" : ""}`}>
       <div className="toolbar">
@@ -456,26 +360,18 @@ function HtmlCvPage({
           <Select
             className="cv-document-select"
             aria-label={label}
-            disabled={busy || loading || (letterMode && !candidates.length)}
+            disabled={busy || loading || !candidates.length}
             value={jobId}
             onValueChange={(v) => v && select({ jobId: String(v) })}
             items={{
-              ...(!letterMode ? { master: "Master CV" } : {}),
               ...Object.fromEntries(
-                candidates.map((j) => [
-                  j.id,
-                  `${j.company} · ${j.title}${!letterMode ? " (saved resume)" : ""}`,
-                ]),
+                candidates.map((j) => [j.id, `${j.company} · ${j.title}`]),
               ),
             }}
           >
-            {!letterMode && (
-              <Select.Option value="master">Master CV</Select.Option>
-            )}
             {candidates.map((j) => (
               <Select.Option key={j.id} value={j.id}>
                 {j.company} · {j.title}
-                {!letterMode ? " (saved resume)" : ""}
               </Select.Option>
             ))}
           </Select>
@@ -516,7 +412,7 @@ function HtmlCvPage({
             Restore version
           </Button>
         )}
-        {letterMode && jobId && (
+        {jobId && (
           <Button
             variant="secondary"
             disabled={busy || !!activeTask}
@@ -579,11 +475,9 @@ function HtmlCvPage({
               : task?.state === "queued"
                 ? "Cover letter generation queued."
                 : task?.error ||
-                  (letterMode
-                    ? jobId
-                      ? "No cover letter generated yet."
-                      : "Save a job to generate a cover letter."
-                    : "No CV saved.")}
+                  (jobId
+                    ? "No cover letter generated yet."
+                    : "Save a job to generate a cover letter.")}
           </p>
           {task &&
             ["paused", "failed", "needs_details"].includes(task.state) && (
@@ -596,48 +490,122 @@ function HtmlCvPage({
         <>
           <div className="cv-split">
             <section className="source-editor">
-              <Tabs
-                variant="underline"
-                className="pane-tabs"
-                listClassName="pane-tab-list"
-                value={file}
-                onValueChange={setFile}
-                tabs={[
-                  { value: "data", label: "Data.json" },
-                  { value: "template", label: "Template.html" },
-                  { value: "css", label: "Styles.css" },
-                ]}
-              />
-              <div className="code-editor">
-                <CodeMirror
-                  readOnly={busy}
-                  editable={!busy}
-                  value={value}
-                  height="100%"
-                  theme={theme === "dark" ? "dark" : "light"}
-                  extensions={extensions}
-                  onChange={(v) =>
-                    file === "data"
-                      ? setSource(v)
-                      : setTemplate((t) => ({
-                          ...t,
-                          [file === "template" ? "html" : "css"]: v,
-                        }))
-                  }
-                  basicSetup={{
-                    foldGutter: true,
-                    lineNumbers: true,
-                    highlightActiveLine: true,
-                  }}
-                  aria-label={
-                    file === "data"
-                      ? `${label} data`
-                      : file === "template"
-                        ? `${label} template`
-                        : `${label} styles`
+              <fieldset
+                className="letter-fields"
+                disabled={busy}
+                aria-label="Cover letter fields"
+              >
+                <details>
+                  <summary>Contact details</summary>
+                  <div className="form-stack">
+                    <Input
+                      label="Name"
+                      value={source.name}
+                      onChange={(e) =>
+                        setSource({ ...source, name: e.target.value })
+                      }
+                    />
+                    <Input
+                      label="Location"
+                      value={source.location}
+                      onChange={(e) =>
+                        setSource({ ...source, location: e.target.value })
+                      }
+                    />
+                    {source.contacts.map((contact, i) => (
+                      <div className="form-stack" key={i}>
+                        <Input
+                          label={`Contact ${i + 1}`}
+                          value={contact.label}
+                          onChange={(e) =>
+                            setSource({
+                              ...source,
+                              contacts: source.contacts.map((c, n) =>
+                                n === i ? { ...c, label: e.target.value } : c,
+                              ),
+                            })
+                          }
+                        />
+                        <Input
+                          label={`Contact ${i + 1} link`}
+                          value={contact.url || ""}
+                          onChange={(e) =>
+                            setSource({
+                              ...source,
+                              contacts: source.contacts.map((c, n) =>
+                                n === i
+                                  ? { ...c, url: e.target.value || undefined }
+                                  : c,
+                              ),
+                            })
+                          }
+                        />
+                        <Button
+                          variant="ghost"
+                          onClick={() =>
+                            setSource({
+                              ...source,
+                              contacts: source.contacts.filter(
+                                (_, n) => n !== i,
+                              ),
+                            })
+                          }
+                        >
+                          Remove contact {i + 1}
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      variant="secondary"
+                      disabled={source.contacts.length >= 12}
+                      onClick={() =>
+                        setSource({
+                          ...source,
+                          contacts: [...source.contacts, { label: "" }],
+                        })
+                      }
+                    >
+                      Add contact
+                    </Button>
+                  </div>
+                </details>
+                <Input
+                  label="Company"
+                  value={source.company}
+                  onChange={(e) =>
+                    setSource({ ...source, company: e.target.value })
                   }
                 />
-              </div>
+                <Input
+                  label="Role"
+                  value={source.role}
+                  onChange={(e) =>
+                    setSource({ ...source, role: e.target.value })
+                  }
+                />
+                <Input
+                  label="Greeting"
+                  value={source.salutation}
+                  onChange={(e) =>
+                    setSource({ ...source, salutation: e.target.value })
+                  }
+                />
+                <InputArea
+                  label="Letter body"
+                  rows={14}
+                  value={source.body}
+                  onChange={(e) =>
+                    setSource({ ...source, body: e.target.value })
+                  }
+                />
+                <Input
+                  label="Sign-off"
+                  value={source.closing}
+                  onChange={(e) =>
+                    setSource({ ...source, closing: e.target.value })
+                  }
+                />
+              </fieldset>
               {(error || previewError) && (
                 <div className="editor-error" role="alert">
                   {error || previewError}
@@ -666,12 +634,16 @@ function HtmlCvPage({
                 <Button
                   variant="ghost"
                   disabled={busy}
-                  title="Editable Word document with its own formatting"
-                  onClick={() => void download("docx")}
+                  onClick={() => void copy()}
                 >
-                  Download DOCX
+                  Copy text
                 </Button>
               </div>
+              {copied && (
+                <span role="status" className="copy-status">
+                  Copied
+                </span>
+              )}
               <iframe title={`${label} preview`} sandbox="" srcDoc={preview} />
             </section>
           </div>

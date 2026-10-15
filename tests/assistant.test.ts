@@ -74,7 +74,16 @@ after(async () => {
 });
 
 test("assistant preserves legacy chat and idempotent messages while sharing one active queue", async () => {
-  chat.startProfileChat();
+  store.db
+    .prepare("INSERT INTO profile_messages VALUES (?,?,?,?,?,?)")
+    .run(
+      randomUUID(),
+      "assistant",
+      "Historical profile welcome",
+      store.now(),
+      null,
+      "welcome",
+    );
   const previous = chat.profileMessages();
   const state = assistant.startAssistant();
   assert.equal(state.messages[0].id, previous[0].id);
@@ -179,7 +188,9 @@ test("profile and actual LaTeX edits commit together, preserving previous versio
   assert.ok(
     receipts.some((r) => r.kind === "latex" && r.preview === "compiled"),
   );
-  assert.ok(receipts.some((r) => r.kind === "html_cv"));
+  assert.ok(receipts.some((r) => r.kind === "profile"));
+  assert.ok(!receipts.some((r) => r.kind === "html_cv"));
+  assert.deepEqual(store.listCvVersions(), []);
   assert.ok(latex.latexBuild(latex.latexVersion().hash));
 });
 
@@ -338,54 +349,17 @@ test("attributable fetched text can support profile edits and is saved as proven
   );
 });
 
-test("HTML template-only edits preserve facts and reject concurrent template saves", async () => {
-  const before = store.getProfile();
-  const a = actions();
-  const doc = (await a.execute("read_document", { kind: "html_cv" })) as any;
-  await a.execute("edit_document", {
-    kind: "html_cv",
-    expectedId: doc.id,
-    css: doc.template.css + "\nh1 {color: navy;}",
-  });
-  await save(a);
-  assert.deepEqual(store.getProfile(), before);
-  assert.match(store.getTemplate().css, /navy/);
-  const b = actions();
-  const next = (await b.execute("read_document", { kind: "html_cv" })) as any;
-  await b.execute("edit_document", {
-    kind: "html_cv",
-    expectedId: next.id,
-    css: "body{color:red}",
-  });
-  store.putSetting("template", {
-    ...store.getTemplate(),
-    css: "body{color:green}",
-  });
-  await assert.rejects(save(b), /changed in another window/);
-});
-
-test("master CV saves reject a stale template version even when profile facts have not changed", async () => {
-  const current = store.listCvVersions(null)[0];
-  const a = actions();
-  const read = (await a.execute("read_document", { kind: "html_cv" })) as any;
-  await a.execute("edit_document", {
-    kind: "html_cv",
-    expectedId: read.id,
-    css: "body{color:navy}",
-  });
-  await save(a);
-  const response = await app.inject({
-    method: "PUT",
-    url: "/api/master",
-    payload: {
-      profile: store.getProfile(),
-      template: current.template,
-      expectedRevision: store.getProfile().revision,
-      expectedCvId: current.id,
-    },
-  });
-  assert.equal(response.statusCode, 409);
-  assert.equal(store.getTemplate().css, "body{color:navy}");
+test("the assistant rejects removed HTML and legacy CV editors", async () => {
+  for (const kind of ["html_cv", "legacy_cv"]) {
+    await assert.rejects(actions().execute("read_document", { kind }));
+    await assert.rejects(
+      actions().execute("edit_document", {
+        kind,
+        expectedId: null,
+        css: "body{}",
+      }),
+    );
+  }
 });
 
 test("cover-letter rewrites preserve the original version and job status and reject stale manual saves", async () => {
@@ -416,6 +390,15 @@ test("cover-letter rewrites preserve the original version and job status and rej
     kind: "cover_letter",
     jobId: job.id,
   })) as any;
+  assert.equal("template" in doc, false);
+  await assert.rejects(
+    a.execute("edit_document", {
+      kind: "cover_letter",
+      jobId: job.id,
+      expectedId: doc.id,
+      html: "custom",
+    }),
+  );
   await a.execute("edit_document", {
     kind: "cover_letter",
     jobId: job.id,
@@ -433,7 +416,7 @@ test("cover-letter rewrites preserve the original version and job status and rej
   const response = await app.inject({
     method: "POST",
     url: `/api/cover-letters/${original.id}/versions`,
-    payload: { document, template: original.template, expectedId: original.id },
+    payload: { document, expectedId: original.id },
   });
   assert.equal(response.statusCode, 409);
 });

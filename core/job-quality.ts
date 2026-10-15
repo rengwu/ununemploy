@@ -30,8 +30,8 @@ export function descriptionRank(
   );
 }
 export function preserveDescription(
-  previous: IncomingJob,
-  incoming: IncomingJob,
+  previous: Readonly<IncomingJob>,
+  incoming: Readonly<IncomingJob>,
 ): IncomingJob {
   // An omitted expiry is not evidence that a previously expired feed entry reopened.
   if (
@@ -45,6 +45,12 @@ export function preserveDescription(
     incoming = { ...incoming, expiresAt: previous.expiresAt };
   const oldQuality = descriptionQuality(previous),
     newQuality = descriptionQuality(incoming);
+  const removedAt =
+    incoming.removedAt !== undefined
+      ? incoming.removedAt
+      : newQuality === "full"
+        ? null
+        : previous.removedAt;
   // A newer full description can legitimately be shorter. Empty bodies and excerpts cannot erase it.
   if (
     previous.description &&
@@ -53,12 +59,37 @@ export function preserveDescription(
   )
     return {
       ...incoming,
+      // Full-detail metadata stays authoritative through listing-card refreshes.
+      ...(oldQuality === "full" ? previous : {}),
+      sourceItemId: incoming.sourceItemId,
+      url: incoming.url,
+      expiresAt: incoming.expiresAt,
+      removedAt,
       description: previous.description,
       descriptionQuality: oldQuality,
       descriptionSource: previous.descriptionSource,
       kind: previous.kind,
     };
-  return { ...incoming, descriptionQuality: newQuality };
+  return { ...incoming, descriptionQuality: newQuality, removedAt };
+}
+// Stable source content, excluding observation times. Raw observations remain in
+// history, including excerpts; receipt time alone must not manufacture a version.
+export function sourceContent(item: Readonly<IncomingJob>): string {
+  const { descriptionSource, removedAt, ...content } = item;
+  const fields = {
+    ...content,
+    removed: !!removedAt,
+    descriptionSource: descriptionSource
+      ? { name: descriptionSource.name, url: descriptionSource.url }
+      : undefined,
+  };
+  return JSON.stringify(
+    Object.fromEntries(
+      Object.entries(fields)
+        .filter(([, value]) => value !== undefined)
+        .sort(([a], [b]) => a.localeCompare(b)),
+    ),
+  );
 }
 const DAY = 86400000;
 export function listingQuality(
@@ -69,6 +100,7 @@ export function listingQuality(
   const notes: string[] = [];
   const available = (o: Observation) =>
     !o.missingAt &&
+    !o.item.removedAt &&
     !(o.item.expiresAt && Date.parse(o.item.expiresAt) <= timestamp);
   const current = (o: Observation) => {
     const authoritative = authoritativeSources.has(o.sourceType);

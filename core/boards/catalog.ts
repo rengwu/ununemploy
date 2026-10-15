@@ -4,11 +4,15 @@ export type PublicBoard = {
   jobPath: string;
   hosts?: string[];
   paging?: string;
-  setup?: string;
   legacy?: string;
 };
 // Public reading routes only. Account/application routes are never discovery seeds.
 export const publicBoards: Record<string, PublicBoard> = {
+  dynamite: {
+    name: "Dynamite Jobs",
+    seeds: ["https://dynamitejobs.com/category/remote-development-jobs"],
+    jobPath: "^/company/[^/]+/remote-job/[^/]+$",
+  },
   hiredly: {
     name: "Hiredly",
     seeds: [
@@ -181,27 +185,6 @@ export const publicBoards: Record<string, PublicBoard> = {
     name: "Tech in Asia",
     seeds: ["https://www.techinasia.com/jobs"],
     jobPath: "^/jobs/[^/]+$",
-  },
-  adzuna: {
-    name: "Adzuna",
-    seeds: ["https://www.adzuna.com/"],
-    jobPath: "(?!)",
-    setup:
-      "Publisher API credentials and API adapter configuration are pending.",
-  },
-  jooble: {
-    name: "Jooble",
-    seeds: ["https://jooble.org/"],
-    jobPath: "(?!)",
-    setup:
-      "Publisher API credentials and API adapter configuration are pending.",
-  },
-  careerjet: {
-    name: "Careerjet",
-    seeds: ["https://www.careerjet.com/"],
-    jobPath: "(?!)",
-    setup:
-      "Publisher API credentials and API adapter configuration are pending.",
   },
 };
 export function boardFor(key: string) {

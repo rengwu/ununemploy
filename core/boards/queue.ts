@@ -1,68 +1,92 @@
-import { db, now } from "../db/index.ts";
+import { db, now, transaction } from "../db/index.ts";
 import type { IncomingJob } from "../types.ts";
+import { transitionQueue, type QueueState } from "./queue-state.ts";
 export type QueueRow = {
   url: string;
   document: string;
-  state: string;
+  state: QueueState["state"];
   checked_at: string | null;
+  retry_at: string | null;
+  error: string | null;
 };
-export function enqueueBoardJob(sourceId: string, job: IncomingJob) {
-  const timestamp = now();
+const read = (sourceId: string, url: string) =>
+  db
+    .prepare("SELECT * FROM board_queue WHERE source_id=? AND url=?")
+    .get(sourceId, url) as QueueRow | undefined;
+const state = (row: QueueRow): QueueState => ({
+  job: JSON.parse(row.document),
+  state: row.state,
+  checkedAt: row.checked_at,
+  retryAt: row.retry_at,
+  error: row.error,
+});
+function write(sourceId: string, url: string, value: QueueState) {
   db.prepare(
-    `INSERT INTO board_queue(source_id,url,document,state,discovered_at,seen_at,checked_at)
-    VALUES(?,?,?,?,?,?,?) ON CONFLICT(source_id,url) DO UPDATE SET
-    seen_at=excluded.seen_at,
-    document=CASE WHEN excluded.state='full' OR board_queue.state!='full' THEN excluded.document ELSE board_queue.document END,
-    state=CASE WHEN excluded.state='full' THEN 'full' ELSE board_queue.state END,
-    checked_at=CASE WHEN excluded.state='full' THEN excluded.checked_at ELSE board_queue.checked_at END`,
+    "UPDATE board_queue SET document=?,state=?,checked_at=?,retry_at=?,error=? WHERE source_id=? AND url=?",
   ).run(
+    JSON.stringify(value.job),
+    value.state,
+    value.checkedAt,
+    value.retryAt,
+    value.error,
     sourceId,
-    job.url,
-    JSON.stringify(job),
-    job.descriptionQuality === "full" ? "full" : "pending",
-    timestamp,
-    timestamp,
-    job.descriptionQuality === "full" ? timestamp : null,
+    url,
   );
-  return JSON.parse(
-    (
-      db
-        .prepare("SELECT document FROM board_queue WHERE source_id=? AND url=?")
-        .get(sourceId, job.url) as { document: string }
-    ).document,
-  ) as IncomingJob;
+  return value.job;
+}
+export function enqueueBoardJob(sourceId: string, job: IncomingJob) {
+  return transaction(() => {
+    const at = now();
+    db.prepare(
+      "INSERT INTO board_queue(source_id,url,document,discovered_at,seen_at) VALUES(?,?,?,?,?) ON CONFLICT(source_id,url) DO UPDATE SET seen_at=excluded.seen_at",
+    ).run(sourceId, job.url, JSON.stringify(job), at, at);
+    return write(
+      sourceId,
+      job.url,
+      transitionQueue(
+        state(read(sourceId, job.url)!),
+        { type: "discovered", job },
+        at,
+      ),
+    );
+  });
 }
 export function dueBoardJobs(sourceId: string): QueueRow[] {
-  return db
+  const at = now(),
+    old = new Date(Date.parse(at) - 7 * 86400000).toISOString(),
+    recent = new Date(Date.parse(at) - 14 * 86400000).toISOString();
+  // Fetch the reserved recheck separately so a long pending backlog cannot hide it.
+  const overdue = db
     .prepare(
-      `SELECT url,document,state,checked_at FROM board_queue WHERE source_id=?
-    AND (retry_at IS NULL OR retry_at<=?) AND state!='closed'
+      `SELECT * FROM board_queue WHERE source_id=? AND state='full'
+    AND (retry_at IS NULL OR retry_at<=?) AND checked_at<? AND seen_at>?
+    ORDER BY checked_at,url LIMIT 1`,
+    )
+    .get(sourceId, at, old, recent) as QueueRow | undefined;
+  const remaining = db
+    .prepare(
+      `SELECT * FROM board_queue WHERE source_id=? AND url!=?
+    AND (retry_at IS NULL OR retry_at<=?) AND (state!='closed' OR seen_at>checked_at)
     AND (state!='full' OR (checked_at<? AND seen_at>?))
-    ORDER BY CASE WHEN state='full' THEN 1 ELSE 0 END, COALESCE(checked_at,discovered_at),url LIMIT 100`,
+    ORDER BY CASE WHEN state='full' THEN 1 ELSE 0 END,COALESCE(checked_at,discovered_at),url LIMIT ?`,
     )
     .all(
       sourceId,
-      now(),
-      new Date(Date.now() - 7 * 86400000).toISOString(),
-      new Date(Date.now() - 14 * 86400000).toISOString(),
+      overdue?.url || "",
+      at,
+      old,
+      recent,
+      overdue ? 99 : 100,
     ) as QueueRow[];
+  return overdue ? [overdue, ...remaining] : remaining;
 }
 export function finishBoardJob(sourceId: string, job: IncomingJob) {
-  db.prepare(
-    "UPDATE board_queue SET document=?,state=?,checked_at=?,retry_at=NULL,error=NULL WHERE source_id=? AND url=?",
-  ).run(
-    JSON.stringify(job),
-    job.descriptionQuality === "full" ? "full" : "excerpt",
-    now(),
-    sourceId,
-    job.url,
-  );
-  if (job.descriptionQuality !== "full")
-    failBoardJob(
+  const row = read(sourceId, job.url);
+  if (row)
+    return write(
       sourceId,
       job.url,
-      "The source description is an excerpt.",
-      7 * 86400000,
+      transitionQueue(state(row), { type: "retrieved", job }, now()),
     );
 }
 export function failBoardJob(
@@ -72,24 +96,31 @@ export function failBoardJob(
   delay = 86400000,
   closed = false,
 ) {
-  db.prepare(
-    "UPDATE board_queue SET state=CASE WHEN ? THEN 'closed' ELSE state END,checked_at=?,retry_at=?,error=? WHERE source_id=? AND url=?",
-  ).run(
-    Number(closed),
-    now(),
-    new Date(Date.now() + delay).toISOString(),
-    error.slice(0, 500),
-    sourceId,
-    url,
-  );
+  const row = read(sourceId, url),
+    at = now();
+  if (row)
+    return write(
+      sourceId,
+      url,
+      transitionQueue(
+        state(row),
+        {
+          type: "failed",
+          message: error,
+          retryAt: new Date(Date.parse(at) + delay).toISOString(),
+          closed,
+        },
+        at,
+      ),
+    );
 }
 export function boardQueueStats(sourceId: string) {
-  const rows = db
-    .prepare(
-      "SELECT state,count(*) AS count FROM board_queue WHERE source_id=? GROUP BY state",
-    )
-    .all(sourceId);
   return Object.fromEntries(
-    rows.map((r) => [String(r.state), Number(r.count)]),
+    db
+      .prepare(
+        "SELECT state,count(*) AS count FROM board_queue WHERE source_id=? GROUP BY state",
+      )
+      .all(sourceId)
+      .map((r) => [String(r.state), Number(r.count)]),
   );
 }

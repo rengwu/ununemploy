@@ -5,7 +5,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 const directory = mkdtempSync(join(tmpdir(), "ununemploy-test-"));
 process.env.JH_DATA_DIR = directory;
-process.env.JH_PROFILE_SEED = new URL("./fixtures/profile.json", import.meta.url).pathname;
+process.env.JH_PROFILE_SEED = new URL(
+  "./fixtures/profile.json",
+  import.meta.url,
+).pathname;
 process.env.JH_TEST_SERVER = "1";
 const store = await import("../core/db/index.ts");
 const { app } = await import("../server/index.ts");
@@ -52,6 +55,10 @@ after(async () => {
   await app.close();
   store.db.close();
   rmSync(directory, { recursive: true, force: true });
+});
+
+test("fresh startup does not create legacy CVs", () => {
+  assert.deepEqual(store.listCvVersions(), []);
 });
 
 test("rescan deduplicates and preserves saved status, notes, and CV versions", () => {
@@ -111,51 +118,79 @@ test("rescan deduplicates and preserves saved status, notes, and CV versions", (
   assert.equal(store.listTasks().length, 1);
 });
 
-test("master save is atomic and rejects stale revisions", async () => {
-  const profile = store.getProfile(),
-    template = store.getTemplate();
-  const saved = await app.inject({
-    method: "PUT",
-    url: "/api/master",
-    payload: {
-      profile: {
-        ...profile,
-        basics: { ...profile.basics, headline: "Product engineer" },
-      },
-      template,
-      expectedRevision: profile.revision,
-    },
-  });
-  assert.equal(saved.statusCode, 200);
-  assert.equal(saved.json().profile.revision, profile.revision + 1);
-  const count = store.listCvVersions().length;
-  const stale = await app.inject({
-    method: "PUT",
-    url: "/api/master",
-    payload: { profile, template, expectedRevision: profile.revision },
-  });
-  assert.equal(stale.statusCode, 409);
-  assert.equal(store.listCvVersions().length, count);
-  assert.equal(store.getProfile().basics.headline, "Product engineer");
+test("profile saves remain atomic without creating legacy CV versions", () => {
+  const profile = store.getProfile();
+  const legacy = store.listCvVersions();
+  const input = {
+    ...profile,
+    basics: { ...profile.basics, headline: "Product engineer" },
+  };
+  const saved = store.saveProfile(input, profile.revision);
+  assert.equal(saved.revision, profile.revision + 1);
+  assert.deepEqual(store.listCvVersions(), legacy);
+  assert.throws(() => store.saveProfile(profile, profile.revision), /changed/);
+  assert.throws(
+    () =>
+      store.saveProfile(profile, saved.revision, {
+        onCommit: () => {
+          throw new Error("Audit write failed");
+        },
+      }),
+    /Audit write failed/,
+  );
+  assert.deepEqual(store.getProfile(), saved);
+  assert.deepEqual(store.listCvVersions(), legacy);
 });
 
-test("manual CV edits append a version without changing prior drafts", async () => {
-  const first = store.listJobs()[0];
-  const previous = store.listCvVersions(first.id)[0];
-  const response = await app.inject({
-    method: "POST",
-    url: `/api/cv/${previous.id}/versions`,
-    payload: {
-      document: { ...previous.document, summary: "Second manual summary." },
-      template: previous.template,
-    },
-  });
-  assert.equal(response.statusCode, 200);
-  assert.equal(response.json().parentId, previous.id);
-  assert.equal(
-    store.getCv(previous.id)?.document.summary,
-    "My manually edited summary.",
+test("legacy CV writes are retired while saved resumes remain readable and downloadable", async () => {
+  const previous = store.listCvVersions(store.listJobs()[0].id)[0];
+  const profile = store.getProfile();
+  const payload = {
+    profile,
+    document: previous.document,
+    template: previous.template,
+    expectedRevision: profile.revision,
+  };
+  const before = store.listCvVersions();
+  for (const [method, url] of [
+    ["PUT", "/api/master"],
+    ["PUT", "/api/template"],
+    ["POST", "/api/cv/preview"],
+    ["POST", `/api/cv/${previous.id}/versions`],
+  ] as const) {
+    const response = await app.inject({ method, url, payload });
+    assert.equal(response.statusCode, 404, url);
+  }
+  assert.deepEqual(store.getProfile(), profile);
+  assert.deepEqual(store.listCvVersions(), before);
+  assert.deepEqual(
+    (await app.inject(`/api/cv/${previous.id}`)).json(),
+    previous,
   );
+  assert.deepEqual(
+    (await app.inject(`/api/cv?jobId=${previous.jobId}`)).json(),
+    [previous],
+  );
+  for (const format of ["html", "docx", "pdf"]) {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/cv/export",
+      payload: {
+        document: previous.document,
+        template: previous.template,
+        format,
+      },
+    });
+    assert.equal(response.statusCode, 200, response.body.slice(0, 100));
+    assert.ok(response.rawPayload.length > 100);
+    if (format === "html")
+      assert.match(response.body, /My manually edited summary/);
+    if (format === "docx")
+      assert.equal(response.rawPayload.subarray(0, 2).toString(), "PK");
+    if (format === "pdf")
+      assert.equal(response.rawPayload.subarray(0, 4).toString(), "%PDF");
+  }
+  assert.deepEqual(store.listCvVersions(), before);
 });
 
 test("short descriptions wait for details and retry uses the updated job", async () => {

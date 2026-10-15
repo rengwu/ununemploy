@@ -108,7 +108,6 @@ try {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       document: letter.document,
-      template: letter.template,
       format: "pdf",
     }),
   });

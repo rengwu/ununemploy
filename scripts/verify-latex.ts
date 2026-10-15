@@ -15,7 +15,10 @@ mkdirSync(output, { recursive: true });
 const resume = readFileSync(
   new URL("../core/latex/starter.tex", import.meta.url),
   "utf8",
-).replace("Edit your resume here.", "Example Software: around six years of fictional test experience.\n\\newpage\nExample project details.");
+).replace(
+  "Edit your resume here.",
+  "Example Software: around six years of fictional test experience.\n\\newpage\nExample project details.",
+);
 mkdirSync(join(dir, "resume/output/pdf"), { recursive: true });
 writeFileSync(
   join(dir, "resume/output/pdf/john-goh-rengwu-resume.tex"),
@@ -117,10 +120,7 @@ try {
     path: join(output, "latex-desktop.png"),
     fullPage: true,
   });
-  const edit = resume.replace(
-    "around six years",
-    "approximately six years",
-  );
+  const edit = resume.replace("around six years", "approximately six years");
   await setCode(edit);
   await page.getByText("Unsaved changes", { exact: true }).waitFor();
   assert.equal(
@@ -129,7 +129,7 @@ try {
       .isDisabled(),
     true,
   );
-  await page.getByRole("tab", { name: "Data and HTML", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("dialog").waitFor();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   step("Unsaved changes are guarded and stale PDF download is disabled");
@@ -210,11 +210,9 @@ try {
   step(
     "Restoring an earlier version creates a new version and preserves history",
   );
-  await page.getByRole("tab", { name: "Data and HTML", exact: true }).click();
-  await page.getByRole("tab", { name: "Data.json", exact: true }).waitFor();
-  await page.getByRole("tab", { name: "LaTeX", exact: true }).click();
-  await page.waitForFunction(
-    () => document.querySelectorAll(".latex-pdf-page canvas").length === 2,
+  assert.equal(
+    await page.getByRole("tab", { name: "Data and HTML", exact: true }).count(),
+    0,
   );
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({
@@ -226,9 +224,7 @@ try {
     width: window.innerWidth,
   }));
   assert.ok(dimensions.scroll <= dimensions.width, JSON.stringify(dimensions));
-  step(
-    "Existing Data/HTML editor remains accessible; mobile page has no horizontal overflow",
-  );
+  step("CV opens directly to LaTeX; mobile page has no horizontal overflow");
   assert.equal(JSON.stringify(store.getProfile()), facts);
   assert.deepEqual(errors, []);
   assert.deepEqual(external, []);

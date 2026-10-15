@@ -1,42 +1,51 @@
 ---
-title: Optional Jev assessment
+title: Retired Jev assessment
 section: Features
-updated: 2026-10-07
+updated: 2026-10-16
 ---
-# Optional Jev assessment
+# Retired Jev assessment
 
 Feature ID: `FEAT-jev`
 
 ## Intent and basis
 
-Optionally supplement fit, geography, arrangement and applicability assessment when the user configures TypeSafe. Based on the [accepted project boundaries](../decisions/index.md) and existing implementation documentation; this migration adds no product requirement.
+The user accepted permanent executable-code retirement in the [lean cleanup plan](../journal/2026-10-16-lean-cleanup.md) on 16 October 2026. This supersedes temporary disablement on 8 October. Existing private data remains stored; baseline local matching and Codex cover-letter generation remain the active behavior.
 
 ## Entry points and prerequisites
 
-Settings → Jev configures the key and limits; Match → Assess with Jev prioritizes a job. No key means no requests.
+There are no Jev UI, configuration, API or worker entry points. Former key/settings/retry/job-assessment endpoints return 404, and bootstrap no longer returns Jev status. Environment keys cannot activate an implementation that is no longer present.
 
 ## Expected outcomes
 
-Disabling the integration restores baseline behavior. Unknown eligibility remains distinct from supported conflicts. Keys stay server-side; stale responses and limits are enforced. Codex still generates cover letters.
+- No Jev requests, queue processing or cached enrichment of score, geography, arrangement or eligibility.
+- Existing credential files, settings, assessments, queued work and counters remain intact. Removal does not migrate, delete or rewrite these records.
+- Migration 007 and archive storage compatibility remain to preserve existing databases and backup behavior. Archive imports retain their established overwrite semantics.
+- Removed code includes provider requests, authentication helpers, assessment rules, unused UI/styles, query enrichment and configuration switches.
 
 ## Verification recipe
 
-Use [shared verification setup](../verification/setup.md) for isolation, build identity, evidence and cleanup. `npx tsx --test tests/jev.test.ts` uses simulated provider responses. After `npm run build`, `npx tsx scripts/verify-jev-ui.ts` drives isolated settings and job assessment UI with simulated inference.
-
-Recipes are migrated from existing scripts and historical checks; they were not re-executed during the wiki migration.
+Use [shared setup](../verification/setup.md). Run `npx tsx --test tests/jev-retired.test.ts tests/backup.test.ts tests/job-query.test.ts` for removed endpoints, retained state, archive compatibility and baseline queries. After `npm run build`, run `npx tsx scripts/verify-jev-ui.ts` for desktop/mobile absence of Jev controls with a retained synthetic key and enabled settings.
 
 ## Coverage and limitations
 
-Authenticated TypeSafe access and actual assessment quality remain unverified. Provider inference is separately billed.
+No live provider inference is needed or authorized. Historical quality and billing findings remain below; retirement does not resolve historical accounting uncertainty. The reference below describes former behavior, not available functionality. Old test commands in that historical reference have been retired with the implementation.
 
 ## Verification history
 
+[Assistant consolidation and Jev retirement — 16 October 2026](../verification/runs/2026-10-16-lean-assistant-jev.md): preserved queued/history data, one assistant engine, removed Jev capabilities, 184 tests, build and desktop/mobile browser checks.
+
+[Jev disabled and hidden — 8 October 2026](../verification/runs/2026-10-07T182400Z-jev-disabled.md) passed the release gate, preserved-state checks, desktop/mobile UI and installed native app verification.
+
 [Historical implementation checks](../verification/history.md) record previous selected scenarios and limitations. Those entries are historical evidence; new reports belong in [verification runs](../verification/index.md).
 
+[Jev accounting investigation — 8 October 2026](../verification/runs/2026-10-07T180900Z-jev-accounting.md) records passing mocked checks, reproduced accounting gaps and unresolved provider billing reconciliation.
 
-Jev supplements local job matching through TypeSafe AI's official `POST https://api.typesafe.ai/v1/systemone` endpoint using `jev-latest`. It is a separately configured integration, not a fallback for Codex. Cover letters still use the configured official Codex runtime.
 
-## Configure
+## Historical implementation reference — before retirement
+
+The sections below describe the preserved implementation before suspension. They are not currently available app workflows. Jev previously supplemented local job matching through TypeSafe AI's official `POST https://api.typesafe.ai/v1/systemone` endpoint using `jev-latest`. It was a separately configured integration, not a fallback for Codex. Cover letters still use the configured official Codex runtime.
+
+## Previous configuration workflow
 
 Open **Settings → Jev**, set the daily request limit if desired (default **100**, UTC day), and save a TypeSafe API key. Saving a key enables assessment. The worker assesses one posting per tick, prioritizing explicitly queued jobs, then saved jobs, then existing match strength and recency. Existing open, non-dismissed jobs are included; the collection is processed gradually within the limit. **Match → Assess with Jev** moves a posting to the front of the queue. Reads and browser polling never trigger inference.
 
@@ -65,10 +74,12 @@ Migration 007 stores per-job assessment state and results separately from source
 
 Every attempted request reserves one daily request before network activity. Reservations remain after timeout or failure. Reported token counts are recorded separately. This is a request cap, not a currency spending guarantee. The worker honors Retry-After and uses exponential backoff. Authentication, account allowance, schema errors and permanent API failures pause requests with a Settings message and Retry action. Overlong inputs fail locally without truncation or a provider request. No model/provider/billing fallback is used.
 
-## Verification
+Observed accounting limitations as of 8 October 2026: usage is recorded only after the entire assessment validates, so an invalid-answer response can lose otherwise valid usage data. The database retains daily aggregates and the latest assessment per job, without an immutable attempt ledger or provider request IDs. No token/currency ceiling or provider billing reconciliation exists. Automatic processing includes the existing backlog after a key is saved. The [accounting investigation](../verification/runs/2026-10-07T180900Z-jev-accounting.md) reproduced these behaviors offline; it did not establish the cause of the reported balance depletion.
+
+## Historical verification recipes
 
 `npx tsx --test tests/jev.test.ts` exercises no-key behavior, credential storage/removal, payload minimization, response validation, caching, filtering, persistence, stale responses, limits, authentication failures, retry timing and eligibility uncertainty with simulated provider responses. `npx tsx scripts/verify-jev-ui.ts` uses an isolated database and simulated inference to verify settings, queuing, evidence display, removal and desktop/mobile layout. Run `npm run build` before the browser check.
 
-An authenticated TypeSafe request has **not** been verified: no user key was configured or consumed during implementation. Actual provider quality and account access require verification after configuration.
+The original implementation checks did **not** configure or consume a user key. The later 8 October investigation read persisted historical responses but made no new authenticated inference request. Provider quality and billing reconciliation still require separate evidence.
 
 References: [TypeSafe API](https://docs.typesafe.ai/api), [Choice](https://docs.typesafe.ai/primitives/choice), [confidence](https://docs.typesafe.ai/confidence), [known model limitations](https://docs.typesafe.ai/model-jaggedness/jev-1.13).

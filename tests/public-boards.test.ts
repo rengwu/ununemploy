@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -14,15 +15,21 @@ import {
 import type { IncomingJob } from "../core/types.ts";
 const directory = mkdtempSync(join(tmpdir(), "ununemploy-public-boards-"));
 process.env.JH_DATA_DIR = directory;
-process.env.JH_PROFILE_SEED = new URL("./fixtures/profile.json", import.meta.url).pathname;
+process.env.JH_PROFILE_SEED = new URL(
+  "./fixtures/profile.json",
+  import.meta.url,
+).pathname;
+process.env.JH_TEST_SERVER = "1";
 const store = await import("../core/db/index.ts");
 const { collectPublicBoard } = await import("../core/boards/collector.ts");
 const { addPublicBoards } = await import("../core/boards/install.ts");
 const { enqueueBoardJob, dueBoardJobs, finishBoardJob } =
   await import("../core/boards/queue.ts");
 const { scan } = await import("../core/scan.ts");
+const { app } = await import("../server/index.ts");
 const originalFetch = globalThis.fetch;
-after(() => {
+after(async () => {
+  await app.close();
   globalThis.fetch = originalFetch;
   store.db.close();
   rmSync(directory, { recursive: true, force: true });
@@ -38,11 +45,11 @@ const posting = (url: string, extra = {}) =>
 const nextData = (page: unknown) =>
   `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ props: { pageProps: page } })}</script>`;
 
-test("all evaluated boards are installed once; setup entries make no network requests", async () => {
-  assert.equal(Object.keys(publicBoards).length, 28);
+test("only implemented boards are installed and offered", () => {
+  assert.equal(Object.keys(publicBoards).length, 26);
   assert.equal(
     store.listSources().filter((s) => s.type === "public_board").length,
-    28,
+    26,
   );
   assert.deepEqual(addPublicBoards(), { added: [], upgraded: [] });
   assert.throws(
@@ -57,16 +64,110 @@ test("all evaluated boards are installed once; setup entries make no network req
       }),
     /supported/,
   );
+  for (const key of ["adzuna", "jooble", "careerjet"]) {
+    assert.equal(source(key), undefined);
+    assert.throws(() => boardSourceDefaults(key), /supported/);
+  }
+});
+
+test("retired source records and evidence survive while scans and setup exclude them", async () => {
+  const existing = store.listSources();
+  for (const s of existing) store.saveSource({ ...s, enabled: false });
+  const retired = ["adzuna", "jooble", "careerjet"].map((identifier) => ({
+    ...existing[0],
+    id: randomUUID(),
+    type: "public_board" as const,
+    name: identifier,
+    identifier,
+    enabled: true,
+    checkpoint: { retained: "old checkpoint" },
+    state: "needs_setup" as const,
+  }));
+  // Simulate persisted rows from the previous release, including stale enabled flags.
+  for (const s of retired)
+    store.db
+      .prepare("INSERT INTO sources VALUES (?,?,?,?)")
+      .run(s.id, JSON.stringify(s), s.type, s.identifier);
+  const job = store.ingestJob(retired[0], {
+    sourceItemId: "preserved",
+    title: "Product engineer",
+    company: "Fixture",
+    location: "Worldwide",
+    arrangement: "Remote",
+    employmentType: "FullTime",
+    salary: "",
+    url: "https://example.com/retained-job",
+    description: prose,
+    publishedAt: null,
+    kind: "opening",
+    descriptionQuality: "full",
+  }).job;
+  const beforeJob = store.getJob(job.id);
+  const beforeEvidence = store.db
+    .prepare("SELECT * FROM source_items WHERE job_id=?")
+    .all(job.id);
+  const beforeCounters = store.db.prepare("SELECT * FROM counters").all();
+  const beforeRuns = store.listRuns();
   let calls = 0;
   globalThis.fetch = async () => {
     calls++;
     throw new Error("Unexpected request");
   };
-  for (const key of ["adzuna", "jooble", "careerjet"]) {
-    assert.equal((await scan(source(key).id, true)).runs?.length, 0);
-    assert.equal(store.getSource(source(key).id)?.state, "needs_setup");
+  try {
+    assert.equal((await scan()).runs?.length, 0);
+    for (const s of retired) {
+      assert.equal((await scan(s.id, true)).runs?.length, 0);
+      assert.deepEqual(store.getSource(s.id), s);
+      await assert.rejects(
+        collectPublicBoard(
+          s,
+          { requests: 0, limit: 1 },
+          () => {},
+          () => {},
+        ),
+        /supported/,
+      );
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/sources",
+        payload: {
+          name: s.name,
+          type: s.type,
+          identifier: s.identifier,
+          enabled: true,
+          requestLimit: 1,
+        },
+      });
+      assert.equal(response.statusCode, 400);
+    }
+    const boot = (await app.inject("/api/bootstrap")).json();
+    assert.ok(
+      boot.sources.every(
+        (s: { id: string }) => !retired.some((r) => r.id === s.id),
+      ),
+    );
+    assert.ok(
+      boot.sources.some((s: { id: string }) => s.id === existing[0].id),
+    );
+    assert.equal((await app.inject(`/api/jobs/${job.id}`)).json().id, job.id);
+    assert.deepEqual(store.getJob(job.id), beforeJob);
+    assert.deepEqual(
+      store.db
+        .prepare("SELECT * FROM source_items WHERE job_id=?")
+        .all(job.id),
+      beforeEvidence,
+    );
+    assert.deepEqual(
+      store.db.prepare("SELECT * FROM counters").all(),
+      beforeCounters,
+    );
+    assert.deepEqual(store.listRuns(), beforeRuns);
+    assert.deepEqual(addPublicBoards(), { added: [], upgraded: [] });
+    assert.equal(calls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    for (const s of existing) store.saveSource(s);
   }
-  assert.equal(calls, 0);
 });
 
 test("legacy manual boards upgrade in place without changing other source preferences", () => {

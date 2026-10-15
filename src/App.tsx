@@ -1,5 +1,4 @@
 import type { AssistantContext } from "./assistant-context.ts";
-import { JevAssessment } from "./JevAssessment.tsx";
 import {
   useEffect,
   useRef,
@@ -27,8 +26,6 @@ import {
   PlusIcon,
   ArrowSquareOutIcon,
   XIcon,
-  SunIcon,
-  MoonIcon,
 } from "@phosphor-icons/react";
 const CvPage = lazy(() =>
   import("./CvPage.tsx").then((m) => ({ default: m.CvPage })),
@@ -36,7 +33,6 @@ const CvPage = lazy(() =>
 const AssistantPane = lazy(() =>
   import("./AssistantPane.tsx").then((m) => ({ default: m.AssistantPane })),
 );
-import { registerJobTools } from "./webmcp.ts";
 import { AddJobDialog } from "./AddJobDialog.tsx";
 import { useRemote } from "./useRemote.ts";
 import type { JobPage, JobLocations } from "../core/api-types.ts";
@@ -138,7 +134,6 @@ export function App() {
   const [theme, setTheme] = useState(
     () => localStorage.getItem("jh-theme") || "light",
   );
-  useEffect(() => registerJobTools(refresh), [refresh]);
   useEffect(() => {
     document.documentElement.dataset.theme = "kumo";
     document.documentElement.dataset.mode = theme;
@@ -204,11 +199,9 @@ export function App() {
         <Sidebar className="app-sidebar">
           <Sidebar.Header className="app-sidebar-header">
             <span className="app-name" title="ununemploy">
-              <span className="app-name-full">ununemploy</span>
-              <span className="app-name-compact" aria-hidden="true">
-                u
-              </span>
+              ununemploy
             </span>
+            <Sidebar.Trigger aria-label="Toggle navigation" />
           </Sidebar.Header>
           <Sidebar.Content>
             <Sidebar.Group>
@@ -267,17 +260,6 @@ export function App() {
                 Settings
               </Sidebar.MenuButton>
             </Sidebar.Menu>
-            <div className="sidebar-controls">
-              <Sidebar.Trigger aria-label="Toggle navigation" />
-              <Button
-                variant="ghost"
-                shape="square"
-                size="sm"
-                icon={theme === "light" ? MoonIcon : SunIcon}
-                aria-label={theme === "light" ? "Dark mode" : "Light mode"}
-                onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-              />
-            </div>
           </Sidebar.Footer>
         </Sidebar>
         <main className="app-main">
@@ -392,7 +374,12 @@ export function App() {
                 <SourcesPage boot={boot} action={action} />
               )}
               {page === "settings" && (
-                <SettingsPage boot={boot} action={action} />
+                <SettingsPage
+                  boot={boot}
+                  action={action}
+                  theme={theme}
+                  onThemeChange={setTheme}
+                />
               )}
             </>
           )}
@@ -767,15 +754,15 @@ function JobsPage({
                 {filtered.map((j) => (
                   <Table.Row
                     key={j.id}
-                    className={selectedId === j.id ? "selected-row" : ""}
+                    className={`job-row${selectedId === j.id ? " selected-row" : ""}`}
+                    onClick={() => {
+                      setSelected(j.id);
+                      markSeen(j.id);
+                    }}
                   >
                     <Table.Cell>
                       <button
                         className="job-title"
-                        onClick={() => {
-                          setSelected(j.id);
-                          markSeen(j.id);
-                        }}
                         aria-current={selectedId === j.id ? "true" : undefined}
                       >
                         {j.title}
@@ -800,7 +787,6 @@ function JobsPage({
                     <Table.Cell className="match-column">
                       <span className={`match ${j.category}`}>
                         {matchLabels[j.category]}
-                        {j.matchSource === "jev" ? " · Jev" : ""}
                       </span>
                       <div className="job-date">
                         {shortDate(j.publishedAt || j.firstSeenAt)}
@@ -1052,9 +1038,6 @@ function JobDetail({
         <h2>{job.title}</h2>
         <div className="detail-location">
           {locationLabel(job)}
-          {job.jev?.assessment && job.location !== job.jev.sourceLocation
-            ? " (Jev)"
-            : ""}
           : {job.location || "Unspecified"}
         </div>
         <div className="job-actions">
@@ -1093,13 +1076,7 @@ function JobDetail({
       </header>
       <dl className="job-facts">
         <div>
-          <dt>
-            Arrangement
-            {job.jev?.assessment &&
-            job.arrangement !== job.jev.sourceArrangement
-              ? " (Jev)"
-              : ""}
-          </dt>
+          <dt>Arrangement</dt>
           <dd>{job.arrangement}</dd>
         </div>
         <div>
@@ -1267,7 +1244,6 @@ function JobDetail({
         )}
         {tab === "match" && (
           <>
-            <JevAssessment job={job} busy={busy} action={action} />
             <h3>{matchLabels[job.category]} match</h3>
             <ul className="reason-list">
               {job.reasons.map((r, i) => (

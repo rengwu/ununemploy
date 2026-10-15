@@ -90,6 +90,16 @@ static DesktopDelegate *desktop;
     if (action.navigationType == WKNavigationTypeLinkActivated) [self openExternal:action.request.URL];
     return nil;
 }
+- (void)webView:(WKWebView *)web runOpenPanelWithParameters:(WKOpenPanelParameters *)parameters initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(NSArray<NSURL *> *))completionHandler {
+    if (![self isLocal:frame.request.URL]) { completionHandler(nil); return; }
+    NSOpenPanel *panel = [NSOpenPanel openPanel];
+    panel.canChooseFiles = YES;
+    panel.canChooseDirectories = NO;
+    panel.allowsMultipleSelection = parameters.allowsMultipleSelection;
+    [panel beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse result) {
+        completionHandler(result == NSModalResponseOK ? panel.URLs : nil);
+    }];
+}
 - (void)webView:(WKWebView *)web decidePolicyForNavigationResponse:(WKNavigationResponse *)response decisionHandler:(void (^)(WKNavigationResponsePolicy))handler {
     NSString *disposition = [response.response isKindOfClass:NSHTTPURLResponse.class] ? [(NSHTTPURLResponse *)response.response allHeaderFields][@"Content-Disposition"] : nil;
     if ([self isLocal:response.response.URL] && (!response.canShowMIMEType || [disposition.lowercaseString hasPrefix:@"attachment"])) handler(WKNavigationResponsePolicyDownload);

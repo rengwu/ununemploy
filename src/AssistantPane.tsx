@@ -24,7 +24,7 @@ import {
 import { api, jsonBody, type Bootstrap } from "./api.ts";
 import { useRemote } from "./useRemote.ts";
 import { SafeMarkdown } from "./SafeMarkdown.tsx";
-import { contextLabel, type AssistantContext } from "./assistant-context.ts";
+import type { AssistantContext } from "./assistant-context.ts";
 import type { ProfileMessage } from "../core/profile/chat.ts";
 import type { assistantState } from "../core/assistant/service.ts";
 const MarkdownPart = ({ text }: TextMessagePartProps) => (
@@ -322,13 +322,6 @@ export function AssistantPane({
             />
           </div>
         </header>
-        <div className="assistant-context">
-          <span>
-            {contextLabel(context)}
-            {context.dirty ? " · Unsaved edits" : ""}
-          </span>
-          <span className="muted">{boot.ai.model}</span>
-        </div>
         {(error || resource.error) && (
           <div className="assistant-error" role="alert">
             <p>{error || resource.error}</p>
@@ -390,7 +383,6 @@ export function AssistantPane({
                 />
               </ComposerPrimitive.Input>
               <div className="profile-composer-actions">
-                <span className="muted">Shift+Enter for a new line</span>
                 {running ? (
                   <ComposerPrimitive.Cancel asChild>
                     <Button variant="secondary" icon={StopIcon}>

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
-import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 const directory = mkdtempSync(join(tmpdir(), "ununemploy-jev-ui-"));
@@ -12,7 +12,13 @@ process.env.JH_PROFILE_SEED = new URL(
 process.env.JH_TEST_SERVER = "1";
 process.env.JH_JEV_API_KEY = "";
 const store = await import("../core/db/index.ts");
-const { processJevJob } = await import("../core/jev/service.ts");
+mkdirSync(join(directory, "secrets"), { recursive: true });
+writeFileSync(
+  join(directory, "secrets/jev.json"),
+  JSON.stringify({ token: "retained-fixture-key" }),
+  { mode: 0o600 },
+);
+store.putSetting("jevSettings", { enabled: true, dailyLimit: 200 });
 const { app } = await import("../server/index.ts");
 store.putSetting("app", {
   ...store.getSettings(),
@@ -20,7 +26,7 @@ store.putSetting("app", {
   aiEnabled: false,
 });
 const source = store.addSource({
-  name: "Jev test board",
+  name: "Test board",
   type: "ashby",
   identifier: "test",
   enabled: false,
@@ -49,140 +55,49 @@ page.on("pageerror", (e) => errors.push(e.message));
 const output = resolve(".local-data/verification");
 mkdirSync(output, { recursive: true });
 try {
-  await page.goto(`${origin}/#settings`);
-  await page.reload();
-  await page.getByLabel("Jev API key", { exact: true }).fill("fixture-key");
-  await page.getByRole("button", { name: "Save API key", exact: true }).click();
-  await page.getByLabel("Replace Jev API key", { exact: true }).waitFor();
-  assert.equal(
-    await page.getByLabel("Replace Jev API key", { exact: true }).inputValue(),
-    "",
-  );
-  await page.getByLabel("Jev requests per day (UTC)").fill("25");
-  await page.getByRole("button", { name: "Save Jev limit" }).click();
-  await page.getByRole("button", { name: "Pause Jev" }).waitFor();
-  await page.screenshot({
-    path: join(output, "jev-settings-desktop.png"),
-    fullPage: true,
-  });
-  await page.getByRole("button", { name: "Pause Jev" }).click();
-  await page.getByRole("button", { name: "Enable Jev" }).waitFor();
-  await page.getByRole("button", { name: "Enable Jev" }).click();
-  await page.getByRole("button", { name: "Pause Jev" }).waitFor();
-  await page.goto(`${origin}/#jobs`);
-  await page.reload();
-  await page
-    .getByRole("button", { name: "Frontend Engineer", exact: true })
-    .click();
-  await page.getByRole("tab", { name: "Match", exact: true }).click();
-  await page.getByRole("button", { name: "Assess with Jev" }).click();
-  await page.getByText("Queued for Jev assessment.").waitFor();
-  await processJevJob(async (_url, init) => {
-    const body = JSON.parse(init!.body as string);
-    const answers = Object.fromEntries(
-      Object.entries(
-        body.questions as Record<string, { criteria: Record<string, string> }>,
-      ).map(([key, q]) => {
-        const options = Object.keys(q.criteria);
-        const evidenceKey = (needle: string) =>
-          Object.entries(q.criteria).find(([, s]) => s.includes(needle))?.[0] ||
-          "unknown";
-        const choice =
-          key === "match"
-            ? "strong"
-            : key === "arrangement"
-              ? "hybrid"
-              : key === "sponsorship"
-                ? "available"
-                : key === "eligibility"
-                  ? "review"
-                  : key === "location_evidence" ||
-                      key === "arrangement_evidence"
-                    ? evidenceKey("Berlin office")
-                    : key === "sponsorship_evidence"
-                      ? evidenceKey("Visa sponsorship")
-                      : key.startsWith("place_")
-                        ? "workplace"
-                        : "unknown";
-        return [
-          key,
-          {
-            type: "choice",
-            choice,
-            confidence: 0.99,
-            probabilities: Object.fromEntries(
-              options.map((o) => [
-                o,
-                o === choice ? 0.99 : 0.01 / (options.length - 1),
-              ]),
-            ),
-          },
-        ];
-      }),
+  for (const [size, viewport] of [
+    ["desktop", { width: 1440, height: 1000 }],
+    ["mobile", { width: 390, height: 844 }],
+  ] as const) {
+    await page.setViewportSize(viewport);
+    await page.goto(`${origin}/#settings`);
+    await page.reload();
+    await page
+      .getByRole("heading", { name: "Settings", exact: true })
+      .waitFor();
+    assert.doesNotMatch(
+      await page.locator("body").innerText(),
+      /jev|typesafe/i,
     );
-    return Response.json({
-      model: "jev-1.13.0",
-      answers,
-      usage: { input_tokens: 600, output_tokens: 150 },
+    assert.equal(await page.getByLabel(/Jev/).count(), 0);
+    await page.screenshot({
+      path: join(output, `jev-retired-settings-${size}.png`),
+      fullPage: true,
     });
-  });
-  await page
-    .getByText("Hybrid · 99% model confidence", { exact: true })
-    .waitFor();
-  await page
-    .getByText("Offered · 99% model confidence", { exact: true })
-    .waitFor();
-  assert.match(
-    await page.locator(".detail-body").innerText(),
-    /Berlin office three days/,
-  );
-  assert.match(
-    await page.locator(".detail-body").innerText(),
-    /Original arrangement/,
-  );
-  await page.screenshot({
-    path: join(output, "jev-assessment-desktop.png"),
-    fullPage: true,
-  });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({
-    path: join(output, "jev-assessment-mobile.png"),
-    fullPage: true,
-  });
-  assert.ok(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  );
-  await page.goto(`${origin}/#settings`);
-  await page.reload();
-  await page
-    .getByRole("heading", { name: "Jev", exact: true })
-    .scrollIntoViewIfNeeded();
-  await page.screenshot({
-    path: join(output, "jev-settings-mobile.png"),
-    fullPage: true,
-  });
-  assert.ok(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  );
-  await page.getByRole("button", { name: "Remove API key" }).click();
-  await page.getByLabel("Jev API key", { exact: true }).waitFor();
-  await page.goto(`${origin}/#jobs`);
-  await page.reload();
-  await page
-    .getByRole("button", { name: "Frontend Engineer", exact: true })
-    .click();
-  await page.getByRole("tab", { name: "Match", exact: true }).click();
-  assert.equal(
-    await page.getByRole("heading", { name: "Jev assessment" }).count(),
-    0,
-  );
+    await page.goto(`${origin}/#jobs`);
+    await page.reload();
+    await page
+      .getByRole("button", { name: "Frontend Engineer", exact: true })
+      .click();
+    await page.getByRole("tab", { name: "Match", exact: true }).click();
+    assert.doesNotMatch(
+      await page.locator("body").innerText(),
+      /jev|typesafe/i,
+    );
+    assert.equal(await page.getByRole("button", { name: /Jev/ }).count(), 0);
+    await page.screenshot({
+      path: join(output, `jev-retired-match-${size}.png`),
+      fullPage: true,
+    });
+    assert.ok(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    );
+  }
   assert.deepEqual(errors, []);
   console.log(
-    "Jev settings, queue, assessment evidence, desktop/mobile layout and key removal passed with isolated fixture data and simulated inference.",
+    "Jev retired: retained key and settings; no Jev settings, job actions or labels on desktop/mobile.",
   );
 } finally {
   await browser.close();

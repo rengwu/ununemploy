@@ -68,7 +68,13 @@ try {
   const marked = page.waitForResponse(
     (r) => r.url() === `${origin}/api/jobs/${target.id}/seen`,
   );
-  await page.getByRole("button", { name: target.title, exact: true }).click();
+  await page
+    .getByRole("row")
+    .filter({
+      has: page.getByRole("button", { name: target.title, exact: true }),
+    })
+    .locator(".company-line")
+    .click();
   assert.equal((await marked).status(), 200);
   await page
     .getByRole("heading", { name: target.title, exact: true })
@@ -157,18 +163,83 @@ try {
   await page.screenshot({ path: ".local-data/verification/seen-mobile.png" });
   await page.getByRole("button", { name: "Back to jobs", exact: true }).click();
   assert.equal(await page.locator(".job-title").count(), 1);
+  const lastTarget = jobs[2];
+  await page.locator(".job-location").click();
+  await page
+    .getByRole("heading", { name: lastTarget.title, exact: true })
+    .waitFor();
+  await page.waitForFunction(
+    () => document.querySelectorAll(".job-title").length === 0,
+  );
+  assert.ok(store.getJob(lastTarget.id)?.seenAt);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await chooseSeen("Seen and unseen");
+  await page.locator(".job-title").first().waitFor();
+  for (const [index, selector] of [
+    [0, ".job-location"],
+    [1, ".match"],
+    [0, ".job-date"],
+    [1, "td"],
+  ] as const) {
+    const target = jobs[index];
+    const row = page.getByRole("row").filter({
+      has: page.getByRole("button", { name: target.title, exact: true }),
+    });
+    await row
+      .locator(selector)
+      .first()
+      .click(selector === "td" ? { position: { x: 5, y: 5 } } : {});
+    await page
+      .getByRole("heading", { name: target.title, exact: true })
+      .waitFor();
+    assert.equal(
+      await page.locator(".selected-row .job-title").innerText(),
+      target.title,
+    );
+  }
+  await page
+    .getByRole("button", { name: jobs[0].title, exact: true })
+    .press("Space");
+  await page
+    .getByRole("heading", { name: jobs[0].title, exact: true })
+    .waitFor();
+  assert.equal(store.listTasks().length, 0);
+  assert.ok(jobs.every((job) => store.getJob(job.id)?.status === "new"));
+  // Seed Saved independently of the save/generation workflow.
+  for (const job of jobs)
+    store.writeJob({
+      ...store.getJob(job.id)!,
+      status: "saved",
+      savedAt: store.now(),
+    });
+  await page.getByRole("button", { name: "Saved", exact: true }).click();
+  const savedRow = page.getByRole("row").filter({
+    has: page.getByRole("button", { name: jobs[1].title, exact: true }),
+  });
+  await savedRow.locator(".job-location").click();
+  await page
+    .getByRole("heading", { name: jobs[1].title, exact: true })
+    .waitFor();
+  assert.equal(
+    await page.locator(".selected-row .job-title").innerText(),
+    jobs[1].title,
+  );
+  assert.equal(store.listTasks().length, 0);
   assert.deepEqual(errors, []);
   const report = {
     passed: true,
     checks: [
       "automatic preview stays unseen",
-      "explicit click persists seen without saving",
+      "company click persists seen without saving",
+      "location, match, date and empty cell padding select the row",
       "unseen detail stays open",
       "seen filter and reload",
       "mutation failure/retry",
-      "keyboard open",
+      "keyboard Enter and Space open",
       "light/dark selection marker",
       "mobile detail/list",
+      "mobile location click opens details and records seen",
+      "Saved row location selects details without queuing generation",
     ],
     errors,
     styles,

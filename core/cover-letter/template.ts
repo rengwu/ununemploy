@@ -1,4 +1,4 @@
-import type { Template } from "../types.ts";
+import type { CoverLetterDocument, Template } from "../types.ts";
 
 export const defaultCoverLetterTemplate: Template = {
   html: `<header>
@@ -19,7 +19,31 @@ h1 { font-size: 22pt; line-height: 1.2; font-weight: 600; margin: 0 0 6pt; }
 a { color: inherit; text-decoration: none; }
 .recipient { margin-bottom: 4pt; }
 .subject { font-weight: 600; margin: 0 0 18pt; }
+main p { white-space: pre-wrap; }
 p { margin: 0 0 12pt; orphans: 3; widows: 3; }
 footer { margin-top: 18pt; break-inside: avoid; }
 @media screen { body { padding: 20mm; max-width: 210mm; margin: 0 auto; } }`,
 };
+
+export function coverLetterText(letter: CoverLetterDocument): string {
+  const contacts = [
+    letter.location,
+    ...letter.contacts.map(({ label, url }) =>
+      url && url !== label && url !== `mailto:${label}`
+        ? `${label}: ${url}`
+        : label,
+    ),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return [
+    letter.name,
+    contacts,
+    `${letter.company}\n${letter.role}`,
+    letter.salutation,
+    ...letter.paragraphs,
+    `${letter.closing}\n${letter.name}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}

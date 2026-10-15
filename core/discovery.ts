@@ -124,6 +124,33 @@ export function normalizeRemoteOk(data: unknown): IncomingJob[] {
       ),
   );
 }
+export function normalizeWorkingNomads(data: unknown): IncomingJob[] {
+  if (!Array.isArray(data))
+    throw new Error("Unexpected Working Nomads response: expected array.");
+  return valid(
+    data
+      .filter((j) => j && typeof j === "object")
+      .map((j) => {
+        const description = text(j.description);
+        const full =
+          description.length > 200 &&
+          !/(?:\.{3}|…|read more)\s*$/i.test(description);
+        return base({
+          sourceItemId: str(j.url),
+          url: str(j.url),
+          title: text(j.title),
+          company: text(j.company_name) || "Not listed",
+          location: text(j.location),
+          locationScope: "hiring",
+          arrangement: "Remote",
+          description,
+          publishedAt: sourceDate(j.pub_date),
+          descriptionQuality: full ? "full" : "excerpt",
+          kind: full ? "opening" : "lead",
+        });
+      }),
+  );
+}
 export function normalizeRemotive(data: RecordData): IncomingJob[] {
   return valid(
     jobsArray(data, "jobs", "Remotive").map((j) =>
@@ -276,6 +303,44 @@ export function normalizeRss(xml: string, source: Source): IncomingJob[] {
             title = title.slice(split + 2);
           }
         }
+        if (host === "jobs.wordpress.net") {
+          // Feed authors are posting accounts, not employers. Use only explicit attribution.
+          company = text(entry["job:company"]);
+          const named = title.match(/^(.+?)\s+—\s+(.+)$/);
+          if (named) {
+            title = named[1];
+            company ||= named[2];
+          }
+          company ||=
+            description
+              .match(
+                /^([^\n.]{2,100}) is (?:seeking|hiring|looking for)\b/i,
+              )?.[1]
+              ?.trim() || "";
+          location ||=
+            description.match(/(?:^|\n)Location:\s*([^\n]+)/i)?.[1]?.trim() ||
+            title.match(
+              /\b(United States|United Kingdom|US|UK|Canada|Australia)\s+Remote\b/i,
+            )?.[1] ||
+            "";
+        }
+        if (host === "remotejobs.com") {
+          // The feed appends "Remote" even to travelling/on-site roles. It is not a job requirement.
+          const withoutLabel = title.replace(/ - Remote$/i, "");
+          const split = withoutLabel.lastIndexOf(" - ");
+          if (split > 0 && withoutLabel !== title) {
+            title = withoutLabel.slice(0, split);
+            company =
+              text(entry["job:company"]) || withoutLabel.slice(split + 3);
+          } else {
+            title = withoutLabel;
+            company = text(entry["job:company"]);
+          }
+          location ||=
+            description
+              .match(/(?:^|\n)(?:Job |Work )?Location:\s*([^\n]+)/i)?.[1]
+              ?.trim() || "";
+        }
         if (["golangprojects.com", "clojurejobboard.com"].includes(host)) {
           const parts = title.split(/\s+@\s+/);
           if (parts.length > 1) {
@@ -286,19 +351,54 @@ export function normalizeRss(xml: string, source: Source): IncomingJob[] {
         }
         const remote =
           host === "weworkremotely.com" ||
-          /\bremote\b|anywhere in the world/i.test(location);
+          /\bremote\b|anywhere in the world/i.test(location) ||
+          (["jobs.wordpress.net", "remotejobs.com"].includes(host) &&
+            (/\bremote\b|work from home/i.test(title) ||
+              /\bremote (?:role|position|job|work)\b|\b(?:role|position|job) (?:is |will be )?(?:fully |100% )?remote\b|\bwork (?:fully )?remotely\b|\bwork from home\b/i.test(
+                description,
+              )));
         const hasFullDescription =
-          (host === "weworkremotely.com" || !!completeContent) &&
+          (["weworkremotely.com", "remotejobs.com"].includes(host) ||
+            !!completeContent) &&
           description.length > 200 &&
           !/(?:\.\.\.|…|read more|continue reading)\s*$/i.test(description);
+        const specialist = ["jobs.wordpress.net", "remotejobs.com"].includes(
+          host,
+        );
+        let arrangement = remote ? "Remote" : "Unspecified";
+        if (specialist) {
+          if (
+            /\bhybrid\b/i.test(title) ||
+            /\b(?:role|position|job) (?:is |will be )?(?:a )?hybrid\b/i.test(
+              description,
+            )
+          )
+            arrangement = "Hybrid";
+          else if (
+            /\bon[- ]site\b/i.test(title) ||
+            /\b(?:role|position|job) (?:is |will be )?(?:fully )?on[- ]site\b/i.test(
+              description,
+            )
+          )
+            arrangement = "On-site";
+          else if (
+            /\bnot (?:a )?remote (?:role|position|job)\b/i.test(description)
+          )
+            arrangement = "Unspecified";
+        }
         return base({
           sourceItemId: text(entry.guid || entry.id) || url,
           title,
           company: company || "Not listed",
           location,
           locationScope: host === "weworkremotely.com" ? "hiring" : "listed",
-          arrangement: remote ? "Remote" : "Unspecified",
-          employmentType: text(entry["job:job_type"]) || "Unspecified",
+          arrangement,
+          employmentType:
+            text(entry["job:job_type"]) ||
+            (specialist
+              ? title.match(/\b(?:Full-time|Part-time|Contract)\b/i)?.[0]
+              : "") ||
+            "Unspecified",
           salary: text(entry["job:salary"]),
           url,
           description,
@@ -320,7 +420,12 @@ export async function collectDiscovery(
   checkpoint: (value: Record<string, unknown>) => void,
   read: typeof readJson = readJson,
 ): Promise<void> {
-  if (source.type === "remoteok") {
+  if (source.type === "workingnomads") {
+    for (const job of normalizeWorkingNomads(
+      await read("https://www.workingnomads.com/api/exposed_jobs/", ctx),
+    ))
+      emit(job);
+  } else if (source.type === "remoteok") {
     for (const job of normalizeRemoteOk(
       await read("https://remoteok.com/api", ctx),
     ))

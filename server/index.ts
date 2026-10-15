@@ -1,3 +1,5 @@
+import { defaultCoverLetterTemplate } from "../core/cover-letter/template.ts";
+import { isRetiredSource } from "../core/source-catalog.ts";
 import { profileReadiness } from "../core/profile/facts.ts";
 import {
   assistantState,
@@ -8,8 +10,6 @@ import {
 import { contextSchema } from "../core/assistant/types.ts";
 import {
   profileState,
-  startProfileChat,
-  enqueueProfileMessage,
   cancelProfileTurn,
   retryProfileTurn,
   restoreProfile,
@@ -41,45 +41,25 @@ import {
 } from "../core/types.ts";
 import { fromProfile, renderCv } from "../core/cv/render.ts";
 import { scan } from "../core/scan.ts";
-import {
-  exportPdf,
-  exportDocx,
-  exportCoverLetterDocx,
-} from "../core/cv/export.ts";
+import { exportPdf, exportDocx } from "../core/cv/export.ts";
 import { xToken, setXToken } from "../core/x-auth.ts";
 import { web3Token, setWeb3Token } from "../core/web3-auth.ts";
 import { xBudgetKey } from "../core/x.ts";
 import { refreshAiStatus } from "../core/ai/generate.ts";
-import {
-  configureJev,
-  jevStatus,
-  queueJev,
-  resumeJev,
-  saveJevSettings,
-} from "../core/jev/service.ts";
 import { registerLatex } from "./latex.ts";
+import { registerBackup } from "./backup.ts";
+import { personalDataActivity } from "../core/backup/activity.ts";
 
 export const app = Fastify({ logger: true, bodyLimit: 2 * 1024 * 1024 });
-if (!store.listCvVersions().length)
-  store.saveCv({
-    jobId: null,
-    kind: "master",
-    document: fromProfile(store.getProfile()),
-    template: store.getTemplate(),
-    profileRevision: store.getProfile().revision,
-    reviewNotes: [],
-    evidence: null,
-    parentId: null,
-  });
 app.addHook("onRequest", async (req, reply) => {
   // The home app has no login. Cross-origin browser writes still have no purpose here.
   if (!["GET", "HEAD", "OPTIONS"].includes(req.method) && req.headers.origin) {
     const allowed = config.origin || `http://${req.headers.host}`;
-    const devOrigin = "http://127.0.0.1:5173";
+    const devOrigin = "http://127.0.0.1:2839";
     if (
       req.headers.origin !== allowed &&
       req.headers.origin !== devOrigin &&
-      req.headers.origin !== "http://localhost:5173"
+      req.headers.origin !== "http://localhost:2839"
     )
       return reply.code(403).send({ error: "Cross-origin request rejected." });
   }
@@ -96,7 +76,20 @@ app.setErrorHandler((error, req, reply) => {
           : 400;
   reply.code(code).send({ error: message });
 });
+const activeWrites = new WeakMap<FastifyRequest, () => void>();
+app.addHook("preHandler", async (req) => {
+  if (
+    !["GET", "HEAD", "OPTIONS"].includes(req.method) &&
+    req.routeOptions.url !== "/api/backups/import"
+  )
+    activeWrites.set(req, personalDataActivity());
+});
+app.addHook("onResponse", async (req) => {
+  activeWrites.get(req)?.();
+  activeWrites.delete(req);
+});
 registerLatex(app);
+registerBackup(app);
 app.get("/api/assistant", async (req, reply) =>
   conditional(req, reply, assistantState()),
 );
@@ -155,14 +148,6 @@ app.get("/api/bootstrap", async (req, reply) => {
     COUNT(*) FILTER (WHERE status IN ('saved','applied')) AS saved FROM jobs`,
     )
     .get() as Bootstrap["counts"];
-  const cvJobs = store.db
-    .prepare(
-      `SELECT id, json_extract(document,'$.title') AS title,
-    json_extract(document,'$.company') AS company FROM jobs
-    WHERE EXISTS (SELECT 1 FROM cv_versions WHERE job_id=jobs.id)
-    ORDER BY first_seen_at DESC,id`,
-    )
-    .all() as Bootstrap["cvJobs"];
   const coverLetterJobs = store.db
     .prepare(
       `SELECT id, json_extract(document,'$.title') AS title,
@@ -188,13 +173,11 @@ app.get("/api/bootstrap", async (req, reply) => {
       ...profileReadiness(store.getProfile()),
     },
     counts,
-    cvJobs,
     coverLetterJobs,
     tasks,
     x: { configured: !!xToken(), used: store.getCounter(xBudgetKey()) },
     web3: { configured: !!web3Token() },
-    jev: jevStatus(),
-    sources: store.listSources(),
+    sources: store.listSources().filter((source) => !isRetiredSource(source)),
     settings: store.getSettings(),
     runs: store.listRuns(),
     ai: store.setting("aiStatus", {
@@ -225,29 +208,6 @@ app.get<{ Params: { id: string } }>("/api/jobs/:id", async (req, reply) => {
 });
 app.get("/api/profile", async (req, reply) =>
   conditional(req, reply, profileState()),
-);
-app.post("/api/profile/chat/start", async () => startProfileChat());
-app.post("/api/profile/chat", async (req, reply) => {
-  const body = z
-    .object({
-      message: z.string().trim().min(1).max(16000),
-      clientId: z.string().uuid(),
-      expectedRevision: z.number().int().positive(),
-    })
-    .parse(req.body);
-  return reply
-    .code(202)
-    .send(
-      enqueueProfileMessage(body.message, body.clientId, body.expectedRevision),
-    );
-});
-app.post<{ Params: { id: string } }>(
-  "/api/profile/chat/:id/cancel",
-  async (req) => cancelProfileTurn(req.params.id),
-);
-app.post<{ Params: { id: string } }>(
-  "/api/profile/chat/:id/retry",
-  async (req) => retryProfileTurn(req.params.id),
 );
 app.post("/api/profile/restore", async (req) => {
   const { revision, expectedRevision } = z
@@ -364,78 +324,10 @@ const templateSchema = z.object({
   html: z.string().min(1).max(100000),
   css: z.string().max(100000),
 });
-app.put("/api/template", async (req) => {
-  const template = templateSchema.parse(req.body);
-  renderCv(fromProfile(store.getProfile()), template);
-  store.putSetting("template", template);
-  return template;
-});
 const previewSchema = z.union([
   z.object({ profile: profileSchema, template: templateSchema }),
   z.object({ document: cvDocumentSchema, template: templateSchema }),
 ]);
-app.post("/api/cv/preview", async (req) => {
-  const body = previewSchema.parse(req.body);
-  return {
-    html: renderCv(
-      "profile" in body ? fromProfile(body.profile) : body.document,
-      body.template,
-    ),
-  };
-});
-app.put("/api/master", async (req) => {
-  const body = z
-    .object({
-      profile: profileSchema,
-      template: templateSchema,
-      expectedRevision: z.number(),
-      expectedCvId: z.string().optional(),
-    })
-    .parse(req.body);
-  renderCv(fromProfile(body.profile), body.template);
-  return store.transaction(() => {
-    if (
-      body.expectedCvId &&
-      store.listCvVersions(null)[0]?.id !== body.expectedCvId
-    )
-      throw new Error(
-        "The CV changed in another window. Reload before saving.",
-      );
-    const profile = store.saveProfile(body.profile, body.expectedRevision, {
-      template: body.template,
-    });
-    return { profile, cv: store.listCvVersions(null)[0] };
-  });
-});
-app.post<{ Params: { id: string } }>("/api/cv/:id/versions", async (req) => {
-  const previous = store.getCv(req.params.id);
-  if (!previous) throw new Error("CV not found.");
-  if (!previous.jobId)
-    throw new Error("Save master facts through the master editor.");
-  const body = z
-    .object({
-      document: cvDocumentSchema,
-      template: templateSchema,
-      expectedId: z.string().optional(),
-    })
-    .parse(req.body);
-  renderCv(body.document, body.template);
-  return store.transaction(() => {
-    if (
-      body.expectedId &&
-      store.listCvVersions(previous.jobId)[0]?.id !== body.expectedId
-    )
-      throw new Error(
-        "The CV changed in another window. Reload before saving.",
-      );
-    return store.saveCv({
-      ...previous,
-      ...body,
-      parentId: previous.id,
-      kind: "edited",
-    });
-  });
-});
 let exporting = false;
 app.post("/api/cv/export", async (req, reply) => {
   if (exporting)
@@ -486,10 +378,11 @@ app.get<{ Params: { id: string } }>("/api/cv/:id", async (req) => {
   if (!cv) throw new Error("CV not found.");
   return cv;
 });
-const letterPreviewSchema = z.object({
-  document: coverLetterDocumentSchema,
-  template: templateSchema,
-});
+const letterPreviewSchema = z
+  .object({
+    document: coverLetterDocumentSchema,
+  })
+  .strict();
 app.get("/api/cover-letters", async (req) => {
   const { jobId } = z.object({ jobId: z.string().min(1) }).parse(req.query);
   return store.listCoverLetterVersions(jobId);
@@ -501,7 +394,7 @@ app.get<{ Params: { id: string } }>("/api/cover-letters/:id", async (req) => {
 });
 app.post("/api/cover-letters/preview", async (req) => {
   const body = letterPreviewSchema.parse(req.body);
-  return { html: renderCv(body.document, body.template) };
+  return { html: renderCv(body.document, defaultCoverLetterTemplate) };
 });
 app.post<{ Params: { id: string } }>(
   "/api/cover-letters/:id/versions",
@@ -511,7 +404,7 @@ app.post<{ Params: { id: string } }>(
     const body = letterPreviewSchema
       .extend({ expectedId: z.string().optional() })
       .parse(req.body);
-    renderCv(body.document, body.template);
+    renderCv(body.document, defaultCoverLetterTemplate);
     return store.transaction(() => {
       if (
         body.expectedId &&
@@ -523,6 +416,7 @@ app.post<{ Params: { id: string } }>(
       return store.saveCoverLetter({
         ...previous,
         ...body,
+        template: defaultCoverLetterTemplate,
         parentId: previous.id,
         kind: "edited",
       });
@@ -535,31 +429,20 @@ app.post("/api/cover-letters/export", async (req, reply) => {
       .code(429)
       .send({ error: "An export is already running. Try again shortly." });
   const body = letterPreviewSchema
-    .extend({ format: z.enum(["pdf", "docx", "html"]) })
+    .extend({ format: z.literal("pdf") })
     .parse(req.body);
   const filename = `${body.document.name}-${body.document.company}-Cover-letter`
     .replace(/[^a-zA-Z0-9 -]/g, "")
     .replace(/ +/g, "-");
   exporting = true;
   try {
-    const buffer =
-      body.format === "pdf"
-        ? await exportPdf(body.document, body.template)
-        : body.format === "docx"
-          ? await exportCoverLetterDocx(body.document)
-          : Buffer.from(renderCv(body.document, body.template));
+    const buffer = await exportPdf(body.document, defaultCoverLetterTemplate);
     return reply
       .header(
         "Content-Disposition",
         `attachment; filename="${filename}.${body.format}"`,
       )
-      .type(
-        body.format === "pdf"
-          ? "application/pdf"
-          : body.format === "docx"
-            ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            : "text/html",
-      )
+      .type("application/pdf")
       .send(buffer);
   } finally {
     exporting = false;
@@ -602,35 +485,6 @@ app.post("/api/x/token", async (req) => {
   return { configured: true };
 });
 app.post("/api/ai/check", async () => refreshAiStatus());
-app.post("/api/jev/key", async (req) => {
-  const { token } = z
-    .object({
-      token: z
-        .string()
-        .trim()
-        .min(1)
-        .max(5000)
-        .regex(/^[A-Za-z0-9%._~+\/=-]+$/, "Enter the API key only."),
-    })
-    .parse(req.body);
-  return configureJev(token);
-});
-app.delete("/api/jev/key", async () => configureJev(""));
-app.put("/api/jev/settings", async (req) =>
-  saveJevSettings(
-    z
-      .object({
-        enabled: z.boolean(),
-        dailyLimit: z.number().int().min(0).max(10000),
-      })
-      .parse(req.body),
-  ),
-);
-app.post("/api/jev/retry", async () => resumeJev());
-app.post<{ Params: { id: string } }>("/api/jobs/:id/jev", async (req, reply) =>
-  reply.code(202).send(queueJev(req.params.id)),
-);
-
 app.post("/api/web3/token", async (req) => {
   const { token } = z
     .object({

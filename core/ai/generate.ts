@@ -1,5 +1,7 @@
+import { defaultCoverLetterTemplate } from "../cover-letter/template.ts";
 import { z } from "zod";
 import { config } from "../config.ts";
+import { personalDataActivity } from "../backup/activity.ts";
 import {
   getSettings,
   listTasks,
@@ -167,6 +169,14 @@ export async function refreshAiStatus() {
   return status;
 }
 export async function processCoverLetterTask() {
+  const finish = personalDataActivity();
+  try {
+    return await runCoverLetterTask();
+  } finally {
+    finish();
+  }
+}
+async function runCoverLetterTask() {
   if (!getSettings().aiEnabled) return;
   const task = listTasks().find(
     (t) => t.kind === "cover_letter" && t.state === "queued",
@@ -206,7 +216,7 @@ export async function processCoverLetterTask() {
         jobId: task.jobId,
         kind: "generated",
         document: validated.document,
-        template: task.input.template,
+        template: defaultCoverLetterTemplate,
         profileRevision: task.input.profile.revision,
         reviewNotes: validated.warnings,
         evidence: validated.generation,

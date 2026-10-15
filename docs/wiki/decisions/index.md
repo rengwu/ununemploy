@@ -1,7 +1,7 @@
 ---
 title: Decision register
 section: Decisions
-updated: 2026-10-07
+updated: 2026-10-16
 ---
 # Decision register
 
@@ -16,8 +16,21 @@ These are established requirements summarized from repository `AGENTS.md` and th
 | DEC-ui | Lowercase ununemploy; React/TypeScript/Vite with official Kumo components and literal task-focused copy. | Existing user approval, replacing the earlier SvelteKit proposal; [dashboard decisions](dashboard-ui.md). |
 | DEC-assistant | Persistent right-side overlay without page shift; shared profile facts and bounded document actions with atomic versions. | Established before migration; [assistant](../features/assistant.md). No unrestricted shell/filesystem/external writes. |
 | DEC-runtime | Official Codex, ChatGPT subscription, gpt-5.6-sol, high reasoning; serialized jobs, runtime-owned authentication, no silent fallback. | Established before migration; [architecture](../reference/architecture.md), [cover letters](../features/cover-letters.md). |
-| DEC-jev | Optional TypeSafe assessment only after user configuration; retain no-key baseline and Codex letter generation. | Established before migration; [Jev](../features/jev.md). Live authenticated inference is unverified. |
+| DEC-jev | Retire executable Jev integration while preserving credentials, settings, assessment history, queue and counters. Use baseline matching and Codex letters. | User approval of the lean cleanup on **16 October 2026** supersedes temporary disablement on 8 October. Historical accounting findings remain preserved. [Jev](../features/jev.md), [cleanup plan](../journal/2026-10-16-lean-cleanup.md). |
 | DEC-wiki | Adopt the local jstack collection and migrate project documentation into a Markdown wiki with an offline reader. | User request on **7 October 2026**: “can we adopt jstack (../jstack) for this project? migrate all docs to wiki format”; [migration journal](../journal/2026-10-07-jstack-migration.md). |
 | DEC-desktop | Add a local native Go webview app for macOS; opening it owns service startup, closing the window keeps scanning, and Quit stops services. Preserve existing local state outside the bundle. | User request and explicit “Keep running until Quit” selection on **7 October 2026**; [journal](../journal/2026-10-07-desktop.md), [desktop specification](../features/desktop.md). Supplements the Unraid target. |
 
+| DEC-backup | Export current personal content to ZIP; import overwrites without an automatic backup. Exclude old versions, conversations, source configuration and settings. | User answers on **8 October 2026**; [backup specification](../features/backups.md), [answer transcript](../journal/2026-10-07-grill-1690ca1b-3437-4b6b-b439-f41c51e45a16.md). |
+| DEC-latex-only | CV opens directly to LaTeX; remove Data and HTML CV editing. Cover letters stay in Saved; their HTML editing was subsequently removed by the 16 October lean decision below. | User correction on **8 October 2026**; supersedes the earlier dual-CV interface in DEC-ui; [CV specification](../features/master-cv.md). |
+| DEC-source-audit | Add Working Nomads, WordPress Jobs, RemoteJobs.com and Dynamite Jobs after a full analysis of existing integrations. The later user correction removes The Muse entirely from scope, including setup and follow-up. Defer Reddit. Preserve scanning and parsing reliability when considering simplification. | User instruction on **8 October 2026**: “before adding, let's do a full analysis of our existing integrations.” The [audit](../journal/2026-10-08-integration-audit.md) records findings and proposed changes; the [corrective implementation](../verification/runs/2026-10-08T075217Z-integration-implementation.md) records the resulting changes and checks. |
+| DEC-discovery-functional | Correct the audited integration behavior with shared pure TypeScript rules and existing tables. Full-detail metadata remains authoritative until refresh; keep conflict/reopening rules simple, reserve one overdue recheck and continue known details after discovery-only parse failures. | User [interview answers](../journal/2026-10-08-grill-066239f1-0297-4959-931f-86fe2f48422e.md) on **8 October 2026**. [Current specification](../features/discovery.md#accepted-corrective-design-8-october-2026) and [rationale](../journal/2026-10-08-integration-design.md). Implemented and verified; metadata precedence supersedes the audit's newest-card recommendation. |
+
 Historical source strategies and probe outcomes remain in the [source evaluation](../journal/2026-09-16-source-evaluation.md) and [coverage research](../journal/2026-09-17-coverage-research.md) journals; proposals there are not newly accepted requirements.
+
+## Accepted lean cleanup — 16 October 2026
+
+The user approved sequential removal of redundant and speculative paths. The [cleanup plan](../journal/2026-10-16-lean-cleanup.md) records the first pass, subsequent items and unresolved choices. This changes the planned Jev direction from temporary disablement to retirement with retained data, and authorizes later simplification of the cover-letter editor. Existing implementations remain in place until each item is completed and verified.
+
+### Lean cover-letter authoring — 16 October 2026
+
+Accepted: plain-text fields and paragraphs, one shared layout, Copy text and PDF. Remove cover-letter code tabs, layout actions and DOCX/HTML exports. Existing storage remains intact; no old-layout compatibility UI is needed. See the [submitted answers](../journal/2026-10-15-grill-c7050aa1-cfbb-429f-9ecd-6ff4875c9c24.md), [current feature](../features/cover-letters.md) and [completed lean plan](../journal/2026-10-16-lean-cleanup.md).

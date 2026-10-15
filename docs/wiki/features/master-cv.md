@@ -1,19 +1,19 @@
 ---
-title: Master CV and legacy resumes
+title: LaTeX CV
 section: Features
-updated: 2026-10-07
+updated: 2026-10-16
 ---
-# Master CV and legacy resumes
+# LaTeX CV
 
 Feature ID: `FEAT-master-cv`
 
 ## Intent and basis
 
-Edit and export an independent master CV, retaining legacy resumes and manual changes. Based on the [accepted project boundaries](../decisions/index.md) and existing implementation documentation; this migration adds no product requirement.
+Edit and export an independent master CV, retaining legacy resumes and manual changes. Based on the [accepted project boundaries](../decisions/index.md) and existing implementation documentation; the [LaTeX-only decision](../decisions/index.md) supersedes the earlier dual-editor UI.
 
 ## Entry points and prerequisites
 
-CV → LaTeX or Data and HTML; prepare the compiler using [local setup](../guides/local-development.md).
+CV opens directly to LaTeX; prepare the compiler using [local setup](../guides/local-development.md).
 
 ## Expected outcomes
 
@@ -31,14 +31,18 @@ The compiler/package cache must be ready. Native Linux sandbox support and actua
 
 ## Verification history
 
+[Lean cleanup first pass — 16 October 2026](../verification/runs/2026-10-15T165802Z-lean-first-pass.md): WebMCP removal, retired legacy CV writes with preserved downloads, and hidden/unscanned placeholder sources; 200 tests, build and isolated browser checks passed.
+
+[ZIP backups and LaTeX-only CV — 8 October 2026](../verification/runs/2026-10-07T182813Z-backups.md) records archive validation/replacement, the two-button browser and native flows, LaTeX/assistant checks and installation.
+
 [Historical implementation checks](../verification/history.md) record previous selected scenarios and limitations. Those entries are historical evidence; new reports belong in [verification runs](../verification/index.md).
 
 
 ## LaTeX editor
 
-Open **CV → LaTeX** to edit `Resume.tex` beside its actual PDF. **Recompile** (`Cmd/Ctrl+Enter`) updates the preview; **Save** (`Cmd/Ctrl+S`) creates a persistent source version. The version selector and **Restore version** retain previous edits. **Download PDF** exports the displayed build and is disabled when the source has changed; **Download .tex** always preserves the current source, including an unfinished edit. Errors link to source lines and leave the last good preview visible. Compilation uses no AI.
+Open **CV** to edit `Resume.tex` beside its actual PDF. **Recompile** (`Cmd/Ctrl+Enter`) updates the preview; **Save** (`Cmd/Ctrl+S`) creates a persistent source version. The version selector and **Restore version** retain previous edits. **Download PDF** exports the displayed build and is disabled when the source has changed; **Download .tex** always preserves the current source, including an unfinished edit. Errors link to source lines and leave the last good preview visible. Compilation uses no AI.
 
-LaTeX has independent version history. Editing it never updates career facts or cover-letter evidence. **CV → Data and HTML** retains the structured profile, HTML/CSS editor, Word exports and legacy saved resumes. On first use, an existing `resume/output/pdf/john-goh-rengwu-resume.tex` under appdata is imported once. Otherwise a source document is initialized from the current master facts using the sb2nov-style template. Later edits are never overwritten by seed files or profile changes.
+LaTeX has independent version history. Editing it never updates career facts or cover-letter evidence. On 8 October 2026 the user removed **Data and HTML**: CV now exposes only LaTeX, old HTML CV links open LaTeX, and the assistant no longer reads or edits HTML/legacy CVs. Existing legacy database records retain API-only read/download access through `GET /api/cv`, `GET /api/cv/:id` and `POST /api/cv/export` (HTML, PDF and DOCX). Obsolete `PUT /api/master`, `PUT /api/template`, `POST /api/cv/preview` and `POST /api/cv/:id/versions` routes are retired. Startup and profile/assistant edits no longer create legacy CV versions; the saved-job cover-letter editor uses plain text, a shared preview/PDF layout and Copy text. On first use, an existing `resume/output/pdf/john-goh-rengwu-resume.tex` under appdata is imported once. Otherwise a source document is initialized from the current master facts using the sb2nov-style template. Later edits are never overwritten by seed files or profile changes.
 
 The Docker image includes Tectonic, the required fonts/packages, and a Linux Landlock sandbox. Compiles run offline, with shell escape disabled, a 30-second timeout, bounded output and a temporary work directory. They cannot read appdata or Codex authentication. The Linux host must support Landlock (kernel 5.13+ with Landlock enabled); compilation fails closed if it does not. No privileged container or Docker socket is required.
 

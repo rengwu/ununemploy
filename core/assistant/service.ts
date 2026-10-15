@@ -8,7 +8,6 @@ import {
   profileMessages,
   latestProfileTurn,
   type ProfileTurn,
-  type ProfileInference,
 } from "../profile/chat.ts";
 import { profileReadiness, profileWelcome } from "../profile/facts.ts";
 import { AssistantActions, type ActionDependencies } from "./actions.ts";
@@ -20,6 +19,11 @@ import {
   type Receipt,
 } from "./types.ts";
 
+export type AssistantInference = (
+  prompt: string,
+  schema: object,
+  options?: { signal?: AbortSignal },
+) => Promise<{ result: unknown; usage: unknown }>;
 export type AssistantTurn = ProfileTurn & {
   engine: string;
   context: AssistantContext;
@@ -66,7 +70,7 @@ export function startAssistant() {
     ) {
       const profile = store.getProfile();
       const text = profileReadiness(profile).ready
-        ? "I can help you find jobs, update your profile, edit your LaTeX or HTML CV, and rewrite saved cover letters. Tell me what you’d like to work on."
+        ? "I can help you find jobs, update your profile, edit your LaTeX CV, and rewrite saved cover letters. Tell me what you’d like to work on."
         : profileWelcome(profile);
       store.db
         .prepare("INSERT INTO profile_messages VALUES (?,?,?,?,?,?)")
@@ -154,7 +158,7 @@ const activities: Record<string, string> = {
 };
 export async function processAssistantTurn(
   deps: ActionDependencies & {
-    infer?: ProfileInference;
+    infer?: AssistantInference;
     check?: typeof checkCodex;
   } = {},
 ): Promise<boolean> {
@@ -173,6 +177,18 @@ export async function processAssistantTurn(
       .get();
     if (!row) return false;
     const turn = turnDetail(String(row.id));
+    if (turn.expectedRevision !== store.getProfile().revision) {
+      store.db
+        .prepare(
+          "UPDATE profile_turns SET state='conflict',error=?,updated_at=? WHERE id=?",
+        )
+        .run(
+          "The profile changed while this message was queued. Review the current facts, then retry.",
+          store.now(),
+          turn.id,
+        );
+      return true;
+    }
     const health = await (deps.check || checkCodex)();
     if (turnDetail(turn.id).state !== "queued") return true;
     if (health.state !== "ready") {

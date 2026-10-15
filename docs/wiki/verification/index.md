@@ -1,13 +1,43 @@
 ---
 title: Verification
 section: Verification
-updated: 2026-10-07
+updated: 2026-10-16
 ---
 # Verification
 
 Use [shared setup](setup.md) before running selected checks. [Feature records](../features/index.md) state expected outcomes and recipes; a pass applies only to its recorded build and scope.
 
 ## Runs
+
+[Lean cleanup native installation — 16 October 2026](runs/2026-10-16-lean-native-install.md): rebuild/install and data/lifecycle checks passed; the existing large-inbox refresh timeout remains (aggregate Failed).
+
+[Lean cover-letter editor — 16 October 2026](runs/2026-10-16-lean-cover-letters.md) verifies prose fields, shared layout, Copy text/PDF, preserved editing workflows, 184 tests and browser checks.
+
+[Assistant consolidation and Jev retirement — 16 October 2026](runs/2026-10-16-lean-assistant-jev.md) verifies the single conversation engine, migration of unfinished legacy requests, retained Jev data, 184 tests, build and browser checks.
+
+[Lean cleanup first pass — 16 October 2026](runs/2026-10-15T165802Z-lean-first-pass.md) covers removed interfaces, preserved historical downloads and source records, 200 tests, production build and isolated browser checks.
+
+[Corrective integration pass and four sources — 8 October 2026](runs/2026-10-08T075217Z-integration-implementation.md) verifies shared pure rules, parsing, persistence, bounded live scanning and the installed app. The Muse is excluded.
+
+[Integration audit — 8 October 2026](runs/2026-10-07T190844Z-integration-audit.md) records passing existing tests and bounded live scans, cached-parser coverage, and four reproduced correctness gaps before the authorized source additions.
+
+[Redundant profile assistant button — 8 October 2026](runs/2026-10-07T183349Z-profile-button.md) verifies the simplified profile toolbar and retained header assistant entry point.
+
+[ZIP backups and LaTeX-only CV — 8 October 2026](runs/2026-10-07T182813Z-backups.md) verifies current-content restore/export, validation and rollback, the two-button browser/native flow, and LaTeX-only CV.
+
+[Jev disabled and hidden — 8 October 2026](runs/2026-10-07T182400Z-jev-disabled.md) verifies the release gate, rejected API actions, hidden desktop/mobile UI and installed app persistence.
+
+[Jev accounting investigation — 8 October 2026](runs/2026-10-07T180900Z-jev-accounting.md) records passing offline checks, reproduced accounting gaps and unresolved provider billing reconciliation.
+
+[Profile toolbar consolidation — 8 October 2026](runs/2026-10-07T180357Z-profile-toolbar.md) verifies combined controls, responsive layout, restoration and installed build identity.
+
+[Assistant copy cleanup — 8 October 2026](runs/2026-10-07T174902Z-assistant-copy.md) verifies removed labels, retained context/newline behavior and the installed build.
+
+[Assistant header alignment — 7 October 2026](runs/2026-10-07T130816Z-assistant-header.md) verifies exact 58px alignment across sizes/themes and the installed build.
+
+[Full job-row selection — 7 October 2026](runs/2026-10-07T123846Z-job-row-selection.md) verifies row-wide clicks, keyboard/Seen behavior, mobile and Saved selection, and installed build identity.
+
+[Sidebar controls — 7 October 2026](runs/2026-10-07T122444Z-sidebar-controls.md) records the installed header/Settings changes and remaining interaction checks.
 
 [Desktop portability follow-up — 7 October 2026](runs/2026-10-07T114528Z-desktop-portable.md) verifies the corrected app bundle and final installed startup.
 

@@ -1,7 +1,7 @@
 ---
 title: Job inbox and saved jobs
 section: Features
-updated: 2026-10-07
+updated: 2026-10-16
 ---
 # Job inbox and saved jobs
 
@@ -19,17 +19,29 @@ Open Jobs or Saved after [profile readiness](profile.md); use the existing local
 
 Opening a posting records Seen once; the default preview does not. Filters and pagination retain deliberate selection and unsaved notes. Saved preserves individual records and starts only [cover-letter generation](cover-letters.md).
 
+In Jobs and Saved, the whole posting row selects its detail pane: title, company, location, match, date and empty cell space. The title remains a keyboard-accessible button with Enter/Space activation. Row selection uses the existing Seen tracking and unsaved-edit guard; it does not save or apply to a job.
+
+The shared navigation follows the [dashboard UI decision](../decisions/dashboard-ui.md): expand/collapse stays in the sidebar header in both desktop states, Settings remains at the bottom, and the Light/Dark selector lives in Settings → Appearance. Changing appearance applies immediately and retains the existing device-local preference across navigation and restarts.
+
 ## Verification recipe
 
 Use [shared verification setup](../verification/setup.md) for isolation, build identity, evidence and cleanup. `npx tsx --test tests/job-query.test.ts tests/seen.test.ts tests/locations.test.ts tests/location-regions.test.ts` checks isolated data behavior. `npx tsx scripts/verify-dashboard.ts` uses the existing dev app and intercepts Seen writes; it expects real inventory. `npx tsx scripts/verify-seen-ui.ts` checks Seen with isolated fixtures.
 
 Recipes are migrated from existing scripts and historical checks; they were not re-executed during the wiki migration.
 
+For navigation/appearance changes, build and open the updated app. Toggle the sidebar from its header in both directions, repeat using the keyboard, open Settings from the footer, switch Light/Dark, then reopen the app and confirm persistence. Restore the initial appearance after checking. Use synthetic data for shareable screenshots or retain only sanitized control-state observations.
+
 ## Coverage and limitations
 
 Live-dashboard recipes depend on inventory and were not rerun for this documentation migration.
 
 ## Verification history
+
+[Lean cleanup first pass — 16 October 2026](../verification/runs/2026-10-15T165802Z-lean-first-pass.md): WebMCP removal, retired legacy CV writes with preserved downloads, and hidden/unscanned placeholder sources; 200 tests, build and isolated browser checks passed.
+
+[Full job-row selection — 7 October 2026](../verification/runs/2026-10-07T123846Z-job-row-selection.md) passed isolated browser checks for company/location/match/date/padding, keyboard, mobile and Saved selection.
+
+[Sidebar controls — 7 October 2026](../verification/runs/2026-10-07T122444Z-sidebar-controls.md) records the installed navigation and appearance update; interaction coverage remains incomplete after a UI automation outage.
 
 [Historical implementation checks](../verification/history.md) record previous selected scenarios and limitations. Those entries are historical evidence; new reports belong in [verification runs](../verification/index.md).
 
@@ -57,6 +69,6 @@ The detail header labels explicit candidate restrictions as **Hiring locations**
 ## Seen posts
 
 
-Opening a job by clicking its title, using the keyboard, or choosing **View posting** records its first `seenAt` timestamp locally. A **Seen** label appears in the row. **Seen and unseen / Unseen / Seen** filters work in Jobs and Saved, independently of saved/applied status. The selected row has a blue background, edge marker and emphasized title in light and dark modes.
+Opening a job by clicking anywhere in its row, using the title button with the keyboard, or choosing **View posting** records its first `seenAt` timestamp locally. A **Seen** label appears in the row. **Seen and unseen / Unseen / Seen** filters work in Jobs and Saved, independently of saved/applied status. The selected row has a blue background, edge marker and emphasized title in light and dark modes.
 
 The default first-row preview does not count as a deliberate open. Under Unseen, opening a result removes it from the list while keeping its detail pane open. Seen state survives rescans and restarts and applies to that individual posting, not every inferred duplicate. Historical opens were not recorded, so tracking begins with this feature; older views cannot be reconstructed. This action never saves the job or queues a cover letter.

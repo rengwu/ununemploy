@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { enrichJobs } from "./jev/service.ts";
 import * as store from "./db/index.ts";
 import { matchesLocations } from "./locations.ts";
 import { buildRegionLocationIndex } from "./location-index.ts";
@@ -52,7 +51,7 @@ export function jobsRevision(at = Date.now()): string {
   return `${version}:${Math.floor(at / 60000)}`;
 }
 function makeSnapshot(revision: string) {
-  const jobs = enrichJobs(store.listJobs());
+  const jobs = store.listJobs();
   return {
     revision,
     jobs,
@@ -63,13 +62,7 @@ function makeSnapshot(revision: string) {
         `${job.company} ${job.title} ${job.location} ${job.description}`.toLowerCase(),
       ]),
     ),
-    locations: buildRegionLocationIndex(
-      jobs.map((job) =>
-        job.jev?.assessment && job.location !== job.jev.sourceLocation
-          ? { ...job, sourceType: "jev" }
-          : job,
-      ),
-    ),
+    locations: buildRegionLocationIndex(jobs),
   };
 }
 let cached: ReturnType<typeof makeSnapshot> | undefined;
@@ -130,9 +123,6 @@ export function summarizeJob(job: Job): JobSummary {
     coverLetterId,
     coverLetterState,
     listingCount: (job.relatedListings?.length || 0) + 1,
-    ...(job.jev?.assessment && job.score !== job.jev.originalScore
-      ? { matchSource: "jev" as const }
-      : {}),
   };
 }
 export function queryJobs(query: JobQuery, terms: string[] = []): JobPage {

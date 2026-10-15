@@ -1,20 +1,43 @@
 ---
 title: Source coverage
 section: Reference
-updated: 2026-10-07
+updated: 2026-10-16
 ---
 # Source coverage
+
+The [8 October source evaluation](../journal/2026-10-08-source-evaluation.md) covers the additional user-supplied boards, TechReferrals, Reddit and HNHIRING. It recommends Working Nomads first, identifies working WordPress/RemoteJobs.com feeds and a Dynamite Jobs HTML route, and records aliases, unavailable domains and access limits. **Evaluation only:** it added no integrations or source configurations. HNHIRING's underlying HN threads and Remote Hunt's current WWR destination are already covered.
+
+The subsequent [integration audit](../journal/2026-10-08-integration-audit.md) identified shared correctness and maintenance issues. The [corrective implementation](../verification/runs/2026-10-08T075217Z-integration-implementation.md) now adds four sources and verifies the shared fixes. The Muse is completely out of scope; Reddit remains deferred.
+
+## Current catalog — 16 October 2026
+
+Fresh catalogs contain **58 configurations**, including 26 public boards. Adzuna, Jooble and Careerjet have no adapters and are excluded from setup and scanning. Existing records are retained but hidden from Sources. See [discovery](../features/discovery.md) and the [first cleanup verification](../verification/runs/2026-10-15T165802Z-lean-first-pass.md).
+
+## Additions — 8 October 2026
+
+At that revision the catalog contained **61 configurations**, including 29 public boards. A bounded live check of the four additions used six GET requests in a disposable database:
+
+| Source | Stored observations | Full descriptions | Requests | Coverage |
+| --- | --- | --- | --- | --- |
+| Working Nomads | 42 | 42 | 1 | Public exposed-jobs feed |
+| WordPress Jobs | 3 | 3 | 1 | Publisher RSS |
+| RemoteJobs.com | 1,000 | 997 | 1 | RSS snapshot; 3 empty bodies remain leads |
+| Dynamite Jobs | 20 | 2 | 3 | Development category and two details; 18 details queued |
+
+All four scans completed within their selected budgets. This is a point-in-time access result, not exhaustive vacancy coverage or field-by-field review of every listing. Ten existing representative configurations were also scanned. The same-corpus parser comparison covered 116 listing and 2,281 detail responses: 404 descriptions gained retained applicant restrictions, with no other differences from the baseline. Existing rejected pages remained rejected; this pass does not repair unrelated provider access or identity issues.
+
+## Historical expansion — 17 September 2026
 
 Recorded scan results from **17 September 2026**, migrated on 7 October. Provider accessibility has not been rechecked for this migration. Configuration count is not a count of working boards. Current operation is described in [Discovery and sources](../features/discovery.md).
 
 
 Evaluated and implemented 17 September 2026. The live status below supersedes the earlier probe observations that follow.
 
-## Installed scan list
+### Installed scan list (historical)
 
 All **28 evaluated boards** are registered: 26 added, Wellfound and Welcome to the Jungle upgraded in place. The local installation has **57 source configurations**. The first bounded pass imported **646 listings** across 18 boards and retrieved **321 full descriptions**. These are source listing counts, not a claim of unique suitable vacancies or exhaustive coverage.
 
-| Current result | Boards |
+| Recorded result | Boards |
 | --- | --- |
 | Listings and full descriptions verified | Hiredly, LinkedIn public jobs, Wellfound, Built In, Y Combinator jobs, Japan Dev, Cake, Get on Board, Remote.com Jobs, No Fluff Jobs, TryRemote, Remote Game Jobs, Jobspresso, Wantedly, Relocate.me, Glints, TokyoDev |
 | Listings collected; details blocked with HTTP 403 | Arc — 60 leads retained |

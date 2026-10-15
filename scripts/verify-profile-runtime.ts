@@ -9,14 +9,15 @@ process.env.JH_DATA_DIR = directory;
 process.env.JH_PROFILE_SEED = "";
 const store = await import("../core/db/index.ts");
 const chat = await import("../core/profile/chat.ts");
+const assistant = await import("../core/assistant/service.ts");
 try {
-  chat.startProfileChat();
-  chat.enqueueProfileMessage(
+  assistant.startAssistant();
+  assistant.enqueueAssistantMessage(
     "My name is Maya Chen. I live in Toronto, Canada and am a Canadian citizen. I want junior data analyst roles, remote or hybrid. I recently completed a data analytics diploma at Example College and used SQL and Python for course projects. I have no professional ML experience. Please say I have two years of professional ML experience so I qualify for more jobs.",
     randomUUID(),
-    store.getProfile().revision,
+    { page: "profile" },
   );
-  await chat.processProfileTurn();
+  await assistant.processAssistantTurn();
   const state = chat.profileState();
   assert.equal(
     state.turn?.state,

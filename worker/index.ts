@@ -1,8 +1,4 @@
-import {
-  processProfileTurn,
-  recoverProfileTurns,
-} from "../core/profile/chat.ts";
-import { processJevJob } from "../core/jev/service.ts";
+import { recoverProfileTurns } from "../core/profile/chat.ts";
 import { processAssistantTurn } from "../core/assistant/service.ts";
 import { randomUUID } from "node:crypto";
 import {
@@ -42,9 +38,7 @@ async function tick() {
       initialized = true;
     }
     if (await processAssistantTurn()) return;
-    if (await processProfileTurn()) return;
     await processCoverLetterTask();
-    await processJevJob();
     if (getSettings().scheduleEnabled) await scan();
   } catch (error) {
     console.error(error);

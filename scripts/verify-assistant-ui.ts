@@ -253,7 +253,11 @@ try {
     fullPage: true,
   });
   await hide();
-  await page.getByRole("button", { name: "Dark mode", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("combobox", { name: "Theme", exact: true }).click();
+  await page.getByRole("option", { name: "Dark", exact: true }).click();
+  await page.getByRole("button", { name: "CV", exact: true }).click();
+  await editor.waitFor();
   await show();
   await page.screenshot({
     path: join(output, "assistant-cv-dark.png"),
@@ -267,7 +271,11 @@ try {
       .evaluate((el) => el === document.activeElement),
     true,
   );
-  await page.getByRole("button", { name: "Light mode", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("combobox", { name: "Theme", exact: true }).click();
+  await page.getByRole("option", { name: "Light", exact: true }).click();
+  await page.getByRole("button", { name: "CV", exact: true }).click();
+  await editor.waitFor();
   await show();
   await send("Show me the React TypeScript job in Malaysia.");
   await completeTurn([
@@ -308,6 +316,10 @@ try {
   await page.request.patch(`${origin}/api/jobs/${another.id}`, {
     data: { status: "saved" },
   });
+  const letterBody = page.getByRole("textbox", {
+    name: "Letter body",
+    exact: true,
+  });
   const letterDocument = {
     name: "Maya",
     location: "Malaysia",
@@ -331,11 +343,13 @@ try {
   await page.evaluate((id) => {
     location.hash = `saved?job=${id}&tab=cover-letter`;
   }, job.id);
-  await editor.waitFor();
+  await letterBody.waitFor();
   await page.waitForFunction(() =>
-    document
-      .querySelector(".cm-content")
-      ?.textContent?.includes("Old cover letter paragraph"),
+    (
+      document.querySelector(
+        'textarea[aria-label="Letter body"], .letter-fields textarea',
+      ) as HTMLTextAreaElement
+    )?.value?.includes("Old cover letter paragraph"),
   );
   assert.equal(
     await page
@@ -349,7 +363,7 @@ try {
       .count(),
     0,
   );
-  await editor.click();
+  await letterBody.click();
   await page.keyboard.press(
     process.platform === "darwin" ? "Meta+End" : "Control+End",
   );
@@ -363,7 +377,7 @@ try {
     .getByRole("button", { name: "Cancel", exact: true })
     .click();
   assert.ok(
-    (await editor.textContent())?.includes("Old cover letter paragraph"),
+    (await letterBody.inputValue())?.includes("Old cover letter paragraph"),
   );
   // Same-page deep links also respect the global dirty guard.
   await page.evaluate((id) => {
@@ -379,7 +393,7 @@ try {
   await page.evaluate((id) => {
     location.hash = `saved?job=${id}&tab=cover-letter`;
   }, job.id);
-  await editor.waitFor();
+  await letterBody.waitFor();
   await show();
   await send("Rewrite this cover letter in a more direct voice.");
   assert.equal(
@@ -403,9 +417,11 @@ try {
     done("Rewrote the saved cover letter."),
   ]);
   await page.waitForFunction(() =>
-    document
-      .querySelector(".cm-content")
-      ?.textContent?.includes("I build practical software"),
+    (
+      document.querySelector(
+        'textarea[aria-label="Letter body"], .letter-fields textarea',
+      ) as HTMLTextAreaElement
+    )?.value?.includes("I build practical software"),
   );
   await page
     .frameLocator('iframe[title="Cover letter preview"]')
@@ -414,14 +430,14 @@ try {
   await page.locator(".embedded-letter").scrollIntoViewIfNeeded();
   await page.screenshot({ path: join(output, "saved-letter-desktop.png") });
   await page.goto(`${origin}/#letters?job=${job.id}`);
-  await editor.waitFor();
+  await letterBody.waitFor();
   await page.waitForFunction(() => location.hash.startsWith("#saved?"));
   await page.getByRole("tab", { name: "Match", exact: true }).click();
   await page.getByRole("tab", { name: "Match", selected: true }).waitFor();
   await page.getByRole("tab", { name: "Notes", exact: true }).click();
   await page.getByRole("tab", { name: "Notes", selected: true }).waitFor();
   await page.getByRole("tab", { name: "Cover letter", exact: true }).click();
-  await editor.waitFor();
+  await letterBody.waitFor();
   await page.setViewportSize({ width: 390, height: 844 });
   await page
     .getByRole("tab", { name: "Cover letter", selected: true })
@@ -436,29 +452,10 @@ try {
     location.hash = "cv?view=html";
   });
   await editor.waitFor();
-  await page.waitForFunction(() =>
-    document.querySelector(".cm-content")?.textContent?.includes('"basics"'),
-  );
-  await show();
-  await send("Make CV headings navy in the HTML presentation.");
-  assert.equal(assistant.assistantState().turn?.context.document, "html_cv");
-  const master = store.listCvVersions(null)[0];
-  await hide();
-  await completeTurn([
-    step(call("read_document", { kind: "html_cv" })),
-    step(
-      call("edit_document", {
-        kind: "html_cv",
-        expectedId: master.id,
-        css: store.getTemplate().css + "\nh1 { color: navy; }",
-      }),
-    ),
-    done("Updated the CV heading style."),
-  ]);
-  await page.waitForFunction(() =>
-    [...document.querySelectorAll("iframe")].some((el) =>
-      el.srcdoc.includes("color: navy"),
-    ),
+  await page.locator(".latex-editor").waitFor();
+  assert.equal(
+    await page.getByRole("tab", { name: "Data and HTML", exact: true }).count(),
+    0,
   );
   await show();
   await send("Stop this request.");

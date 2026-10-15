@@ -1,6 +1,6 @@
 import type { IncomingJob, Job, Profile } from "./types.ts";
 import { assessEligibility, requirementClauses } from "./eligibility.ts";
-export const MATCH_VERSION = 4;
+export const MATCH_VERSION = 5;
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const aliases: Record<string, string> = {
   React: "react(?:\\.js|js)?",

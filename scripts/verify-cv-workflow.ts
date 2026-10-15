@@ -9,8 +9,6 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { chromium } from "playwright";
-import type { CvContext, JobPage } from "../core/api-types.ts";
-import type { Job } from "../core/types.ts";
 
 const real = process.argv.includes("--real-generation");
 const output = resolve(".local-data/verification");
@@ -18,22 +16,7 @@ mkdirSync(output, { recursive: true });
 const directory = mkdtempSync(
   join(tmpdir(), "ununemploy-cover-letter-workflow-"),
 );
-const live = process.env.JH_VERIFY_API || "http://127.0.0.1:4317";
-const context = (await (await fetch(`${live}/api/master`)).json()) as CvContext;
-const candidates = (await (
-  await fetch(`${live}/api/jobs?query=Linear&availability=all&eligibility=all`)
-).json()) as JobPage;
-const candidate =
-  candidates.items.find(
-    (job) => job.company === "Linear" && /AI/.test(job.title),
-  ) || candidates.items.find((job) => job.company === "Linear");
-assert.ok(
-  candidate,
-  "A collected Linear posting is needed for this verification.",
-);
-const posting = (await (
-  await fetch(`${live}/api/jobs/${candidate.id}`)
-).json()) as Job;
+process.env.JH_PROFILE_SEED = resolve("tests/fixtures/profile.json");
 process.env.JH_DATA_DIR = directory;
 process.env.JH_TEST_SERVER = "1";
 process.env.JH_SCHEDULE_ENABLED = "false";
@@ -43,8 +26,6 @@ const { fromProfile } = await import("../core/cv/render.ts");
 const { defaultCoverLetterTemplate } =
   await import("../core/cover-letter/template.ts");
 const { processCoverLetterTask } = await import("../core/ai/generate.ts");
-store.saveProfile(context.profile, store.getProfile().revision);
-store.putSetting("template", context.template);
 store.putSetting("app", {
   ...store.getSettings(),
   scheduleEnabled: false,
@@ -61,10 +42,11 @@ const source = store.addSource({
 });
 const job = store.ingestJob(source, {
   sourceItemId: "workflow-job",
-  title: posting.title,
-  company: posting.company,
+  title: "Product Engineer",
+  company: "Example company",
   url: "https://example.com/workflow-fixture",
-  description: posting.description,
+  description:
+    "Build practical developer tools with TypeScript and React. Collaborate with engineers on product quality and accessible web experiences.",
   descriptionQuality: "full",
   location: "Worldwide",
   arrangement: "Remote",
@@ -78,7 +60,7 @@ const legacy = store.saveCv({
   jobId: job.id,
   kind: "edited",
   document: fromProfile(store.getProfile()),
-  template: context.template,
+  template: store.getTemplate(),
   profileRevision: store.getProfile().revision,
   reviewNotes: [],
   evidence: null,
@@ -107,13 +89,11 @@ const step = (name: string) => {
   checks.push(name);
   console.log(name);
 };
-const setCode = async (value: string) => {
-  await page.locator('.cm-content[contenteditable="true"]').click();
-  await page.keyboard.press(
-    process.platform === "darwin" ? "Meta+A" : "Control+A",
-  );
-  await page.keyboard.insertText(value);
-};
+const bodyField = page.getByRole("textbox", {
+  name: "Letter body",
+  exact: true,
+});
+const setBody = (value: string) => bodyField.fill(value);
 const chooseVersion = async (version: number) => {
   await page
     .getByRole("combobox", { name: "Cover letter version", exact: true })
@@ -220,7 +200,7 @@ try {
       updatedAt: store.now(),
     });
   }
-  await page.locator(".cm-content").waitFor();
+  await bodyField.waitFor();
   const first = store.listCoverLetterVersions(job.id)[0];
   writeFileSync(
     join(output, `cover-letter-draft-${real ? "real" : "fixture"}.json`),
@@ -233,13 +213,34 @@ try {
       : "Fixture generation appears in the cover-letter editor",
   );
 
+  await setBody("First paragraph.\nLine two.\n\n");
+  assert.equal(await bodyField.inputValue(), "First paragraph.\nLine two.\n\n");
+  await bodyField.press("End");
+  await page.keyboard.insertText("Second paragraph.");
+  assert.equal(
+    await bodyField.inputValue(),
+    "First paragraph.\nLine two.\n\nSecond paragraph.",
+  );
+  await page
+    .frameLocator('iframe[title="Cover letter preview"]')
+    .locator("main p")
+    .nth(1)
+    .getByText("Second paragraph.", { exact: true })
+    .waitFor();
+  step("Plain-text typing preserves line breaks and paragraph breaks");
+
+  await page.getByText("Contact details", { exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Contact 1 link", exact: true })
+    .fill("");
+  await page.getByText("Contact details", { exact: true }).click();
   const edit = {
     ...first.document,
     paragraphs: [
       "Workflow verification: this manual edit must survive refreshes and failed saves.",
     ],
   };
-  await setCode(JSON.stringify(edit, null, 2));
+  await setBody(edit.paragraphs.join("\n\n"));
   await page
     .frameLocator('iframe[title="Cover letter preview"]')
     .getByText(edit.paragraphs[0], { exact: true })
@@ -265,13 +266,15 @@ try {
     store.listCoverLetterVersions(job.id)[0].document.paragraphs[0],
     edit.paragraphs[0],
   );
+  assert.equal(
+    store.listCoverLetterVersions(job.id)[0].document.contacts[0].url,
+    undefined,
+  );
   step(
     "Editing, live preview, refresh preservation, failed save, and successful retry",
   );
 
-  await setCode(
-    JSON.stringify({ ...edit, paragraphs: ["Unsaved second edit"] }, null, 2),
-  );
+  await setBody("Unsaved second edit");
   await page.getByRole("button", { name: "Sources", exact: true }).click();
   await page
     .getByRole("dialog")
@@ -338,17 +341,26 @@ try {
     .getByRole("button", { name: "Restore version", exact: true })
     .waitFor();
   await chooseVersion(3);
-  await page
-    .getByRole("tab", { name: "Data.json", exact: true })
-    .press("ArrowRight");
-  await page.keyboard.press("Enter");
-  await page
-    .getByRole("tab", { name: "Template.html", selected: true })
-    .waitFor();
-  await page.getByRole("tab", { name: "Data.json", exact: true }).click();
-  step(
-    "Failed cover letter loads can retry and editor tabs work from the keyboard",
+  step("Failed cover letter loads can retry");
+  assert.equal(
+    await page
+      .getByRole("tab", { name: /Data.json|Template.html|Styles.css/ })
+      .count(),
+    0,
   );
+  assert.equal(
+    await page.getByRole("button", { name: "Download DOCX" }).count(),
+    0,
+  );
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.getByRole("button", { name: "Copy text", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Copied" }).waitFor();
+  const { coverLetterText } = await import("../core/cover-letter/template.ts");
+  assert.equal(
+    await page.evaluate(() => navigator.clipboard.readText()),
+    coverLetterText(first.document),
+  );
+  step("Copy text places the complete plain-text letter on the clipboard");
 
   await page.route("**/api/cover-letters/export", (route) =>
     route.fulfill({ status: 503, json: { error: "Temporary export failure" } }),
@@ -356,7 +368,7 @@ try {
   await page.getByRole("button", { name: "Download PDF", exact: true }).click();
   await page.getByText("Temporary export failure", { exact: true }).waitFor();
   await page.unroute("**/api/cover-letters/export");
-  for (const format of ["PDF", "DOCX"]) {
+  for (const format of ["PDF"]) {
     const download = page.waitForEvent("download");
     await page
       .getByRole("button", { name: `Download ${format}`, exact: true })
@@ -374,22 +386,11 @@ try {
       format === "PDF" ? "%PDF" : "PK",
     );
   }
-  step("Export failure preserves the draft; PDF and DOCX downloads succeed");
+  step("Export failure preserves the draft; PDF download succeeds");
   await page.getByRole("button", { name: "CV", exact: true }).click();
-  await page.getByRole("tab", { name: "Data and HTML", exact: true }).click();
-  await page.getByRole("combobox", { name: "CV", exact: true }).click();
-  await page
-    .getByRole("option", {
-      name: `${job.company} · ${job.title} (saved resume)`,
-      exact: true,
-    })
-    .click();
-  await page
-    .frameLocator('iframe[title="CV preview"]')
-    .getByText("Experience", { exact: true })
-    .waitFor();
+  await page.locator(".latex-editor").waitFor();
   assert.equal(
-    await page.getByRole("button", { name: /^Generate/ }).count(),
+    await page.getByRole("tab", { name: "Data and HTML", exact: true }).count(),
     0,
   );
   assert.equal(JSON.stringify(store.getCv(legacy.id)), originalLegacy);
@@ -402,8 +403,9 @@ try {
     .waitFor();
   assert.equal(store.listTasks().length, 1);
   step(
-    "Legacy resumes stay readable; job tab opens the cover letter without regenerating",
+    "Legacy records stay stored; CV is LaTeX only and the job tab opens the cover letter without regenerating",
   );
+  await bodyField.scrollIntoViewIfNeeded();
   await page.screenshot({
     path: join(
       output,
@@ -415,6 +417,7 @@ try {
     await page.evaluate(() => document.documentElement.scrollWidth),
     390,
   );
+  await bodyField.scrollIntoViewIfNeeded();
   await page.screenshot({
     path: join(
       output,
@@ -422,7 +425,7 @@ try {
     ),
   });
   await page.reload();
-  await page.locator(".cm-content").waitFor();
+  await bodyField.waitFor();
   await page
     .frameLocator('iframe[title="Cover letter preview"]')
     .getByText(first.document.paragraphs[0], { exact: true })

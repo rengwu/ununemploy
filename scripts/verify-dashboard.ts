@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { writeFileSync } from "node:fs";
 import type { JobPage } from "../core/api-types.ts";
-const origin = process.env.JH_VERIFY_URL || "http://127.0.0.1:5173";
+const origin = process.env.JH_VERIFY_URL || "http://127.0.0.1:2839";
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 const errors: string[] = [],

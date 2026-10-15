@@ -1,7 +1,7 @@
 ---
 title: Open questions and follow-up
 section: Discussions
-updated: 2026-10-07
+updated: 2026-10-16
 ---
 # Open questions and follow-up
 
@@ -11,10 +11,12 @@ This page distinguishes unfinished verification and implementation from decision
 | --- | --- | --- |
 | Actual Unraid installation | Unverified; local container checks exist | Run on the intended server, verify persistence and native Landlock compilation; [guide](../guides/unraid.md). |
 | Web3.career authentication | Implemented, authenticated collection unverified | Configure a local token and record a bounded live scan. |
-| Jev provider access and quality | Simulated tests and UI checks exist | A configured account and selected real inference cases; [Jev](../features/jev.md). |
-| Adzuna / Jooble / Careerjet | Catalog entries only, pending credentials and adapter work | Provider configuration plus actual adapters and bounded verification; [coverage](../reference/source-coverage.md). |
-| Optional WebMCP | No supported browser verification recorded | Registration and real tool invocation in a supported context. |
-| Collection scaling and bundle size | Existing performance limits | Measured evidence at larger inventories before choosing further changes. |
+| Adzuna / Jooble / Careerjet | Deferred backlog; removed from setup and hidden from Sources, with stored records retained | A working adapter and explicit scope would be needed before offering them again; [coverage](../reference/source-coverage.md). |
+| Broader integration cleanup | Deferred from the first corrective pass | Queue storage redesign, broad policy consolidation, cache retention and unrelated provider-specific repairs need a concrete benefit before expansion; [design rationale](../journal/2026-10-08-integration-design.md). |
+| Reddit and TechReferrals | Reddit explicitly deferred by the user on 8 October; TechReferrals remains a conditional candidate | No Reddit implementation now. TechReferrals still needs readable access and lead-classification evidence; [evaluation](../journal/2026-10-08-source-evaluation.md). |
+| Collection scaling and bundle size | A native job-list request around 29,000 records took 25.6 seconds and briefly timed out during the new feed import; all scans completed and Sources recovered | The [16 October native rebuild](../verification/runs/2026-10-16-lean-native-install.md) again showed a timeout, followed by rows after retry with a remaining refresh warning. Profile inbox querying/grouping and ingestion on an isolated copy of a large collection; compare before/after timings before expanding the refactor. [Observed result](../verification/runs/2026-10-08T075217Z-integration-implementation.md). |
 | Legacy live browser recipes | Some depend on named real postings | Verify inventory prerequisites or create isolated fixtures before claiming a new pass. |
+
+The four additions and bounded corrective refactor are complete; [verification](../verification/runs/2026-10-08T075217Z-integration-implementation.md). The Muse is completely out of scope, including registration, adapter work, credentials and setup. It is not an awaiting-setup item.
 
 See [limitations](../reference/limitations.md) and [verification history](../verification/history.md). Updates should preserve dated findings and link resolved items to their new decision or run.

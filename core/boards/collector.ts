@@ -20,7 +20,14 @@ import {
   type FetchContext,
 } from "../http.ts";
 import type { IncomingJob, Source } from "../types.ts";
-export class BoardPartialError extends Error {}
+export class BoardPartialError extends Error {
+  constructor(
+    message: string,
+    public discoveryUnavailable = false,
+  ) {
+    super(message);
+  }
+}
 export async function collectPublicBoard(
   source: Source,
   ctx: FetchContext,
@@ -29,7 +36,6 @@ export async function collectPublicBoard(
   read: typeof readUrl = readUrl,
 ) {
   const board = boardFor(source.identifier);
-  if (board.setup) throw new BoardUnavailableError(board.setup);
   const index = Number(source.checkpoint.seedIndex || 0) % board.seeds.length;
   const seed = board.seeds[index];
   const pages = {
@@ -46,11 +52,17 @@ export async function collectPublicBoard(
   // One current page on every pass; one older page continues the saved backfill.
   // Detail requests use the remaining budget, including redirects and failed requests.
   const discover = async (url: string) => {
-    const result = parseBoardListing(
-      source.identifier,
-      await read(url, ctx),
-      url,
-    );
+    const body = await read(url, ctx);
+    let result;
+    try {
+      result = parseBoardListing(source.identifier, body, url);
+    } catch (error) {
+      if (error instanceof SyntaxError)
+        throw new BoardUnavailableError(
+          "The discovery response could not be parsed.",
+        );
+      throw error;
+    }
     for (const job of result.jobs) {
       job.descriptionSource = {
         name: source.name,
@@ -63,28 +75,34 @@ export async function collectPublicBoard(
     }
     return result.next;
   };
-  const headNext = await discover(seed);
-  const backfill = pages[seed] || headNext;
-  if (headNext && !pages[seed]) pages[seed] = headNext;
-  nextIndex = (index + 1) % board.seeds.length;
-  update();
-  if (backfill && ctx.requests < Math.min(2, ctx.limit - 1)) {
-    // Checkpoints are data, not arbitrary destinations. Restrict to the same public search route.
-    const next = new URL(backfill),
-      start = new URL(seed);
-    if (
-      next.origin === start.origin &&
-      next.pathname === start.pathname &&
-      next.href !== start.href
-    ) {
-      const remaining = await discover(next.href);
-      if (remaining) pages[seed] = remaining;
-      else delete pages[seed];
-      update();
-    } else {
-      delete pages[seed];
-      update();
+  let discoveryError: string | null = null;
+  try {
+    const headNext = await discover(seed);
+    const backfill = pages[seed] || headNext;
+    if (headNext && !pages[seed]) pages[seed] = headNext;
+    nextIndex = (index + 1) % board.seeds.length;
+    update();
+    if (backfill && ctx.requests < Math.min(2, ctx.limit - 1)) {
+      // Checkpoints are data, not arbitrary destinations. Restrict to the same public search route.
+      const next = new URL(backfill),
+        start = new URL(seed);
+      if (
+        next.origin === start.origin &&
+        next.pathname === start.pathname &&
+        next.href !== start.href
+      ) {
+        const remaining = await discover(next.href);
+        if (remaining) pages[seed] = remaining;
+        else delete pages[seed];
+        update();
+      } else {
+        delete pages[seed];
+        update();
+      }
     }
+  } catch (error) {
+    if (!(error instanceof BoardUnavailableError)) throw error;
+    discoveryError = error.message;
   }
   let failures = 0;
   for (const row of dueBoardJobs(source.id)) {
@@ -119,8 +137,14 @@ export async function collectPublicBoard(
           : "Description retrieval failed.";
       const closed =
         error instanceof FetchError && [404, 410].includes(error.status || 0);
-      failBoardJob(source.id, candidate.url, message, 86400000, closed);
-      if (closed) emit({ ...candidate, expiresAt: new Date().toISOString() });
+      const failed = failBoardJob(
+        source.id,
+        candidate.url,
+        message,
+        86400000,
+        closed,
+      );
+      if (closed && failed) emit(failed);
       else failures++;
       if (
         error instanceof FetchError &&
@@ -133,8 +157,15 @@ export async function collectPublicBoard(
     update();
   }
   update();
-  if (failures)
+  if (failures || discoveryError)
     throw new BoardPartialError(
-      `${failures} description page${failures === 1 ? "" : "s"} could not be read; listings were retained and retries are queued.`,
+      [
+        discoveryError && `Discovery failed: ${discoveryError}`,
+        failures &&
+          `${failures} description page${failures === 1 ? "" : "s"} could not be read; listings were retained and retries are queued.`,
+      ]
+        .filter(Boolean)
+        .join(" "),
+      !!discoveryError,
     );
 }

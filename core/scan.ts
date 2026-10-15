@@ -1,5 +1,4 @@
 import { profileReadiness } from "./profile/facts.ts";
-import { boardFor } from "./boards/catalog.ts";
 import { BoardUnavailableError } from "./boards/parsers.ts";
 import { BoardPartialError } from "./boards/collector.ts";
 import { randomUUID } from "node:crypto";
@@ -20,20 +19,23 @@ import {
   saveSource,
   closeMissingJobs,
 } from "./db/index.ts";
-import { sourcePolicy } from "./source-catalog.ts";
+import { sourcePolicy, isRetiredSource } from "./source-catalog.ts";
 import { web3Token } from "./web3-auth.ts";
 import type { ScanRun } from "./types.ts";
 
 export async function scan(sourceId?: string, force = false) {
-  if (!profileReadiness(getProfile()).ready) return { profileRequired: true };
   const owner = randomUUID();
   if (!lease("scan", owner, 180000)) return { busy: true };
   const heartbeat = setInterval(() => lease("scan", owner, 180000), 30000);
   const results: ScanRun[] = [];
   try {
+    if (!profileReadiness(getProfile()).ready) return { profileRequired: true };
     for (const source of listSources().filter(
       (s) =>
-        s.enabled && s.type !== "website" && (!sourceId || s.id === sourceId),
+        s.enabled &&
+        s.type !== "website" &&
+        !isRetiredSource(s) &&
+        (!sourceId || s.id === sourceId),
     )) {
       if (!profileReadiness(getProfile()).ready) break;
       if (
@@ -58,16 +60,6 @@ export async function scan(sourceId?: string, force = false) {
         // An authentication rejection waits for a replacement token, not repeated requests.
         if (source.state === "needs_token" && source.lastError) continue;
       }
-      if (source.type === "public_board" && boardFor(source.identifier).setup) {
-        if (source.state !== "needs_setup")
-          saveSource({
-            ...source,
-            state: "needs_setup",
-            nextRunAt: null,
-            lastError: boardFor(source.identifier).setup!,
-          });
-        continue;
-      }
       const timestamp = Date.now();
       const policy = sourcePolicy(source);
       if (source.retryAt && Date.parse(source.retryAt) > timestamp) continue;
@@ -89,6 +81,8 @@ export async function scan(sourceId?: string, force = false) {
         source.lastRunAt &&
         timestamp - Date.parse(source.lastRunAt) <
           (source.type === "himalayas" ||
+          source.type === "workingnomads" ||
+          (source.type === "rss" && policy.minimumHours === 24) ||
           source.type === "remotive" ||
           source.type === "jobicy" ||
           source.type === "web3" ||
@@ -174,6 +168,11 @@ export async function scan(sourceId?: string, force = false) {
             retryMs = Math.max(retryMs, 86400000);
           } else if (error instanceof BoardUnavailableError) {
             source.state = "unavailable";
+            retryMs = 86400000;
+          } else if (
+            error instanceof BoardPartialError &&
+            error.discoveryUnavailable
+          ) {
             retryMs = 86400000;
           }
         }

@@ -1,7 +1,7 @@
 ---
 title: Dashboard UI
 section: Decisions
-updated: 2026-10-07
+updated: 2026-10-08
 ---
 # Dashboard UI
 
@@ -11,7 +11,7 @@ Status: implemented locally with Kumo. See [verification history](../verificatio
 
 - Follow Cloudflare's dashboard and use official Kumo components.
 - No ornamental labels, captions, subcaptions, subtitles, or flourishes. Every string must serve a task.
-- Name actions plainly: Save, Edit, Dismiss, Retry, Download PDF, Download DOCX. These are examples for existing product actions, not a finalized toolbar.
+- Name actions plainly: Save, Edit, Dismiss, Retry, Copy text, Download PDF. These are examples for existing product actions, not a finalized toolbar.
 - Keep the app fully local.
 - The user approved the job inbox with filters and a detail pane, and the CV source editor with rendered preview. Career facts remain structured and CV presentation remains editable.
 
@@ -51,7 +51,8 @@ Retain Kumo's keyboard and focus behavior; provide visible focus, meaningful inp
 
 - Opening screen: job inbox with filters, paginated results, and an adjacent detail pane for complete profiles; User profile onboarding for new users.
 - Navigation: Jobs, Saved, User profile, CV, Sources, Settings.
-- CV: master JSON facts and legacy saved resumes. Saved job → Cover letter: the complete job-specific letter editor, generation/retry, preview, versions and downloads live in the job detail. There is no separate Cover letters page or document picker. Old letter links redirect to the saved job tab. Both use editable Handlebars HTML/CSS, rendered previews, immutable saved versions, and PDF/Word downloads.
+- The sidebar expand/collapse control belongs in its header: beside the app name when expanded and centered in place of the compact name when collapsed. The footer contains Settings. Light/dark appearance is selected inside Settings and saved immediately on this device.
+- CV: LaTeX source and rendered PDF; the user removed Data and HTML on 8 October 2026. Saved job → Cover letter: the complete job-specific letter editor, generation/retry, preview, versions and downloads live in the job detail. There is no separate Cover letters page or document picker. Old letter links redirect to the saved job tab. The 16 October lean interview replaces cover-letter code tabs with ordinary fields and plain-text paragraphs, one shared preview/PDF layout, Copy text and PDF output. Immutable saved versions remain. See [the current cover-letter specification](../features/cover-letters.md).
 - User authorized implementation after accepting these two recommended workflows.
 
 Cloudflare Kumo supplies controls and semantic color tokens. Custom CSS arranges the application panes; it does not replace the component system. Text uses Kumo's text-color tokens, with light and dark modes.
@@ -62,13 +63,15 @@ Kumo 2.13.2 has inputs, buttons, tabs and selects but no dedicated conversation/
 
 The assistant is a 520px viewport-fixed overlay that slides in from the right without resizing or shifting the underlying page. A neutral chat-icon button in the top-right page header opens it, with an Open assistant tooltip below on hover/focus. The button participates in the header’s normal flex layout; Hide or Escape slides it offscreen and returns focus. It remains mounted so conversation, scroll and unsent text survive hiding and navigation. Unsent text also survives reload in the current browser tab. Reduced-motion settings disable the slide. The desktop overlay is nonmodal, allowing navigation while chatting; at 600px and below it fills the screen, traps keyboard focus and makes the underlying app inert while open.
 
-The header identifies the current page/document context. The composer supports Enter to send, Shift+Enter for a newline, cancellation and recovery after failure. Activity text reports actual read/edit/compile stages. Saved-document links navigate to the actual job, letter or CV editor and hide the overlay. Clean editors refresh after changes; unsaved text and historical views are retained with a notice about the newer version. Markdown has no raw HTML or remote images.
+The drawer omits the page-context/model strip and composer keyboard hint; page/document context remains internal, and model/status information remains in Settings. The composer supports Enter to send, Shift+Enter for a newline, cancellation and recovery after failure, with Send/Stop aligned right. Activity text reports actual read/edit/compile stages. Saved-document links navigate to the actual job, letter or CV editor and hide the overlay. Clean editors refresh after changes; unsaved text and historical views are retained with a notice about the newer version. Markdown has no raw HTML or remote images.
 
 User Profile is now a read-only facts viewer with Build profile/Edit with assistant. Facts include missing information, preferences, evidence references and additional fact status; historical sources are distinguished from current facts. Previous versions restore into a new revision. New users see the onboarding conversation in the same global assistant.
 
+Profile readiness, previous-version controls and the assistant action share one toolbar above the facts, wrapping together on narrow screens. There is no redundant Profile facts heading or separate version footer; see [User profile](../features/profile.md).
+
 ## Layout alignment
 
-The page heading, filters, result controls, and outer table cells share a 24px horizontal gutter (16px on mobile). The page and sidebar headers share Kumo's 58px sidebar-header height. CV editor tabs and preview actions share a 56px row, so their borders and content start together.
+The page heading, filters, result controls, and outer table cells share a 24px horizontal gutter (16px on mobile). The page, sidebar and assistant drawer headers share Kumo's fixed 58px sidebar-header height, including the bottom border. CV editor tabs and preview actions share a 56px row, so their borders and content start together.
 
 Pane tabs use Kumo's `listClassName` extension to fit this row, with one separator and enough room for the library's keyboard focus ring. The native-control focus fallback lives in the base CSS layer so it does not override Kumo's focus styles. Notes fill the detail pane and resize vertically. Preview actions can scroll horizontally in very narrow panes.
 

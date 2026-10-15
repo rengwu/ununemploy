@@ -8,7 +8,10 @@ import { backup, DatabaseSync } from "node:sqlite";
 
 const directory = mkdtempSync(join(tmpdir(), "ununemploy-letters-"));
 process.env.JH_DATA_DIR = directory;
-process.env.JH_PROFILE_SEED = new URL("./fixtures/profile.json", import.meta.url).pathname;
+process.env.JH_PROFILE_SEED = new URL(
+  "./fixtures/profile.json",
+  import.meta.url,
+).pathname;
 process.env.JH_TEST_SERVER = "1";
 const store = await import("../core/db/index.ts");
 const { app } = await import("../server/index.ts");
@@ -102,7 +105,7 @@ test("saving a job with an existing resume queues one distinct cover letter", as
   assert.match(generationPrompt(task), /cover letter, not a CV or resume/);
   assert.equal(JSON.stringify(store.getCv(legacy.id)), originalLegacy);
   const boot = (await app.inject("/api/bootstrap")).json();
-  assert.ok(boot.cvJobs.some((j: any) => j.id === job.id));
+  assert.equal("cvJobs" in boot, false);
   assert.ok(boot.coverLetterJobs.some((j: any) => j.id === job.id));
   assert.equal(
     (
@@ -142,7 +145,7 @@ test("cover-letter edits and restoration append versions without changing resume
   const edited = await app.inject({
     method: "POST",
     url: `/api/cover-letters/${letter.id}/versions`,
-    payload: { document: editedDocument, template: letter.template },
+    payload: { document: editedDocument },
   });
   assert.equal(edited.statusCode, 200);
   assert.equal(edited.json().version, 2);
@@ -150,7 +153,7 @@ test("cover-letter edits and restoration append versions without changing resume
   const restored = await app.inject({
     method: "POST",
     url: `/api/cover-letters/${letter.id}/versions`,
-    payload: { document: letter.document, template: letter.template },
+    payload: { document: letter.document },
   });
   assert.equal(restored.json().version, 3);
   assert.equal(restored.json().parentId, letter.id);
@@ -207,21 +210,80 @@ test("letter preview/export validates document shape and retains isolated render
   assert.equal(invalid.statusCode, 400);
   const result = await app.inject({
     method: "POST",
-    url: "/api/cover-letters/export",
+    url: "/api/cover-letters/preview",
     payload: {
-      document: letter.document,
-      template: letter.template,
-      format: "html",
+      document: {
+        ...letter.document,
+        paragraphs: [
+          "Literal <script>alert(1)</script> text.\nNext line.",
+          "Second paragraph.",
+        ],
+      },
     },
   });
   assert.equal(result.statusCode, 200);
-  assert.match(
-    String(result.headers["content-disposition"]),
-    /Cover-letter\.html/,
+  assert.match(result.json().html, /Dear hiring team/);
+  assert.match(result.json().html, /&lt;script&gt;/);
+  assert.doesNotMatch(
+    result.json().html,
+    /<script|evidenceIds|profile-summary|reviewNotes/,
   );
-  assert.match(result.body, /Dear hiring team/);
-  assert.doesNotMatch(result.body, /<h2>Experience/);
-  assert.doesNotMatch(result.body, /evidenceIds|profile-summary|reviewNotes/);
+  for (const format of ["html", "docx"]) {
+    assert.equal(
+      (
+        await app.inject({
+          method: "POST",
+          url: "/api/cover-letters/export",
+          payload: { document: letter.document, format },
+        })
+      ).statusCode,
+      400,
+    );
+  }
+  for (const url of [
+    "/api/cover-letters/preview",
+    `/api/cover-letters/${letter.id}/versions`,
+  ]) {
+    assert.equal(
+      (
+        await app.inject({
+          method: "POST",
+          url,
+          payload: {
+            document: letter.document,
+            template: { html: "custom", css: "" },
+          },
+        })
+      ).statusCode,
+      400,
+    );
+  }
+  const pdf = await app.inject({
+    method: "POST",
+    url: "/api/cover-letters/export",
+    payload: { document: letter.document, format: "pdf" },
+  });
+  assert.equal(pdf.statusCode, 200);
+  assert.match(String(pdf.headers["content-disposition"]), /Cover-letter\.pdf/);
+  assert.equal(pdf.rawPayload.subarray(0, 5).toString(), "%PDF-");
+  const { coverLetterText, defaultCoverLetterTemplate } =
+    await import("../core/cover-letter/template.ts");
+  const text = coverLetterText({
+    ...letter.document,
+    paragraphs: ["First line.\nSecond line.", "Next paragraph."],
+    contacts: [
+      { label: "maya@example.com", url: "mailto:maya@example.com" },
+      { label: "Portfolio", url: "https://example.com" },
+    ],
+  });
+  assert.match(text, /First line.\nSecond line.\n\nNext paragraph./);
+  assert.match(text, /Portfolio: https:\/\/example.com/);
+  assert.doesNotMatch(text, /mailto:|undefined/);
+  store.putSetting("coverLetterTemplate", {
+    html: "Obsolete custom layout",
+    css: "",
+  });
+  assert.deepEqual(store.getCoverLetterTemplate(), defaultCoverLetterTemplate);
   const rendered = renderCv(letter.document, {
     html: '<script>alert(1)</script><form action="https://example.com/send"><input></form><p>{{paragraphs.[0]}}</p>',
     css: "",

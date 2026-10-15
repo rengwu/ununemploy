@@ -1,7 +1,7 @@
 ---
 title: Verification setup
 section: Verification
-updated: 2026-10-07
+updated: 2026-10-16
 ---
 # Verification setup
 
@@ -11,7 +11,7 @@ Run commands from the repository root. Product verification should exercise only
 
 Use Node 22.19+, installed project dependencies, and Playwright Chromium; see [local development](../guides/local-development.md). `npm run build` prepares the static UI required by isolated browser drivers. LaTeX scenarios need a prepared Tectonic/package cache; `npm run setup:latex` may download generic compiler packages.
 
-The existing dev UI defaults to `http://127.0.0.1:5173`; this workspace uses API port 4317, while a fresh installation defaults to 3000. `GET /api/health` succeeds only with a recent worker heartbeat. Check the configured port without disclosing `.env` contents. Do not start another API/worker against the user's live database. `npm run dev` starts the configured scheduler and can perform real collection.
+The existing dev UI defaults to `http://127.0.0.1:2839`; this workspace uses API port 4317, while a fresh installation defaults to 3000. `GET /api/health` succeeds only with a recent worker heartbeat. Check the configured port without disclosing `.env` contents. Do not start another API/worker against the user's live database. `npm run dev` starts the configured scheduler and can perform real collection.
 
 For build identity, record `git rev-parse HEAD`, whether the tree is dirty, and a SHA-256 content manifest or patch fingerprint including relevant untracked files. A revision alone does not identify a dirty tree. Exclude `.env`, appdata, credentials and candidate evidence from public manifests and logs.
 
@@ -25,6 +25,8 @@ Existing drivers store artifacts under `.local-data/verification/`. Keep raw/pri
 
 ## Existing checks and tools
 
+`npx tsx scripts/verify-backup-ui.ts` runs the ZIP download/import workflow against an isolated synthetic database and saves reviewed-output candidates under `.local-data/verification/backup/`. `npx tsx --test tests/backup.test.ts` covers validation, overwrite, concurrency, rollback and persistence. See [ZIP backups](../features/backups.md).
+
 
 ```sh
 npm run check
@@ -32,11 +34,11 @@ npm test
 npm run build
 ```
 
-`npx tsx scripts/verify-assistant-ui.ts` checks the overlay, onboarding, jobs, document edits, preview refresh, unsaved text and desktop/mobile behavior with isolated synthetic data and simulated inference; PDF compilation is real. The old `verify-profile-ui.ts` command delegates to this workflow. `npx tsx scripts/verify-assistant-runtime.ts` performs an opt-in real Codex profile/LaTeX edit and PDF compilation with synthetic facts; it consumes subscription allowance. `verify-profile-runtime.ts` retains the earlier profile-only runtime check.
+`npx tsx scripts/verify-assistant-ui.ts` checks the overlay, onboarding, jobs, document edits, preview refresh, unsaved text and desktop/mobile behavior with isolated synthetic data and simulated inference; PDF compilation is real. The old `verify-profile-ui.ts` command delegates to this workflow. `npx tsx scripts/verify-assistant-runtime.ts` performs an opt-in real Codex profile/LaTeX edit and PDF compilation with synthetic facts; it consumes subscription allowance. `verify-profile-runtime.ts` checks profile onboarding through the same app-wide assistant runtime with synthetic facts; it also consumes subscription allowance.
 
 Tests use an isolated temporary database and mock source responses/Codex process output. `scripts/verify-generation.ts` performs a real subscription inference against an already-collected Linear posting without saving it to your job list. It consumes subscription allowance. `scripts/verify-exports.ts` retains checks for master and legacy resume exports. `scripts/verify-container.ts` exercises the amd64 image, PDF export, volume ownership, backup, and restart persistence with an isolated Docker volume, fixture data, and scheduling disabled.
 
-`npx tsx scripts/verify-dashboard.ts` checks pagination, filtering, polling, retry behavior, unsaved notes and mobile layout against the local running app without saving jobs. `npx tsx scripts/verify-cv-workflow.ts` now runs the cover-letter save/edit/restore/download browser flow in an isolated temporary app with simulated generation. Add `--real-generation` to use the configured Codex subscription; this consumes allowance. Both modes passed, including one real generation, controlled failure/retry checks, and rendered PDF/Word inspection. See [verification](history.md) for scope and artifacts. The optional WebMCP surface has not been validated in a supported browser context.
+`npx tsx scripts/verify-dashboard.ts` checks pagination, filtering, polling, retry behavior, unsaved notes and mobile layout against the local running app without saving jobs. `npx tsx scripts/verify-cv-workflow.ts` now runs the cover-letter save/edit/restore/download browser flow in an isolated temporary app with simulated generation. Add `--real-generation` to use the configured Codex subscription; this consumes allowance. The current driver uses only a fictional profile/job in both modes. The [lean cover-letter run](runs/2026-10-16-lean-cover-letters.md) checks the current plain-text editor, clipboard and PDF output with simulated generation. Earlier real-generation and Word-output checks are historical; see [verification history](history.md).
 
 
 

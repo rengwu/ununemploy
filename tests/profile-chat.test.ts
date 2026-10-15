@@ -1,7 +1,7 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 const directory = mkdtempSync(join(tmpdir(), "ununemploy-profile-test-"));
@@ -10,6 +10,8 @@ process.env.JH_PROFILE_SEED = "";
 process.env.JH_TEST_SERVER = "1";
 const store = await import("../core/db/index.ts");
 const chat = await import("../core/profile/chat.ts");
+const assistant = await import("../core/assistant/service.ts");
+const { assistantPrompt } = await import("../core/assistant/prompt.ts");
 const { emptyProfile, profileReadiness, profileMarkdown } =
   await import("../core/profile/facts.ts");
 const { scan } = await import("../core/scan.ts");
@@ -23,6 +25,55 @@ const edit = (path: string, value: unknown, evidenceQuote: string) => ({
 });
 const enqueue = (text: string) =>
   chat.enqueueProfileMessage(text, randomUUID(), store.getProfile().revision);
+// Feed profile-edit fixtures through the single assistant action loop.
+async function processProfileReply(deps: {
+  check: () => Promise<{ state: string; message: string }>;
+  infer: (
+    prompt: string,
+    schema: object,
+    options?: { signal?: AbortSignal },
+  ) => Promise<{ result: any; usage: unknown }>;
+}) {
+  let round = 0;
+  let reply = "";
+  const revision = store.getProfile().revision;
+  return assistant.processAssistantTurn({
+    check: deps.check,
+    infer: async (prompt, schema, options) => {
+      if (round++ === 0)
+        return {
+          result: {
+            reply: "",
+            done: false,
+            calls: [{ name: "read_profile", argumentsJson: "{}" }],
+          },
+          usage: null,
+        };
+      if (round > 2)
+        return { result: { reply, done: true, calls: [] }, usage: null };
+      const output = await deps.infer(prompt, schema, options);
+      reply = output.result.reply;
+      return {
+        result: output.result.edits.length
+          ? {
+              reply: "",
+              done: false,
+              calls: [
+                {
+                  name: "edit_profile",
+                  argumentsJson: JSON.stringify({
+                    expectedRevision: revision,
+                    edits: output.result.edits,
+                  }),
+                },
+              ],
+            }
+          : { reply, done: true, calls: [] },
+        usage: output.usage,
+      };
+    },
+  });
+}
 const latest = () => chat.latestProfileTurn()!;
 const reset = () => {
   if (latest()) chat.cancelProfileTurn(latest().id);
@@ -44,11 +95,12 @@ after(async () => {
 
 test("fresh installation has no private candidate seed; onboarding is idempotent and scans are blocked", async () => {
   assert.deepEqual(store.getProfile(), emptyProfile());
-  const state = chat.startProfileChat();
+  assistant.startAssistant();
+  const state = chat.profileState();
   assert.equal(state.readiness.ready, false);
   assert.equal(state.readiness.missing.length, 5);
   assert.match(state.messages[0].content, /What name/);
-  assert.equal(chat.startProfileChat().messages.length, 1);
+  assert.equal(assistant.startAssistant().messages.length, 1);
   assert.deepEqual(await scan(), { profileRequired: true });
   assert.deepEqual(await scan(undefined, true), { profileRequired: true });
   assert.equal(
@@ -58,7 +110,7 @@ test("fresh installation has no private candidate seed; onboarding is idempotent
   );
 });
 
-test("a conversation atomically builds canonical facts, evidence, CV context and discovery readiness", async () => {
+test("a conversation atomically builds canonical facts, evidence and discovery readiness without legacy CV writes", async () => {
   const text =
     "I am Maya in Toronto, Canada. I want junior data analyst roles, remote or hybrid. I completed analytics projects with SQL and Python.";
   const turn = enqueue(text);
@@ -71,7 +123,7 @@ test("a conversation atomically builds canonical facts, evidence, CV context and
     () => chat.enqueueProfileMessage("Changed text", turn.userMessageId, 1),
     /already in use/,
   );
-  await chat.processProfileTurn({
+  await processProfileReply({
     check: ready,
     infer: async (prompt) => {
       assert.match(prompt, /Build a user profile/);
@@ -115,7 +167,7 @@ test("a conversation atomically builds canonical facts, evidence, CV context and
   );
   assert.match(state.markdown, /Maya/);
   assert.equal(state.changes[0].edits.length, 5);
-  assert.equal(store.listCvVersions()[0].profileRevision, 2);
+  assert.deepEqual(store.listCvVersions(), []);
   assert.deepEqual(await scan("nonexistent-source", true), {
     busy: false,
     runs: [],
@@ -127,7 +179,7 @@ test("guided edits and removal preserve unrelated metadata, evidence and prior p
   before.preferences.customPreference = { note: "Keep me" };
   store.saveProfile(before, before.revision);
   const turn = enqueue("I use R too.");
-  await chat.processProfileTurn({
+  await processProfileReply({
     check: ready,
     infer: async () => ({
       result: {
@@ -152,7 +204,7 @@ test("guided edits and removal preserve unrelated metadata, evidence and prior p
   assert.equal(latest().state, "complete");
   const revision = store.getProfile().revision;
   enqueue("Remove the R skill.");
-  await chat.processProfileTurn({
+  await processProfileReply({
     check: ready,
     infer: async () => ({
       result: {
@@ -204,7 +256,7 @@ test("invalid, unquoted and unsafe changes fail without partial edits or assista
   for (const value of bad) {
     enqueue("Hello");
     const messages = chat.profileMessages().length;
-    await chat.processProfileTurn({
+    await processProfileReply({
       check: ready,
       infer: async () => ({
         result: {
@@ -224,7 +276,7 @@ test("invalid, unquoted and unsafe changes fail without partial edits or assista
 test("authentication pauses are retryable, cancellation discards late replies, and restart recovers running work", async () => {
   const turn = enqueue("Keep my current profile.");
   let calls = 0;
-  await chat.processProfileTurn({
+  await processProfileReply({
     check: async () => ({ state: "signed_out", message: "Sign in to Codex." }),
     infer: async () => {
       calls++;
@@ -235,7 +287,7 @@ test("authentication pauses are retryable, cancellation discards late replies, a
   assert.equal(latest().state, "paused");
   chat.retryProfileTurn(turn.id);
   const revision = store.getProfile().revision;
-  await chat.processProfileTurn({
+  await processProfileReply({
     check: ready,
     infer: async () => {
       chat.cancelProfileTurn(turn.id);
@@ -257,7 +309,7 @@ test("authentication pauses are retryable, cancellation discards late replies, a
   chat.recoverProfileTurns();
   assert.equal(latest().state, "paused");
   chat.retryProfileTurn(turn.id);
-  await chat.processProfileTurn({
+  await processProfileReply({
     check: ready,
     infer: async () => ({
       result: { reply: "No changes made.", edits: [] },
@@ -271,7 +323,7 @@ test("authentication pauses are retryable, cancellation discards late replies, a
 test("stopping a running turn aborts its inference signal and releases the chat lease", async () => {
   const turn = enqueue("Keep my profile unchanged.");
   let aborted = false;
-  await chat.processProfileTurn({
+  await processProfileReply({
     check: ready,
     infer: async (_prompt, _schema, options) =>
       new Promise((_resolve, reject) => {
@@ -309,9 +361,17 @@ test("prompt context uses current facts and bounded conversation without replayi
   ];
   const latestMessage = message("Update my current profile.");
   const history = Array.from({ length: 30 }, () => message("x".repeat(16000)));
-  const prompt = chat.profilePrompt(p, history, latestMessage);
+  const prompt = assistantPrompt({
+    profile: p,
+    history,
+    message: latestMessage,
+    context: { page: "profile", dirty: false },
+    focus: null,
+    steps: [],
+    allowedUrls: [],
+  });
   assert.ok(prompt.length < 100000);
-  assert.match(prompt, /Current name/);
+
   assert.ok(!prompt.includes("SUPERSEDED HISTORICAL CLAIM"));
   assert.match(prompt, /Update my current profile/);
 });
@@ -319,7 +379,7 @@ test("prompt context uses current facts and bounded conversation without replayi
 test("concurrent updates cannot be overwritten by queued or in-flight profile replies", async () => {
   enqueue("Change my name to Jo.");
   store.saveProfile(store.getProfile(), store.getProfile().revision);
-  await chat.processProfileTurn({
+  await processProfileReply({
     check: ready,
     infer: async () => {
       throw new Error("Should not run");
@@ -327,7 +387,7 @@ test("concurrent updates cannot be overwritten by queued or in-flight profile re
   });
   assert.equal(latest().state, "conflict");
   const turn = chat.retryProfileTurn(latest().id);
-  await chat.processProfileTurn({
+  await processProfileReply({
     check: ready,
     infer: async () => {
       const newer = store.getProfile();
@@ -392,11 +452,11 @@ test("profile API validates messages, exposes conditional state, and preserves s
     (
       await app.inject({
         method: "POST",
-        url: "/api/profile/chat",
+        url: "/api/assistant/messages",
         payload: {
           message: "",
           clientId: randomUUID(),
-          expectedRevision: store.getProfile().revision,
+          context: { page: "profile" },
         },
       })
     ).statusCode,
@@ -422,4 +482,76 @@ test("profile API validates messages, exposes conditional state, and preserves s
   } finally {
     peer.close();
   }
+});
+
+test("old profile chat endpoints are retired; legacy pending turns use the assistant without losing history", async () => {
+  for (const url of [
+    "/api/profile/chat/start",
+    "/api/profile/chat",
+    "/api/profile/chat/old/cancel",
+    "/api/profile/chat/old/retry",
+  ]) {
+    assert.equal(
+      (await app.inject({ method: "POST", url, payload: {} })).statusCode,
+      404,
+    );
+  }
+  if (latest()) chat.cancelProfileTurn(latest().id);
+  const history = chat.profileMessages();
+  const revisions = store.db.prepare("SELECT * FROM profile_versions").all();
+  const migration = readFileSync(
+    new URL("../core/db/migrations/011_assistant_only.sql", import.meta.url),
+    "utf8",
+  );
+  for (const state of [
+    "complete",
+    "queued",
+    "running",
+    "paused",
+    "failed",
+    "cancelled",
+    "conflict",
+  ]) {
+    const turn = enqueue("Keep my profile unchanged.");
+    store.db
+      .prepare(
+        "UPDATE profile_turns SET engine='profile',context='{}',state=?,error='retained diagnostic',usage='{}' WHERE id=?",
+      )
+      .run(state, turn.id);
+    const before = store.db
+      .prepare("SELECT * FROM profile_turns WHERE id=?")
+      .get(turn.id)!;
+    store.db.exec(migration);
+    const after = store.db
+      .prepare("SELECT * FROM profile_turns WHERE id=?")
+      .get(turn.id)!;
+    assert.deepEqual(
+      { ...after },
+      state === "complete"
+        ? { ...before }
+        : {
+            ...before,
+            engine: "assistant",
+            context: '{"page":"profile","dirty":false}',
+          },
+    );
+    if (state === "complete") continue;
+    if (state === "running") chat.recoverProfileTurns();
+    if (state !== "queued") chat.retryProfileTurn(turn.id);
+    await assistant.processAssistantTurn({
+      check: ready,
+      infer: async () => ({
+        result: { reply: "No changes made.", done: true, calls: [] },
+        usage: null,
+      }),
+    });
+    assert.equal(latest().id, turn.id);
+    assert.equal(latest().state, "complete");
+    assert.equal(latest().userMessageId, turn.userMessageId);
+  }
+  assert.deepEqual(chat.profileMessages().slice(0, history.length), history);
+  assert.deepEqual(
+    store.db.prepare("SELECT * FROM profile_versions").all(),
+    revisions,
+  );
 });

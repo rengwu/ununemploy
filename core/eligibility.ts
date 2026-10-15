@@ -283,6 +283,33 @@ export function assessEligibility(
     notes.push(
       "The posting mentions visa support; eligibility and role-specific conditions need confirmation.",
     );
+  const applicantLocations = clauses.find((s) =>
+    /^Applicant locations:/i.test(s),
+  );
+  const worldwide = clauses.find(
+    (s) =>
+      !/\b(?:not|except|excluding)\b/i.test(s) &&
+      /(?:applicants?|candidates?|hir(?:e|ing)|eligible|work from).{0,50}(?:worldwide|anywhere in the world)|(?:worldwide|anywhere in the world).{0,50}(?:eligible|applicants?|candidates?)/i.test(
+        s,
+      ),
+  );
+  if (
+    applicantLocations &&
+    namedCountries(applicantLocations).length &&
+    worldwide
+  ) {
+    remoteEligibility = "unknown";
+    for (let i = notes.length - 1; i >= 0; i--)
+      if (notes[i].startsWith("Remote hiring excludes")) notes.splice(i, 1);
+    // Uncertainty about hiring location does not erase independent authorization requirements.
+    for (const e of evidence)
+      if (["hiring_locations", "residency"].includes(e.rule))
+        e.outcome = "review";
+    add("hiring_conflict", `${worldwide} / ${applicantLocations}`, "review");
+    notes.push(
+      "Conflicting hiring locations in the posting; eligibility needs confirmation.",
+    );
+  }
   if (remote && remoteEligibility === "unknown")
     notes.push(
       `Remote work does not establish hiring eligibility from ${profile.basics.location || "your location"}.`,

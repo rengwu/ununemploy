@@ -142,7 +142,6 @@ export type Profile = z.infer<typeof profileSchema>;
 export type ReviewStatus = "new" | "saved" | "dismissed" | "applied";
 export type MatchCategory = "strong" | "adjacent" | "stretch" | "other";
 export type Job = {
-  jev?: import("./jev/types.ts").JevJob;
   id: string;
   sourceId: string;
   sourceItemId: string;
@@ -163,6 +162,8 @@ export type Job = {
   applicationUrl?: string;
   publishedAt: string | null;
   expiresAt?: string | null;
+  /** Observed HTTP removal, distinct from an employer's expiry date. */
+  removedAt?: string | null;
   firstSeenAt: string;
   /** First deliberate user open, distinct from the collector's firstSeenAt. */
   seenAt?: string | null;
@@ -230,6 +231,7 @@ export type IncomingJob = Pick<
   | "applicationUrl"
   | "publishedAt"
   | "expiresAt"
+  | "removedAt"
   | "kind"
 >;
 export const sourceInputSchema = z.object({
@@ -244,6 +246,7 @@ export const sourceInputSchema = z.object({
     "x",
     "himalayas",
     "remoteok",
+    "workingnomads",
     "remotive",
     "fourdayweek",
     "arbeitnow",

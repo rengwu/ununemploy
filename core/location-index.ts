@@ -298,39 +298,3 @@ export function buildRegionLocationIndex(
   );
   return { byJob, options };
 }
-
-/** Candidate place spans only. Jev must separately decide whether each is a role location. */
-export function mentionedLocations(text: string): string[] {
-  const normalized = text
-    .replace(/\bU\.?S\.?(?:A\.?)?\b/g, "United States")
-    .replace(/\bU\.?K\.?\b/g, "United Kingdom");
-  const words = fold(normalized).match(/[\p{L}\p{N}-]+/gu) || [];
-  const found = new Set<string>();
-  for (let i = 0; i < words.length && found.size < 24; i++) {
-    for (let n = Math.min(4, words.length - i); n > 0; n--) {
-      const term = words.slice(i, i + n).join(" ");
-      // Short codes and common English words are too ambiguous in prose.
-      if (
-        term.length < 4 ||
-        /^(remote|reading|mobile|nice|university|enterprise|orange|union|united|sale|bath|here|there|america|georgia|turkey)$/.test(
-          term,
-        )
-      )
-        continue;
-      const country = countryNames.get(term);
-      const region = regionNames.get(term);
-      const city = geography.places[cityAliases[term] || term];
-      if (country) found.add(countries.get(country)!.label);
-      else if (region)
-        found.add(locationRegions.find((r) => r.id === region)!.label);
-      else if (city?.length === 1)
-        found.add(term.replace(/\b\p{L}/gu, (c) => c.toUpperCase()));
-      else continue;
-      i += n - 1;
-      break;
-    }
-  }
-  if (/\bworldwide\b|\banywhere in the world\b/i.test(text))
-    found.add("Worldwide");
-  return [...found].slice(0, 24);
-}
