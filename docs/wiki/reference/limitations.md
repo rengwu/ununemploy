@@ -16,6 +16,8 @@ updated: 2026-10-16
 
 ## Pending integration and deployment checks
 
+- The Windows local port is verified on Windows 11 x64 build 26200. Clean-machine installation, WebView2 provisioning, fresh interactive ChatGPT login and signed distribution remain unverified; shared macOS changes need a Mac regression run. See [Windows verification](../verification/runs/2026-10-17-windows-port.md).
+
 - Actual Unraid installation and native amd64 LaTeX compilation remain unverified. The host must support Landlock.
 - Authenticated Web3.career collection remains unverified. Historical Jev responses were observed locally during the [accounting investigation](../verification/runs/2026-10-07T180900Z-jev-accounting.md), but assessment quality and provider billing reconciliation remain unverified; no new live inference was performed.
 - Adzuna, Jooble and Careerjet need publisher credentials **and API adapter work**. Registering a source does not establish collection.

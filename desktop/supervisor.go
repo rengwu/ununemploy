@@ -12,10 +12,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -33,12 +33,14 @@ type supervisor struct {
 	control         net.Listener
 	state           instance
 	show            func()
+	quit            func()
 	cmd             *exec.Cmd
 	stdin           io.WriteCloser
 	done            chan struct{}
 	exit            error
 	mu              sync.Mutex
 	closed          bool
+	platform        platformService
 }
 
 func newSupervisor(resources, data string) (*supervisor, error) {
@@ -53,9 +55,9 @@ func newSupervisor(resources, data string) (*supervisor, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	if err := lockInstance(lock); err != nil {
 		lock.Close()
-		if !errors.Is(err, syscall.EWOULDBLOCK) {
+		if !errors.Is(err, errInstanceLocked) {
 			return nil, err
 		}
 		// The first launch may still be publishing its control address.
@@ -101,12 +103,15 @@ func newSupervisor(resources, data string) (*supervisor, error) {
 		return fail(err)
 	}
 	go http.Serve(s.control, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/show" || r.Method != http.MethodPost || r.Header.Get("Authorization") != "Bearer "+s.state.Token {
+		if (r.URL.Path != "/show" && r.URL.Path != "/quit") || r.Method != http.MethodPost || r.Header.Get("Authorization") != "Bearer "+s.state.Token {
 			http.NotFound(w, r)
 			return
 		}
 		s.mu.Lock()
 		show := s.show
+		if r.URL.Path == "/quit" {
+			show = s.quit
+		}
 		s.mu.Unlock()
 		if show != nil {
 			show()
@@ -125,7 +130,7 @@ func (s *supervisor) saveState() error {
 	if err = os.WriteFile(tmp, b, 0600); err != nil {
 		return err
 	}
-	return os.Rename(tmp, filepath.Join(s.data, "desktop-instance.json"))
+	return replaceInstanceFile(tmp, filepath.Join(s.data, "desktop-instance.json"))
 }
 
 func (s *supervisor) start() (string, error) {
@@ -141,30 +146,12 @@ func (s *supervisor) start() (string, error) {
 			port = n
 		}
 	}
-	listener, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: port})
-	if err != nil {
-		listener, err = net.ListenTCP("tcp4", &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
-	}
+	cleanup, err := s.prepareService(port)
 	if err != nil {
 		s.mu.Unlock()
 		return "", err
 	}
-	file, err := listener.File()
-	if err != nil {
-		listener.Close()
-		s.mu.Unlock()
-		return "", err
-	}
-	address := listener.Addr().String()
-	listener.Close()
-	defer file.Close()
-	node := filepath.Join(s.resources, "bin/node")
-	app := filepath.Join(s.resources, "app")
-	s.cmd = exec.Command(node, "--import", "tsx", "scripts/desktop-service.ts")
-	s.cmd.Dir = app
-	s.cmd.ExtraFiles = []*os.File{file}
-	s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	s.cmd.Env = desktopEnvironment(s.resources, s.data)
+	defer cleanup()
 	s.cmd.Stdout = s.log
 	s.cmd.Stderr = s.log
 	s.stdin, err = s.cmd.StdinPipe()
@@ -172,15 +159,16 @@ func (s *supervisor) start() (string, error) {
 		err = s.cmd.Start()
 	}
 	if err != nil {
+		if s.stdin != nil {
+			s.stdin.Close()
+		}
 		s.cmd = nil
 		s.mu.Unlock()
 		return "", fmt.Errorf("Could not start the bundled services: %w", err)
 	}
-	s.state.URL = "http://" + address
 	s.state.ServicePID = s.cmd.Process.Pid
-	_ = os.WriteFile(filepath.Join(s.data, "desktop-port"), []byte(strconv.Itoa(listenerPort(address))), 0600)
-	err = s.saveState()
 	go func() { s.exit = s.cmd.Wait(); close(s.done) }()
+	err = s.serviceStarted()
 	s.mu.Unlock()
 	if err != nil {
 		return "", err
@@ -192,6 +180,19 @@ func (s *supervisor) start() (string, error) {
 		case <-s.done:
 			return "", fmt.Errorf("The services stopped during startup. See %s", filepath.Join(s.data, "desktop.log"))
 		default:
+		}
+		if s.state.URL == "" {
+			if err := s.readServiceAddress(); err != nil {
+				return "", err
+			}
+			if s.state.URL == "" {
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+			_ = os.WriteFile(filepath.Join(s.data, "desktop-port"), []byte(strconv.Itoa(listenerPort(strings.TrimPrefix(s.state.URL, "http://")))), 0600)
+			if err := s.saveState(); err != nil {
+				return "", err
+			}
 		}
 		res, e := client.Get(s.state.URL + "/api/health")
 		if e == nil {
@@ -214,17 +215,21 @@ func listenerPort(address string) int {
 func desktopEnvironment(resources, data string) []string {
 	// Finder has a small PATH. Bundled runtimes take precedence; no shell is used.
 	overrides := map[string]string{
-		"PATH":        filepath.Join(resources, "bin") + ":/usr/bin:/bin:/usr/sbin:/sbin",
+		"PATH":        runtimePath(resources),
 		"JH_DATA_DIR": data, "JH_HOST": "127.0.0.1", "JH_TEST_SERVER": "1", "JH_DESKTOP": "1",
-		"JH_CODEX_BIN":   filepath.Join(resources, "codex/bin/codex"),
+		"JH_CODEX_BIN":   filepath.Join(resources, "codex/bin/"+executableName("codex")),
 		"JH_CODEX_MODEL": "gpt-5.6-sol", "JH_CODEX_REASONING_EFFORT": "high",
-		"JH_TECTONIC_BIN":          filepath.Join(resources, "bin/tectonic"),
+		"JH_TECTONIC_BIN":          filepath.Join(resources, "bin/"+executableName("tectonic")),
 		"JH_LATEX_CACHE":           filepath.Join(resources, "tex-cache"),
 		"PLAYWRIGHT_BROWSERS_PATH": filepath.Join(resources, "browsers"),
+	}
+	if runtime.GOOS == "windows" {
+		overrides["JH_LATEX_SANDBOX"] = filepath.Join(resources, "bin", executableName("ununemploy-tex-sandbox"))
 	}
 	env := []string{}
 	for _, v := range os.Environ() {
 		k, _, _ := strings.Cut(v, "=")
+		k = environmentKey(k)
 		if _, ok := overrides[k]; !ok && k != "NODE_OPTIONS" && k != "JH_PROFILE_SEED" && k != "JH_CHROMIUM_PATH" && k != "ORIGIN" {
 			env = append(env, v)
 		}
@@ -255,7 +260,7 @@ func (s *supervisor) close() {
 	cmd := s.cmd
 	s.mu.Unlock()
 	if cmd != nil && cmd.Process != nil {
-		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
+		s.stopService()
 		if s.stdin != nil {
 			_ = s.stdin.Close()
 		}
@@ -264,17 +269,20 @@ func (s *supervisor) close() {
 		case <-time.After(5 * time.Second):
 		}
 		// Also reap descendants that survived the service process.
-		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		s.killService()
 	}
+	s.closePlatform()
 	if s.control != nil {
 		s.control.Close()
 	}
 	if s.lock != nil {
 		_ = os.Remove(filepath.Join(s.data, "desktop-instance.json"))
-		syscall.Flock(int(s.lock.Fd()), syscall.LOCK_UN)
+		unlockInstance(s.lock)
 		s.lock.Close()
 	}
 	if s.log != nil {
 		s.log.Close()
 	}
 }
+
+var errInstanceLocked = errors.New("desktop instance is locked")

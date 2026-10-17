@@ -1,7 +1,7 @@
 ---
 title: LaTeX CV
 section: Features
-updated: 2026-10-16
+updated: 2026-10-17
 ---
 # LaTeX CV
 
@@ -31,6 +31,8 @@ The compiler/package cache must be ready. Native Linux sandbox support and actua
 
 ## Verification history
 
+[Windows local build — 17 October 2026](../verification/runs/2026-10-17-windows-port.md) exercises AppContainer isolation, offline compilation, selectable native preview, Save and PDF download.
+
 [Cursor-inspired UI redesign — 16 October 2026](../verification/runs/2026-10-16-cursor-redesign.md) records the replacement controls, responsive/theme checks, preserved workflows and native installation.
 
 [Lean cleanup first pass — 16 October 2026](../verification/runs/2026-10-15T165802Z-lean-first-pass.md): WebMCP removal, retired legacy CV writes with preserved downloads, and hidden/unscanned placeholder sources; 200 tests, build and isolated browser checks passed.
@@ -48,12 +50,14 @@ LaTeX has independent version history. Editing it never updates career facts or 
 
 The Docker image includes Tectonic, the required fonts/packages, and a Linux Landlock sandbox. Compiles run offline, with shell escape disabled, a 30-second timeout, bounded output and a temporary work directory. They cannot read appdata or Codex authentication. The Linux host must support Landlock (kernel 5.13+ with Landlock enabled); compilation fails closed if it does not. No privileged container or Docker socket is required.
 
-Local `npm run dev` and `npm start` automatically prepare LaTeX. Setup reuses an installed compiler (including Homebrew outside the launcher's PATH), or downloads a SHA-256-verified Tectonic 0.15.0 release into `<appdata>/latex-runtime/bin`. macOS and Linux arm64/x64 are supported. No Homebrew installation or administrator access is needed on macOS. To retry a failed download or prepare updated template packages:
+Local `npm run dev` and `npm start` automatically prepare LaTeX. Setup reuses an installed compiler (including Homebrew outside the launcher's PATH), or downloads a SHA-256-verified Tectonic 0.15.0 release into `<appdata>/latex-runtime/bin`. macOS and Linux arm64/x64 plus Windows x64 are implemented. Windows local setup needs Go to build its AppContainer helper; the Windows desktop package includes that helper. No Homebrew installation or administrator access is needed on macOS. To retry a failed download or prepare updated template packages:
 
 ```sh
 npm run setup:latex
 ```
 
-Setup checks offline compilation first and only downloads packages using a generic template without candidate data when needed. An existing package cache is reused; new installations use `<appdata>/latex-runtime/cache`. Runtime compilation uses only the cache and the OS sandbox, which blocks private files and networking. Optional overrides are `JH_TECTONIC_BIN`, `JH_LATEX_CACHE` and, on Linux, `JH_LATEX_SANDBOX`; invalid explicit overrides are reported instead of silently replaced. Native Linux development needs `gcc` and Linux development headers to build the included sandbox helper automatically; Docker already contains it. If setup fails, the rest of the app still starts and saved documents remain available. Only the bundled package set is supported initially; add trusted package requirements to `core/latex/starter.tex` and rerun setup/rebuild the image to expand it.
+Setup checks offline compilation first and only downloads packages using a generic template without candidate data when needed. An existing package cache is reused; new installations use `<appdata>/latex-runtime/cache`. Runtime compilation uses only the cache and the OS sandbox, which blocks private files and networking. Optional overrides are `JH_TECTONIC_BIN`, `JH_LATEX_CACHE` and, on Linux/Windows, `JH_LATEX_SANDBOX`; invalid explicit overrides are reported instead of silently replaced. Native Linux development needs `gcc` and Linux development headers to build the included sandbox helper automatically; Docker already contains it. If setup fails, the rest of the app still starts and saved documents remain available. Only the bundled package set is supported initially; add trusted package requirements to `core/latex/starter.tex` and rerun setup/rebuild the image to expand it.
+
+On Windows, compilation uses the AppContainer and Job Object boundary described in the [desktop specification](desktop.md#windows-11-x64). It has no network capabilities, reads private copies of generic runtime assets, and writes only its isolated work directory. The original cache and private sibling-file denial, child-process denial, and compiler cleanup after broker death are covered by native probes. The same 30-second/output/PDF limits apply.
 
 Migration 006 stores LaTeX source versions and successful PDF builds in SQLite. They are included in the existing database backup. Unsaved preview builds are bounded; saved versions keep their compiled PDFs. Appdata and all existing documents are preserved across updates.

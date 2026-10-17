@@ -10,7 +10,7 @@ These records separate expected behavior from dated verification. Stable IDs ide
 | Feature ID | Record | Main entry point |
 | --- | --- | --- |
 | FEAT-backups | [ZIP backups](backups.md) | Settings → Backup |
-| FEAT-desktop | [Native desktop app](desktop.md) | Finder / Spotlight |
+| FEAT-desktop | [Native desktop app](desktop.md) | Finder / Spotlight / Windows Start |
 | FEAT-job-inbox | [Job inbox and saved jobs](job-inbox.md) | Jobs / Saved |
 | FEAT-discovery | [Discovery and sources](discovery.md) | Sources / Settings |
 | FEAT-matching | [Matching and listing quality](matching.md) | Match / result filters |

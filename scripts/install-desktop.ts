@@ -6,6 +6,28 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
+import { execFileSync } from "node:child_process";
+
+if (process.platform === "win32") {
+  const installer = fileURLToPath(
+    new URL("../build/desktop/windows/install.ps1", import.meta.url),
+  );
+  execFileSync(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      installer,
+      ...(process.env.JH_DESKTOP_APPLICATIONS
+        ? ["-Destination", process.env.JH_DESKTOP_APPLICATIONS]
+        : []),
+    ],
+    { stdio: "inherit", windowsHide: true },
+  );
+  process.exit(0);
+}
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const built = join(root, "build/desktop/ununemploy.app");

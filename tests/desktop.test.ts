@@ -24,6 +24,24 @@ test("bundle copies preserve relative command links and reject checkout dependen
   const source = join(root, "app-source"),
     target = join(root, "app-copy");
   await mkdir(join(source, "bin"), { recursive: true });
+  if (process.platform === "win32") {
+    // Directory junctions need no Developer Mode/admin symlink privilege.
+    await mkdir(join(source, "runtime"));
+    await symlink(
+      join(source, "runtime"),
+      join(source, "bin/command"),
+      "junction",
+    );
+    assert.equal(await checkBundleLinks(source), 1);
+    await mkdir(target);
+    await symlink(
+      join(source, "runtime"),
+      join(target, "bad-command"),
+      "junction",
+    );
+    await assert.rejects(checkBundleLinks(target), /escapes its bundle/);
+    return;
+  }
   await writeFile(join(source, "runtime"), "fixture");
   await symlink("../runtime", join(source, "bin/command"));
   await cp(source, target, { recursive: true, verbatimSymlinks: true });

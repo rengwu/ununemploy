@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, readdirSync } from "node:fs";
@@ -9,10 +10,9 @@ import JSZip from "jszip";
 
 const directory = mkdtempSync(join(tmpdir(), "ununemploy-backup-test-"));
 process.env.JH_DATA_DIR = directory;
-process.env.JH_PROFILE_SEED = new URL(
-  "./fixtures/profile.json",
-  import.meta.url,
-).pathname;
+process.env.JH_PROFILE_SEED = fileURLToPath(
+  new URL("./fixtures/profile.json", import.meta.url),
+);
 process.env.JH_TEST_SERVER = "1";
 process.env.JH_SCHEDULE_ENABLED = "false";
 const store = await import("../core/db/index.ts");

@@ -6,6 +6,8 @@ Local job discovery, fit assessment, private cover letters and master CV managem
 
 For daily use on macOS, open **ununemploy.app** from Applications or Spotlight. It starts its bundled API and worker; closing the window keeps them running, and **Quit ununemploy** stops them. See the [desktop guide](docs/wiki/features/desktop.md) for building and installing it from this checkout.
 
+The Windows 11 x64 local port opens **ununemploy.exe** and uses the same Close/Quit lifecycle. `npm run desktop:build` and `npm run desktop:install` select the Windows builder/installer on Windows. The installer verifies package checksums and the WebView2 prerequisite before replacing application files. See [Windows prerequisites, appdata and verification limits](docs/wiki/features/desktop.md#windows-11-x64).
+
 For development:
 
 Requires Node 22.19+ and the official Codex CLI signed in with ChatGPT.

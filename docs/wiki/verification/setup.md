@@ -1,7 +1,7 @@
 ---
 title: Verification setup
 section: Verification
-updated: 2026-10-16
+updated: 2026-10-17
 ---
 # Verification setup
 
@@ -24,6 +24,20 @@ Real generation drivers consume subscription allowance. Live scans consume provi
 Existing drivers store artifacts under `.local-data/verification/`. Keep raw/private artifacts there. Copy only reviewed, sanitized or synthetic evidence into `docs/wiki/evidence/<run-id>/`. Preserve run evidence; remove only temporary databases, browser contexts, processes and containers created by the check. Most isolated drivers use `finally` cleanup; inspect leftovers after failures.
 
 ## Existing checks and tools
+
+### Windows desktop
+
+Build with `npm run desktop:build` on Windows x64. `npm run desktop:test` runs the platform Go tests, including AppContainer denial and process cleanup probes; the race detector needs a C compiler. `node --import tsx scripts/verify-desktop-windows.ts [path-to-ununemploy.exe]` seeds isolated synthetic appdata with discovery/inference disabled, waits for the real worker/API, and drives WebView2 through a loopback CDP port. It checks UI, dirty Quit cancellation, offline CV preview/Save/native download, cover-letter PDF export, ZIP restore, Close/reopen, Quit, restart and crash cleanup. It leaves reviewed-output candidates in `.local-data/verification/windows/` and removes its temporary data/processes. `--verify-installer` additionally checks that the built installer rejects replacement of a running separately installed fixture.
+
+Use `noDefaults:true` when attaching Playwright so it does not replace native download behavior. Native captures use CDP `Page.captureScreenshot` with `fromSurface:false`. Only explicit `JH_DESKTOP_DEBUG_PORT` plus `JH_DESKTOP_DATA_DIR` enables the host's test endpoint; ordinary launches expose no debugging port. The Win32 driver targets the launched process and verifies the fixture filename before saving.
+
+For the full Node suite with bundled document runtimes, set `PLAYWRIGHT_BROWSERS_PATH`, `JH_TECTONIC_BIN`, `JH_LATEX_CACHE` and `JH_LATEX_SANDBOX` to their `build/desktop/windows/resources/` paths, then run `npm test`. Windows tests use real filesystem URLs, a compiled fixture Codex executable and ACL assertions; the Homebrew-only scenario skips on Windows. To separately verify actual subscription/model access, `node --import tsx scripts/verify-codex-windows.ts` makes one synthetic inference through the bundled official runtime and consumes ChatGPT allowance. It sends no candidate facts and does not switch model or billing method.
+
+For installation tests, run the built `install.ps1` with a fresh workspace-local `-Destination` and `-NoShortcut`, then pass its executable to the native driver. Repeat installation only after Quit and verify replacement hashes and separate fixture-data retention. These tests do not establish clean-machine or fresh-login support.
+
+`node --import tsx --test tests/windows-installer.test.ts` runs Windows-only synthetic package checks through the PowerShell installer: first installation/replacement, same-size corruption, missing dependencies, extra files, inventory errors, junctions and locked files. It also explicitly simulates missing WebView2 registration and publication failure; those two injections do not establish behavior on a clean OS. The test uses a temporary `LOCALAPPDATA` for synthetic records and deletes only its own fixture tree. Check the actual built payload with `powershell -NoProfile -ExecutionPolicy Bypass -File build/desktop/windows/install.ps1 -Check`; this requires the installed WebView2 Runtime but no developer Node or Go on PATH.
+
+### Shared browser and API
 
 `npx tsx scripts/verify-ui-design.ts` checks the Cursor-inspired UI against a fresh synthetic database on an ephemeral loopback port. It covers System/explicit appearance, menus and keyboard location selection, dialog cancellation/focus return, Settings persistence, loading/error/empty states, all main pages, sidebar collapse, mobile navigation and reduced motion. It blocks external browser requests and writes synthetic screenshots and a concise result to `docs/wiki/evidence/2026-10-16-cursor-redesign/`. Build first and wait for completion; never replace `dist` while browser drivers are running because lazy chunks may still be requested. The script removes its temporary database and closes its own server/browser.
 

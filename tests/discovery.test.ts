@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -6,7 +7,9 @@ import { join } from "node:path";
 import type { Source, IncomingJob } from "../core/types.ts";
 const directory = mkdtempSync(join(tmpdir(), "ununemploy-discovery-"));
 process.env.JH_DATA_DIR = directory;
-process.env.JH_PROFILE_SEED = new URL("./fixtures/profile.json", import.meta.url).pathname;
+process.env.JH_PROFILE_SEED = fileURLToPath(
+  new URL("./fixtures/profile.json", import.meta.url),
+);
 const store = await import("../core/db/index.ts");
 const {
   normalizeHimalayas,

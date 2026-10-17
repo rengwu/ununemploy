@@ -13,17 +13,23 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import JSZip from "jszip";
 import { compileLatex } from "./compile.ts";
 import {
   findTectonic,
   latexCacheDirectory,
   latexRuntimeDirectory,
   latexSandboxExecutable,
+  latexExecutableName,
 } from "./runtime.ts";
 
 // Pinned official release archives, shared with the Docker image's version.
 // https://github.com/tectonic-typesetting/tectonic/releases/tag/tectonic%400.15.0
 const releases: Record<string, { target: string; sha256: string }> = {
+  "win32-x64": {
+    target: "x86_64-pc-windows-msvc",
+    sha256: "1d6bb76f049c8a3774f6e9d66e4b04e1a8c3dcb37527b6b41b7e894328e7bf29",
+  },
   "darwin-arm64": {
     target: "aarch64-apple-darwin",
     sha256: "24bd46566fa30d41101848405e9cbc4645edb92d8f857c9d21262174fb70cd33",
@@ -49,10 +55,10 @@ export function tectonicRelease(
   const release = releases[`${platform}-${arch}`];
   if (!release)
     throw new Error(
-      "Built-in LaTeX requires macOS or Linux on arm64/x64. Use the Docker image on other platforms.",
+      "Built-in LaTeX requires Windows x64 or macOS/Linux arm64/x64. Use the Docker image on other platforms.",
     );
   return {
-    url: `https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.15.0/tectonic-0.15.0-${release.target}.tar.gz`,
+    url: `https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.15.0/tectonic-0.15.0-${release.target}.${platform === "win32" ? "zip" : "tar.gz"}`,
     sha256: release.sha256,
   };
 }
@@ -71,7 +77,12 @@ async function run(
   env?: NodeJS.ProcessEnv,
 ) {
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(command, args, { cwd, env, stdio: "inherit" });
+    const child = spawn(command, args, {
+      cwd,
+      env,
+      stdio: "inherit",
+      windowsHide: true,
+    });
     const timer = setTimeout(() => child.kill("SIGKILL"), 180000);
     child.once("error", (error) => {
       clearTimeout(timer);
@@ -105,13 +116,22 @@ export async function installTectonic() {
       throw new Error(`Tectonic download failed: HTTP ${response.status}`);
     const bytes = Buffer.from(await response.arrayBuffer());
     verifyArchive(bytes, release.sha256);
-    const archive = join(staging, "tectonic.tar.gz");
-    await writeFile(archive, bytes);
-    await run("tar", ["-xzf", archive, "-C", staging, "tectonic"], staging);
-    const binary = join(staging, "tectonic");
+    const name = latexExecutableName("tectonic");
+    const binary = join(staging, name);
+    if (process.platform === "win32") {
+      const zip = await JSZip.loadAsync(bytes);
+      const entry = zip.file("tectonic.exe");
+      if (!entry)
+        throw new Error("Tectonic archive is missing its executable.");
+      await writeFile(binary, await entry.async("nodebuffer"));
+    } else {
+      const archive = join(staging, "tectonic.tar.gz");
+      await writeFile(archive, bytes);
+      await run("tar", ["-xzf", archive, "-C", staging, "tectonic"], staging);
+    }
     await chmod(binary, 0o755);
     await run(binary, ["--version"], staging);
-    await rename(binary, join(binDir, "tectonic"));
+    await rename(binary, join(binDir, name));
   } finally {
     await rm(staging, { recursive: true, force: true });
   }
@@ -129,6 +149,19 @@ export async function setupLatex() {
     bin = findTectonic();
   }
   if (!bin) throw new Error("The installed LaTeX compiler could not be found.");
+  if (process.platform === "win32" && !existsSync(latexSandboxExecutable())) {
+    if (process.env.JH_LATEX_SANDBOX)
+      throw new Error(
+        "JH_LATEX_SANDBOX does not exist. Correct the override and retry.",
+      );
+    const destination = latexSandboxExecutable();
+    await mkdir(dirname(destination), { recursive: true });
+    await run(
+      "go",
+      ["build", "-trimpath", "-o", destination, "./cmd/texsandbox"],
+      fileURLToPath(new URL("../../desktop", import.meta.url)),
+    );
+  }
   if (process.platform === "linux" && !existsSync(latexSandboxExecutable())) {
     if (process.env.JH_LATEX_SANDBOX)
       throw new Error(
@@ -176,6 +209,10 @@ export async function setupLatex() {
   await mkdir(cache, { recursive: true });
   const work = await mkdtemp(join(tmpdir(), "ununemploy-tex-setup-"));
   try {
+    if (process.platform === "win32") {
+      await mkdir(join(work, "AppData/Local"), { recursive: true });
+      await mkdir(join(work, "AppData/Roaming"), { recursive: true });
+    }
     console.log("Preparing LaTeX packages for offline compilation…");
     // Only this repository's generic fixture is compiled with network access.
     // Never pass profile facts, saved CVs, database paths or credentials here.
@@ -187,6 +224,17 @@ export async function setupLatex() {
         TECTONIC_CACHE_DIR: cache,
         XDG_CACHE_HOME: cache,
         TECTONIC_UNTRUSTED_MODE: "1",
+        ...(process.platform === "win32"
+          ? {
+              SystemRoot: process.env.SystemRoot,
+              WINDIR: process.env.WINDIR,
+              TEMP: work,
+              TMP: work,
+              USERPROFILE: work,
+              LOCALAPPDATA: work,
+              APPDATA: work,
+            }
+          : {}),
       });
     }
     for (const source of sources) await compileLatex(source);

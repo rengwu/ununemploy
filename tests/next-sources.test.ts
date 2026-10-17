@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+import { assertPrivateFile } from "./helpers/private-file.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, statSync } from "node:fs";
@@ -6,7 +8,9 @@ import { join } from "node:path";
 
 const directory = mkdtempSync(join(tmpdir(), "ununemploy-next-sources-"));
 process.env.JH_DATA_DIR = directory;
-process.env.JH_PROFILE_SEED = new URL("./fixtures/profile.json", import.meta.url).pathname;
+process.env.JH_PROFILE_SEED = fileURLToPath(
+  new URL("./fixtures/profile.json", import.meta.url),
+);
 process.env.JH_TEST_SERVER = "1";
 const store = await import("../core/db/index.ts");
 const { app } = await import("../server/index.ts");
@@ -102,10 +106,7 @@ test("Web3 token is persisted privately, omitted from bootstrap, and never used 
   });
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.json(), { configured: true });
-  assert.equal(
-    statSync(join(directory, "secrets/web3.json")).mode & 0o777,
-    0o600,
-  );
+  assertPrivateFile(join(directory, "secrets/web3.json"));
   const boot = await app.inject({ method: "GET", url: "/api/bootstrap" });
   assert.equal(boot.json().web3.configured, true);
   assert.ok(!boot.body.includes(secret));

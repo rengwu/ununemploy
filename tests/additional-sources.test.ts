@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -12,10 +13,9 @@ import { publicBoards } from "../core/boards/catalog.ts";
 import { discoverySources } from "../core/source-catalog.ts";
 const dir = mkdtempSync(join(tmpdir(), "ununemploy-additions-"));
 process.env.JH_DATA_DIR = dir;
-process.env.JH_PROFILE_SEED = new URL(
-  "./fixtures/profile.json",
-  import.meta.url,
-).pathname;
+process.env.JH_PROFILE_SEED = fileURLToPath(
+  new URL("./fixtures/profile.json", import.meta.url),
+);
 const store = await import("../core/db/index.ts");
 const { normalizeRss, normalizeWorkingNomads } =
   await import("../core/discovery.ts");

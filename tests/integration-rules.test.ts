@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -10,10 +11,9 @@ import type { IncomingJob } from "../core/types.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "ununemploy-rules-"));
 process.env.JH_DATA_DIR = dir;
-process.env.JH_PROFILE_SEED = new URL(
-  "./fixtures/profile.json",
-  import.meta.url,
-).pathname;
+process.env.JH_PROFILE_SEED = fileURLToPath(
+  new URL("./fixtures/profile.json", import.meta.url),
+);
 const store = await import("../core/db/index.ts");
 const queue = await import("../core/boards/queue.ts");
 const { collectPublicBoard, BoardPartialError } =

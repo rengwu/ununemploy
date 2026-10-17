@@ -38,6 +38,15 @@ export function codexEnvironment(): NodeJS.ProcessEnv {
     "USER",
     "LOGNAME",
     "TMPDIR",
+    "SystemRoot",
+    "WINDIR",
+    "USERPROFILE",
+    "LOCALAPPDATA",
+    "APPDATA",
+    "HOMEDRIVE",
+    "HOMEPATH",
+    "TEMP",
+    "TMP",
     "LANG",
     "LC_ALL",
     "CODEX_HOME",
@@ -57,6 +66,7 @@ export async function checkCodex() {
     const result = await exec(config.codexCommand, ["login", "status"], {
       env: codexEnvironment(),
       timeout: 15000,
+      windowsHide: true,
       maxBuffer: 100000,
     });
     if (!/chatgpt/i.test(result.stdout + result.stderr))
@@ -154,6 +164,7 @@ export async function infer<T>(
           cwd: taskDir,
           env: codexEnvironment(),
           stdio: ["pipe", "pipe", "pipe"],
+          windowsHide: true,
         },
       );
       let terminationReason: string | null = null;

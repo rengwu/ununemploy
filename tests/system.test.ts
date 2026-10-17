@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+import { assertPrivateFile } from "./helpers/private-file.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -5,10 +7,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 const directory = mkdtempSync(join(tmpdir(), "ununemploy-test-"));
 process.env.JH_DATA_DIR = directory;
-process.env.JH_PROFILE_SEED = new URL(
-  "./fixtures/profile.json",
-  import.meta.url,
-).pathname;
+process.env.JH_PROFILE_SEED = fileURLToPath(
+  new URL("./fixtures/profile.json", import.meta.url),
+);
 process.env.JH_TEST_SERVER = "1";
 const store = await import("../core/db/index.ts");
 const { app } = await import("../server/index.ts");
@@ -657,12 +658,22 @@ test("saving a job flows through the Codex process boundary to a persistent draf
     }),
     reviewNotes: [],
   };
-  const runtime = join(directory, "fixture-codex.mjs");
+  let runtime = join(directory, "fixture-codex.mjs");
   writeFileSync(
     runtime,
     `#!/usr/bin/env node\nimport {writeFileSync} from 'node:fs';\nif(process.argv.includes('status')){console.log('Logged in using ChatGPT');process.exit(0);}\nprocess.stdin.resume();process.stdin.on('end',()=>{writeFileSync(process.argv[process.argv.indexOf('--output-last-message')+1],${JSON.stringify(JSON.stringify(generation))});console.log(JSON.stringify({type:'turn.completed',usage:{input_tokens:1,output_tokens:1}}));});\n`,
   );
   chmodSync(runtime, 0o700);
+  if (process.platform === "win32") {
+    const { execFileSync } = await import("node:child_process");
+    const source = join(directory, "fixture-codex.go");
+    writeFileSync(
+      source,
+      `package main\nimport("os";"fmt";"io")\nfunc main(){for _,a:=range os.Args{if a=="status"{fmt.Println("Logged in using ChatGPT");return}};io.ReadAll(os.Stdin);for i,a:=range os.Args{if a=="--output-last-message"{if err:=os.WriteFile(os.Args[i+1],[]byte(${JSON.stringify(JSON.stringify(generation))}),0600);err!=nil{panic(err)}}};fmt.Println("{}")}`,
+    );
+    runtime = join(directory, "fixture-codex.exe");
+    execFileSync("go", ["build", "-o", runtime, source], { windowsHide: true });
+  }
   const previous = config.codexCommand;
   config.codexCommand = runtime;
   store.putSetting("app", { ...store.getSettings(), aiEnabled: true });
@@ -715,8 +726,7 @@ test("X credentials persist locally and never appear in API responses", async ()
   const bootstrap = await app.inject({ method: "GET", url: "/api/bootstrap" });
   assert.equal(bootstrap.json().x.configured, true);
   assert.ok(!bootstrap.body.includes(token));
-  const { statSync } = await import("node:fs");
-  assert.equal(statSync(join(directory, "secrets/x.json")).mode & 0o777, 0o600);
+  assertPrivateFile(join(directory, "secrets/x.json"));
 });
 
 test("complete board snapshots close missing jobs without losing saved work", () => {

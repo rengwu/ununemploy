@@ -12,6 +12,10 @@ export function latexRuntimeDirectory() {
   return resolve(process.env.JH_DATA_DIR || ".local-data", "latex-runtime");
 }
 
+export function latexExecutableName(name: string) {
+  return process.platform === "win32" ? `${name}.exe` : name;
+}
+
 function executable(path: string): string | undefined {
   try {
     if (!statSync(path).isFile()) return undefined;
@@ -27,11 +31,11 @@ export function findTectonic(): string | undefined {
   if (process.env.JH_TECTONIC_BIN)
     return executable(process.env.JH_TECTONIC_BIN);
   const candidates = [
-    join(latexRuntimeDirectory(), "bin/tectonic"),
+    join(latexRuntimeDirectory(), "bin", latexExecutableName("tectonic")),
     ...(process.env.PATH || "")
       .split(delimiter)
       .filter(Boolean)
-      .map((p) => join(p, "tectonic")),
+      .map((p) => join(p, latexExecutableName("tectonic"))),
     ...(process.platform === "darwin"
       ? ["/opt/homebrew/bin/tectonic", "/usr/local/bin/tectonic"]
       : ["/usr/local/bin/tectonic", "/usr/bin/tectonic"]),
@@ -58,6 +62,10 @@ export function latexSandboxExecutable() {
     process.env.JH_LATEX_SANDBOX ||
     (existsSync("/usr/local/bin/ununemploy-tex-sandbox")
       ? "/usr/local/bin/ununemploy-tex-sandbox"
-      : join(latexRuntimeDirectory(), "bin/ununemploy-tex-sandbox"))
+      : join(
+          latexRuntimeDirectory(),
+          "bin",
+          latexExecutableName("ununemploy-tex-sandbox"),
+        ))
   );
 }

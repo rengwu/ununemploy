@@ -1,7 +1,7 @@
 ---
 title: ununemploy wiki
 section: Overview
-updated: 2026-10-16
+updated: 2026-10-18
 order: 0
 ---
 # ununemploy wiki
@@ -25,6 +25,12 @@ Local job discovery, fit assessment, private cover-letter drafting and master CV
 - [Limitations](reference/limitations.md) and [open follow-up](discussions/open-questions.md)
 
 ## Verification and history
+
+- [Package size and Mac-first Pi handoff — 18 October 2026](journal/2026-10-18-pi-runtime-handoff.md)
+
+- [Windows installer integrity — 17 October 2026](verification/runs/2026-10-17-windows-installer.md)
+
+- [Windows local port — 17 October 2026](journal/2026-10-17-windows-port.md) and [verification](verification/runs/2026-10-17-windows-port.md)
 
 - [Cursor-inspired UI redesign — 16 October 2026](verification/runs/2026-10-16-cursor-redesign.md)
 

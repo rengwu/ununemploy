@@ -50,6 +50,8 @@ Large inventories require memory proportional to the current records while creat
 
 ## Verification history
 
+[Windows local build — 17 October 2026](../verification/runs/2026-10-17-windows-port.md) includes a packaged ZIP export/import round trip and destination counter retention with synthetic data.
+
 [Cursor-inspired UI redesign — 16 October 2026](../verification/runs/2026-10-16-cursor-redesign.md) records the replacement controls, responsive/theme checks, preserved workflows and native installation.
 
 [Assistant consolidation and Jev retirement — 16 October 2026](../verification/runs/2026-10-16-lean-assistant-jev.md): preserved queued/history data, one assistant engine, removed Jev capabilities, 184 tests, build and desktop/mobile browser checks.

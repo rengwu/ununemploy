@@ -62,11 +62,22 @@ const profileTimer = setInterval(() => {
     void tick();
 }, 1000);
 void tick();
+function shutdown() {
+  clearInterval(timer);
+  clearInterval(profileTimer);
+  clearInterval(heartbeat);
+  release("worker", owner);
+  process.exit(0);
+}
 for (const signal of ["SIGTERM", "SIGINT"] as const)
-  process.on(signal, () => {
-    clearInterval(timer);
-    clearInterval(profileTimer);
-    clearInterval(heartbeat);
-    release("worker", owner);
-    process.exit(0);
+  process.on(signal, shutdown);
+if (process.env.JH_DESKTOP === "1")
+  process.on("message", (message) => {
+    if (
+      message &&
+      typeof message === "object" &&
+      "type" in message &&
+      message.type === "desktop-shutdown"
+    )
+      shutdown();
   });

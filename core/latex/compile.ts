@@ -119,18 +119,18 @@ export async function compileLatex(
     if (process.platform === "darwin") {
       command = "/usr/bin/sandbox-exec";
       args = ["-p", macSandbox(work, cache, bin), bin, ...compilerArgs];
-    } else if (process.platform === "linux") {
+    } else if (process.platform === "linux" || process.platform === "win32") {
       command = latexSandboxExecutable();
       if (!existsSync(command))
         throw new LatexCompileError(
-          "LaTeX sandbox unavailable. Use the Docker image or install the documented Linux sandbox helper.",
+          "LaTeX sandbox unavailable. Run the documented compiler setup for this platform.",
           [],
           503,
         );
       args = [work, cache, bin, ...compilerArgs];
     } else
       throw new LatexCompileError(
-        "LaTeX compilation requires macOS or the Linux Docker image.",
+        "LaTeX compilation requires a supported macOS, Windows or Linux runtime.",
         [],
         503,
       );
@@ -143,12 +143,21 @@ export async function compileLatex(
       TECTONIC_UNTRUSTED_MODE: "1",
       SOURCE_DATE_EPOCH: "1789920000",
       LANG: "en_US.UTF-8",
+      ...(process.platform === "win32"
+        ? {
+            SystemRoot: process.env.SystemRoot,
+            WINDIR: process.env.WINDIR,
+            TEMP: process.env.TEMP,
+            TMP: process.env.TMP,
+          }
+        : {}),
     };
     const log = await new Promise<string>((resolvePromise, reject) => {
       const child = spawn(command, args, {
         cwd: work,
         env,
         stdio: ["ignore", "pipe", "pipe"],
+        windowsHide: true,
       });
       let log = "";
       let reason = "";
@@ -182,13 +191,15 @@ export async function compileLatex(
         const diagnostics = parseLatexDiagnostics(log);
         if (reason || code !== 0) {
           if (
-            /Landlock support|create sandbox|activate sandbox|disable compiler networking/.test(
+            /Landlock support|create sandbox|activate sandbox|disable compiler networking|Windows LaTeX sandbox:/.test(
               log,
             )
           ) {
             reject(
               new LatexCompileError(
-                "LaTeX sandbox unavailable in this Linux runtime. Native Linux with Landlock is required; saved source is preserved.",
+                process.platform === "win32"
+                  ? "The Windows LaTeX sandbox could not run. Saved source is preserved."
+                  : "LaTeX sandbox unavailable in this Linux runtime. Native Linux with Landlock is required; saved source is preserved.",
                 [{ severity: "error", message: log.trim().slice(-2000) }],
                 503,
               ),

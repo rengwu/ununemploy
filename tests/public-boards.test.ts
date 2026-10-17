@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -15,10 +16,9 @@ import {
 import type { IncomingJob } from "../core/types.ts";
 const directory = mkdtempSync(join(tmpdir(), "ununemploy-public-boards-"));
 process.env.JH_DATA_DIR = directory;
-process.env.JH_PROFILE_SEED = new URL(
-  "./fixtures/profile.json",
-  import.meta.url,
-).pathname;
+process.env.JH_PROFILE_SEED = fileURLToPath(
+  new URL("./fixtures/profile.json", import.meta.url),
+);
 process.env.JH_TEST_SERVER = "1";
 const store = await import("../core/db/index.ts");
 const { collectPublicBoard } = await import("../core/boards/collector.ts");
@@ -152,9 +152,7 @@ test("retired source records and evidence survive while scans and setup exclude 
     assert.equal((await app.inject(`/api/jobs/${job.id}`)).json().id, job.id);
     assert.deepEqual(store.getJob(job.id), beforeJob);
     assert.deepEqual(
-      store.db
-        .prepare("SELECT * FROM source_items WHERE job_id=?")
-        .all(job.id),
+      store.db.prepare("SELECT * FROM source_items WHERE job_id=?").all(job.id),
       beforeEvidence,
     );
     assert.deepEqual(

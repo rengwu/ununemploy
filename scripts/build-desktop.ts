@@ -6,6 +6,10 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkBundleLinks } from "../core/desktop/package.ts";
 
+if (process.platform === "win32") {
+  await import("./build-desktop-windows.ts");
+  process.exit(0);
+}
 if (process.platform !== "darwin")
   throw new Error("The desktop build currently targets macOS.");
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");

@@ -1,13 +1,19 @@
 ---
 title: Verification
 section: Verification
-updated: 2026-10-16
+updated: 2026-10-17
 ---
 # Verification
 
 Use [shared setup](setup.md) before running selected checks. [Feature records](../features/index.md) state expected outcomes and recipes; a pass applies only to its recorded build and scope.
 
 ## Runs
+
+[Windows installer integrity — 17 October 2026](runs/2026-10-17-windows-installer.md): complete-package checksums, WebView2 prerequisite detection, path checks, failure recovery and locked-file handling.
+
+[Windows local build — 17 October 2026](runs/2026-10-17-windows-port.md): resumed implementation, native lifecycle/downloads, isolated LaTeX, PDF export, backup/restore, official Codex and installation checks. Clean-machine distribution and macOS regression remain separate.
+
+[Windows prototype checkpoint — 17 October 2026](runs/2026-10-17-windows-checkpoint.md): historical pause with early build/lifecycle passes and an incomplete native capture check; superseded by the resumed run above.
 
 [Cursor-inspired UI redesign — 16 October 2026](runs/2026-10-16-cursor-redesign.md): Kumo removed, shared controls and all surfaces rebuilt, browser/native checks and data-preserving installation passed.
 

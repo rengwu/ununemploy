@@ -1,7 +1,7 @@
 ---
 title: Native desktop app
 section: Features
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 # Native desktop app
 
@@ -9,9 +9,11 @@ Feature ID: `FEAT-desktop`
 
 ## Intent and basis
 
-Open ununemploy as a native macOS app without starting a development server in Terminal. The user requested a Go webview wrapper on 7 October 2026 and selected **keep running until Quit**. [Accepted decision](../decisions/index.md) and [implementation journal](../journal/2026-10-07-desktop.md).
+Open ununemploy as a native macOS or Windows app without starting a development server. The user requested a Go webview wrapper on 7 October 2026 and selected **keep running until Quit**. Windows implementation was authorized and resumed on 17 October. [Accepted decision](../decisions/index.md), [macOS journal](../journal/2026-10-07-desktop.md), and [Windows journal](../journal/2026-10-17-windows-port.md).
 
 ## Entry points and prerequisites
+
+The macOS contract follows below; [Windows](#windows-11-x64) uses platform-specific window, lifecycle, compiler isolation and installation behavior.
 
 Open `~/Applications/ununemploy.app` from Finder or Spotlight. Closing the window keeps the app and worker running; opening the app again brings back its window. **ununemploy → Quit ununemploy** or Command-Q stops the API, worker and descendant processes. Unsaved document edits show a Cancel / Quit Without Saving dialog.
 
@@ -60,13 +62,21 @@ Native UI checks: open the app, edit/save a synthetic LaTeX CV, compile and insp
 
 ## Coverage and limitations
 
-The bundle is approximately 1.1 GB because it includes the model/runtime and document-export dependencies. Its native UI uses the system webview. The build is locally ad-hoc signed, not Developer ID signed or notarized for distribution. No Windows/Linux desktop package, automatic update system, login item, or tray icon is provided. Unraid remains an independent supported hosting target; no server deployment is implied.
+The user chose to implement/evaluate a lighter Pi runtime on Mac first on 18 October. The [package-size assessment and handoff](../journal/2026-10-18-pi-runtime-handoff.md) records the measured Windows payload and the proposed `pi-ai` starting point. Neither platform has migrated to Pi; the runtime descriptions here remain current implementation behavior.
 
-The [Windows and Linux assessment — 16 October 2026](../journal/2026-10-16-desktop-portability.md) records the observed portability blockers, proposed limited initial scope, rough effort estimates and required release checks. The user plans to continue Windows work on a Windows machine; the [17 October handoff](../journal/2026-10-16-desktop-portability.md#windows-handoff-17-october-2026) records implementation order and the first milestone. No Windows/Linux native port is implemented or verified here.
+The macOS bundle is approximately 1.1 GB because it includes the model/runtime and document-export dependencies. Its native UI uses the system webview. The Mac build is locally ad-hoc signed, not Developer ID signed or notarized for distribution. No Linux desktop package, automatic update system, login item, or tray icon is provided. Unraid remains an independent hosting target; no server deployment is implied.
+
+The [Windows and Linux assessment](../journal/2026-10-16-desktop-portability.md) records the original plan. The [paused checkpoint](../journal/2026-10-17-windows-checkpoint.md) is historical: the user subsequently authorized resuming. The Windows local build now includes its runtimes and installer. Clean-machine distribution remains unverified; Linux desktop remains unimplemented.
 
 Window routing/filter state is tied to the saved local origin. If another application occupies its port, a new port is used and origin-specific browser preferences may start afresh; SQLite records remain intact. Service failure requires quitting/reopening the app after the displayed error. Existing startup recovery preserves queued work and pauses interrupted model jobs.
 
 ## Verification history
+
+[Windows installer integrity — 17 October 2026](../verification/runs/2026-10-17-windows-installer.md) covers package completeness, replacement failures and prerequisite checks after the local port.
+
+[Windows local build — 17 October 2026](../verification/runs/2026-10-17-windows-port.md) records Windows lifecycle, compiler isolation, document workflows, official Codex and installation checks, with release limits kept separate.
+
+[Windows prototype checkpoint — 17 October 2026](../verification/runs/2026-10-17-windows-checkpoint.md): build and early lifecycle fixtures passed; actual WebView2 screenshot capture timed out and later native scenarios remain untested. Development paused at user request.
 
 [Cursor-inspired UI redesign — 16 October 2026](../verification/runs/2026-10-16-cursor-redesign.md) records the replacement controls, responsive/theme checks, preserved workflows and native installation.
 
@@ -77,3 +87,35 @@ Window routing/filter state is tied to the saved local origin. If another applic
 [Desktop portability follow-up — 7 October 2026](../verification/runs/2026-10-07T114528Z-desktop-portable.md) passed the corrected bundle audit, 175-test suite, packaged lifecycle and final startup.
 
 [Native desktop verification — 7 October 2026](../verification/runs/2026-10-07T113853Z-desktop.md) records the packaging, lifecycle, native workflow and installation checks. These expectations are not a claim that every provider, model invocation or document layout was reverified during packaging.
+
+## Windows 11 x64
+
+The local Windows package is `build/desktop/windows/ununemploy.exe`, with `resources/` beside it. Keep the directory together. The Go host uses Win32 and `github.com/wailsapp/go-webview2` v1.0.23 with the installed Microsoft Edge WebView2 Evergreen Runtime. It has ordinary Windows window controls and **File → Quit ununemploy**, without the macOS traffic-light inset. Close hides the window and leaves services running; reopening activates the same instance. Quit checks unsaved edits before stopping services. Local HTTP/blob downloads use native Save As; explicit external HTTP(S) links open the default browser. Scripted remote navigation cannot replace the application.
+
+Default personal data is `%LOCALAPPDATA%\ununemploy`, including SQLite, `desktop.env`, local logs, instance state, and the `webview2/` browser store. It is outside the installation. `JH_DESKTOP_DATA_DIR` selects isolated data for tests; ordinary new databases start empty. The official Codex runtime retains its own existing authentication separately. No credentials or personal records are included in the package.
+
+Windows uses `LockFileEx` for one instance per data directory. A plain Node bootstrap waits for the launcher to attach a kill-on-close Job Object before importing application code. The Node API binds loopback, falls back from an occupied preferred port, and publishes its actual address through a private readiness file. Worker IPC provides graceful shutdown; the Job Object reaps remaining descendants on Quit or launcher death. No Unix socket inheritance or process-group signal is assumed on Windows.
+
+The package includes Node, official Codex, checksum-pinned Tectonic 0.15.0, generic offline TeX assets, the Windows compiler isolation helper, and Playwright's headless Chromium. LaTeX uses a Windows AppContainer without network capabilities, private copies of the compiler/cache, an isolated writable work directory, and an atomically attached one-process Job Object. Only the expected bounded PDF returns to the caller. Compiler failure, timeout or unavailable isolation preserves saved source. The generic AppContainer profile is named `ununemploy.tex`; compiler inputs and outputs stay in temporary directories, not that profile. See [LaTeX CV](master-cv.md).
+
+### Build, install and update
+
+Build on Windows x64 with Node 22.19+, npm dependencies, Go 1.24+ and the official Codex executable on PATH. Go race tests additionally need a compatible C compiler. An explicit `JH_DESKTOP_CODEX_SOURCE` may point to the official `codex.exe`. The developer's current installation verified Node 22.23.3, Go 1.26.5 and Codex CLI 0.163.0. Initial build downloads generic compiler/browser resources.
+
+```powershell
+npm ci
+npm run desktop:build
+npm run desktop:test
+node --import tsx scripts/verify-desktop-windows.ts
+npm run desktop:install
+```
+
+`desktop:build:windows` is an explicit equivalent. `--reuse-runtimes` reuses matching production npm dependencies; compiler/browser download caches are retained under `build/desktop/`. Building stages a complete package before replacement and refuses to replace a running built app. Build metadata records runtime versions and executable hashes in `resources/build.json`.
+
+`desktop:install` runs the package's `install.ps1`. It installs per user under `%LOCALAPPDATA%\Programs\ununemploy` and creates a Start-menu shortcut. Quit the installed app before updating. Installation stages the complete directory and uses same-volume directory renames, restoring the previous package if publication fails. Locked files cannot cause a partial recursive move. It never imports, overwrites or deletes personal records. The Windows installer does not repoint the development `.env`. Use Settings ZIP export/import for deliberate personal-data transfer. From an extracted package, run `powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1`; `-Destination <directory> -NoShortcut` supports isolated installation tests. Keep installation and appdata separate.
+
+The builder records every package file's path, size and SHA-256 in `resources/package-files.json`, excluding the inventory itself. Installation validates the source and staged copy before replacing an application. Missing, altered or unlisted files, duplicate/traversing inventory paths, and package or installation-path junctions are rejected. Existing older packages can be replaced or repaired without requiring the new inventory. The inventory detects incomplete copies and accidental changes; it does not authenticate an unsigned publisher. If cleanup of retired application files fails after a successful publication, installation reports their retained path rather than claiming the update failed.
+
+Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Check` from the package directory for a read-only checksum/prerequisite check. The installer checks Windows x64 and Microsoft's documented per-user/per-machine Evergreen WebView2 registrations before modifying the destination. If WebView2 is missing, it supplies the official download URL; no runtime is silently downloaded or installed. [Microsoft's distribution guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution) describes these registry checks and the manual-install option.
+
+The Windows package is unsigned. WebView2 must already be installed. Clean-machine installation, Windows versions other than the tested Windows 11 x64 build, ARM64, signing, automatic updates and a newly signed-out interactive login remain unverified. This local port does not establish a supported public release or reverify macOS.

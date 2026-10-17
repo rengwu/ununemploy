@@ -31,6 +31,8 @@ The browser driver uses a temporary database, a fictional candidate/job fixture 
 
 ## Verification history
 
+[Windows local build — 17 October 2026](../verification/runs/2026-10-17-windows-port.md) includes bundled Chromium PDF export and a separate official Codex structured-inference check. It does not establish the quality of a real job-specific letter.
+
 [Cursor-inspired UI redesign — 16 October 2026](../verification/runs/2026-10-16-cursor-redesign.md) records the replacement controls, responsive/theme checks, preserved workflows and native installation.
 
 [Historical implementation checks](../verification/history.md) record previous selected scenarios and limitations. Those entries are historical evidence; new reports belong in [verification runs](../verification/index.md).

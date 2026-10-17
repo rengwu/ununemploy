@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -12,10 +13,9 @@ import { join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 const directory = mkdtempSync(join(tmpdir(), "ununemploy-latex-test-"));
 process.env.JH_DATA_DIR = directory;
-process.env.JH_PROFILE_SEED = new URL(
-  "./fixtures/profile.json",
-  import.meta.url,
-).pathname;
+process.env.JH_PROFILE_SEED = fileURLToPath(
+  new URL("./fixtures/profile.json", import.meta.url),
+);
 process.env.JH_TEST_SERVER = "1";
 const store = await import("../core/db/index.ts");
 const { app } = await import("../server/index.ts");
@@ -171,7 +171,7 @@ test(
     const secret = join(directory, "private-secret.tex");
     writeFileSync(secret, "PRIVATE_SENTINEL_SHOULD_NOT_RENDER");
     // Work is a sibling beneath tmpdir, so this remains relative from every compile directory.
-    const traversal = `../${relative(tmpdir(), secret)}`;
+    const traversal = `${process.platform === "win32" ? "../../../" : "../"}${relative(tmpdir(), secret).replaceAll("\\", "/")}`;
     await assert.rejects(
       compileLatex(
         starter.replace("Edit your resume here.", `\\input{${traversal}}`),
@@ -182,7 +182,7 @@ test(
     await compileLatex(
       starter.replace(
         "Edit your resume here.",
-        `\\immediate\\write18{touch ${output}}No shell.`,
+        `\\immediate\\write18{${process.platform === "win32" ? "cmd /c echo fixture >" : "touch"} ${output.replaceAll("\\", "/")}}No shell.`,
       ),
     );
     assert.equal(existsSync(output), false);

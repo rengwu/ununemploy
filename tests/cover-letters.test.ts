@@ -1,3 +1,4 @@
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -8,10 +9,9 @@ import { backup, DatabaseSync } from "node:sqlite";
 
 const directory = mkdtempSync(join(tmpdir(), "ununemploy-letters-"));
 process.env.JH_DATA_DIR = directory;
-process.env.JH_PROFILE_SEED = new URL(
-  "./fixtures/profile.json",
-  import.meta.url,
-).pathname;
+process.env.JH_PROFILE_SEED = fileURLToPath(
+  new URL("./fixtures/profile.json", import.meta.url),
+);
 process.env.JH_TEST_SERVER = "1";
 const store = await import("../core/db/index.ts");
 const { app } = await import("../server/index.ts");
@@ -322,7 +322,7 @@ test("upgrade converts unfinished resume tasks and preserves completed resume hi
         "legacy-retry",
       );
     oldDb.close();
-    const code = `const s=await import(${JSON.stringify(resolve("core/db/index.ts"))}); const task=s.listTasks().find(t=>t.id==='pending-resume'); console.log(JSON.stringify({task,cv:s.getCv(${JSON.stringify(legacy.id)}),letters:s.listCoverLetterVersions(${JSON.stringify(job.id)}),repeated:s.queueCoverLetter(${JSON.stringify(job.id)}).id}));s.db.close();`;
+    const code = `const s=await import(${JSON.stringify(pathToFileURL(resolve("core/db/index.ts")).href)}); const task=s.listTasks().find(t=>t.id==='pending-resume'); console.log(JSON.stringify({task,cv:s.getCv(${JSON.stringify(legacy.id)}),letters:s.listCoverLetterVersions(${JSON.stringify(job.id)}),repeated:s.queueCoverLetter(${JSON.stringify(job.id)}).id}));s.db.close();`;
     for (let i = 0; i < 2; i++) {
       const output = execFileSync(
         process.execPath,
