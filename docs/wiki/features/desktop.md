@@ -1,7 +1,7 @@
 ---
 title: Native desktop app
 section: Features
-updated: 2026-10-16
+updated: 2026-10-17
 ---
 # Native desktop app
 
@@ -62,7 +62,7 @@ Native UI checks: open the app, edit/save a synthetic LaTeX CV, compile and insp
 
 The bundle is approximately 1.1 GB because it includes the model/runtime and document-export dependencies. Its native UI uses the system webview. The build is locally ad-hoc signed, not Developer ID signed or notarized for distribution. No Windows/Linux desktop package, automatic update system, login item, or tray icon is provided. Unraid remains an independent supported hosting target; no server deployment is implied.
 
-The [Windows and Linux assessment — 16 October 2026](../journal/2026-10-16-desktop-portability.md) records the observed portability blockers, proposed limited initial scope, rough effort estimates and required release checks. Port implementation has not been authorized or verified.
+The [Windows and Linux assessment — 16 October 2026](../journal/2026-10-16-desktop-portability.md) records the observed portability blockers, proposed limited initial scope, rough effort estimates and required release checks. The user plans to continue Windows work on a Windows machine; the [17 October handoff](../journal/2026-10-16-desktop-portability.md#windows-handoff-17-october-2026) records implementation order and the first milestone. No Windows/Linux native port is implemented or verified here.
 
 Window routing/filter state is tied to the saved local origin. If another application occupies its port, a new port is used and origin-specific browser preferences may start afresh; SQLite records remain intact. Service failure requires quitting/reopening the app after the displayed error. Existing startup recovery preserves queued work and pauses interrupted model jobs.
 

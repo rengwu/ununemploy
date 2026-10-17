@@ -1,7 +1,7 @@
 ---
 title: Open questions and follow-up
 section: Discussions
-updated: 2026-10-16
+updated: 2026-10-17
 ---
 # Open questions and follow-up
 
@@ -10,7 +10,7 @@ This page distinguishes unfinished verification and implementation from decision
 | Item | Current state | Next evidence needed |
 | --- | --- | --- |
 | Actual Unraid installation | Unverified; local container checks exist | Run on the intended server, verify persistence and native Landlock compilation; [guide](../guides/unraid.md). |
-| Windows and Linux native releases | Feasibility documented; implementation not authorized and native ports unverified | If requested, select initial OS versions, architecture, Linux distribution/package format and test environments; [assessment and estimates](../journal/2026-10-16-desktop-portability.md). |
+| Windows and Linux native releases | User plans to continue Windows porting on a Windows machine; no native port implemented or verified here. Linux remains an assessed future option | Follow the [Windows handoff](../journal/2026-10-16-desktop-portability.md#windows-handoff-17-october-2026): confirm target architecture, establish the launcher/lifecycle milestone, then integrate runtimes, compilation isolation and packaging. |
 | Web3.career authentication | Implemented, authenticated collection unverified | Configure a local token and record a bounded live scan. |
 | Adzuna / Jooble / Careerjet | Deferred backlog; removed from setup and hidden from Sources, with stored records retained | A working adapter and explicit scope would be needed before offering them again; [coverage](../reference/source-coverage.md). |
 | Broader integration cleanup | Deferred from the first corrective pass | Queue storage redesign, broad policy consolidation, cache retention and unrelated provider-specific repairs need a concrete benefit before expansion; [design rationale](../journal/2026-10-08-integration-design.md). |
