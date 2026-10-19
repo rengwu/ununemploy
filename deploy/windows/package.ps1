@@ -70,7 +70,7 @@ function Assert-Package([string]$Path) {
   foreach ($required in @(
     'ununemploy.exe', 'install.ps1', 'package.ps1', 'resources/build.json',
     'resources/bin/node.exe', 'resources/bin/tectonic.exe', 'resources/bin/ununemploy-tex-sandbox.exe',
-    'resources/codex/bin/codex.exe', 'resources/app/package.json', 'resources/app/package-lock.json',
+    'resources/app/core/ai/pi-sdk.ts', 'resources/app/package.json', 'resources/app/package-lock.json',
     'resources/app/dist/index.html', 'resources/app/server/index.ts', 'resources/app/worker/index.ts',
     'resources/app/scripts/desktop-service.ts', 'resources/app/scripts/desktop-bootstrap.mjs'
   )) {

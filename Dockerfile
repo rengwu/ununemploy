@@ -24,8 +24,7 @@ RUN npm run build && npm prune --omit=dev
 
 FROM node:22.19.0-bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends chromium fonts-liberation fonts-noto-core supervisor gosu ca-certificates \
-    && rm -rf /var/lib/apt/lists/* \
-    && npm install -g @openai/codex@0.154.0
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=tex /usr/local/bin/tectonic /usr/local/bin/tectonic
 COPY --from=tex /usr/local/bin/ununemploy-tex-sandbox /usr/local/bin/ununemploy-tex-sandbox
@@ -45,7 +44,7 @@ COPY deploy/container/entrypoint.sh /usr/local/bin/ununemploy-entrypoint
 COPY deploy/container/run.sh /usr/local/bin/ununemploy-run
 COPY deploy/container/supervisord.conf /etc/ununemploy-supervisord.conf
 RUN chmod +x /usr/local/bin/ununemploy-entrypoint /usr/local/bin/ununemploy-run
-ENV NODE_ENV=production JH_HOST=0.0.0.0 JH_PORT=3000 JH_DATA_DIR=/config JH_CODEX_HOME=/config/codex JH_CHROMIUM_PATH=/usr/bin/chromium PUID=99 PGID=100
+ENV NODE_ENV=production JH_HOST=0.0.0.0 JH_PORT=3000 JH_DATA_DIR=/config JH_CHROMIUM_PATH=/usr/bin/chromium PUID=99 PGID=100
 ENV JH_LATEX_CACHE=/opt/ununemploy-tex-cache
 EXPOSE 3000
 VOLUME ["/config"]

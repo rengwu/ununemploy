@@ -1,3 +1,4 @@
+import { packagePi } from "./package-pi.ts";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { cp, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
@@ -112,24 +113,20 @@ if (lock === previousLock && process.argv.includes("--reuse-runtimes")) {
 }
 await writeFile(join(resources, "installed-lock.json"), lock);
 await cp(process.execPath, join(resources, "bin/node.exe"));
-// Authentication stays in the official runtime's user credential store.
-const codexSource = resolve(
-  process.env.JH_DESKTOP_CODEX_SOURCE ||
-    execFileSync("where.exe", ["codex.exe"], {
-      encoding: "utf8",
-      windowsHide: true,
-    })
-      .trim()
-      .split(/\r?\n/)[0],
+await packagePi(app);
+await run(
+  process.execPath,
+  [
+    npm,
+    "uninstall",
+    "@earendil-works/pi-ai",
+    "--omit=dev",
+    "--ignore-scripts",
+    "--no-audit",
+    "--no-fund",
+  ],
+  app,
 );
-const codexVersion = execFileSync(codexSource, ["--version"], {
-  encoding: "utf8",
-  windowsHide: true,
-}).trim();
-if (!/^codex-cli /.test(codexVersion))
-  throw new Error("Expected the official Codex CLI executable.");
-await mkdir(join(resources, "codex/bin"), { recursive: true });
-await cp(codexSource, join(resources, "codex/bin/codex.exe"));
 await run(
   "go",
   [
@@ -198,7 +195,7 @@ await writeFile(
       platform: process.platform,
       arch: process.arch,
       node: process.version,
-      codex: codexVersion,
+      piAi: "1.3.0",
       revision: execFileSync("git", ["rev-parse", "HEAD"], {
         cwd: root,
         encoding: "utf8",
@@ -207,7 +204,7 @@ await writeFile(
       stage: "local-windows-build",
       bundled: [
         "node",
-        "codex",
+        "pi-ai-openai",
         "isolated-latex",
         "chromium-pdf",
         "application",
@@ -217,7 +214,7 @@ await writeFile(
       hashes: {
         wrapper: await hash(join(staging, "ununemploy.exe")),
         node: await hash(process.execPath),
-        codex: await hash(codexSource),
+        piAi: await hash(join(app, "core/ai/pi-sdk.ts")),
         tectonic: await hash(process.env.JH_TECTONIC_BIN),
         sandbox: await hash(process.env.JH_LATEX_SANDBOX),
       },
@@ -230,7 +227,10 @@ await cp(
   join(root, "deploy/windows/install.ps1"),
   join(staging, "install.ps1"),
 );
-await cp(join(root, "deploy/windows/package.ps1"), join(staging, "package.ps1"));
+await cp(
+  join(root, "deploy/windows/package.ps1"),
+  join(staging, "package.ps1"),
+);
 await writeWindowsPackageManifest(staging);
 await remove(previous);
 if (existsSync(output)) await rename(output, previous);

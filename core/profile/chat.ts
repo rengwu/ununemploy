@@ -191,7 +191,7 @@ export function applyProfileEdits(
   profile: Profile,
   raw: unknown,
   userMessage: ProfileMessage,
-  evidence: { id: string; text: string; url?: string }[] = [],
+  evidence: { id: string; text: string; url?: string; name?: string }[] = [],
 ): { profile: Profile; result: ProfileReply } {
   const result = profileReplySchema.parse(raw),
     next = structuredClone(profile);
@@ -270,7 +270,10 @@ export function applyProfileEdits(
           id: item.id,
           type: item.url ? "public_reference" : "user_statement",
           ...(item.url ? { url: item.url } : {}),
-          description: item.text.slice(0, 40000),
+          description: (item.name
+            ? `Attachment: ${item.name}\n${item.text}`
+            : item.text
+          ).slice(0, 40000),
         });
     next.sources.push({
       id: sourceId,

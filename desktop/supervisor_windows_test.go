@@ -230,7 +230,7 @@ func TestWindowsEnvironmentAndNavigation(t *testing.T) {
 			t.Fatal(bad)
 		}
 	}
-	if !strings.Contains(env, `JH_CODEX_BIN=C:\App\resources\codex\bin\codex.exe`) {
+	if strings.Contains(env, `JH_CODEX_BIN=`) {
 		t.Fatal("wrong Windows executable")
 	}
 	origin := "http://127.0.0.1:4321"

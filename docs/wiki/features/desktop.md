@@ -1,7 +1,7 @@
 ---
 title: Native desktop app
 section: Features
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 # Native desktop app
 
@@ -17,9 +17,9 @@ The macOS contract follows below; [Windows](#windows-11-x64) uses platform-speci
 
 Open `~/Applications/ununemploy.app` from Finder or Spotlight. Closing the window keeps the app and worker running; opening the app again brings back its window. **ununemploy → Quit ununemploy** or Command-Q stops the API, worker and descendant processes. Unsaved document edits show a Cancel / Quit Without Saving dialog.
 
-The currently built package targets this Mac's Apple silicon architecture. It includes Node, production server dependencies, the React frontend, the official Codex executable, portable Tectonic with generic packages, and Playwright's headless Chromium for HTML PDF exports. Go uses Cocoa/WKWebView through a small cgo adapter. It does not rewrite the backend in Go. macOS 13 is the declared wrapper deployment target; other OS releases and Intel packaging need separate testing. No app login or cloud service is added.
+The currently built package targets this Mac's Apple silicon architecture. It includes Node, production server dependencies, the React frontend, a bundled OpenAI-only pi-ai module, portable Tectonic with generic packages, and Playwright's headless Chromium for HTML PDF exports. Go uses Cocoa/WKWebView through a small cgo adapter. It does not rewrite the backend in Go. macOS 13 is the declared wrapper deployment target; other OS releases and Intel packaging need separate testing. No app login or cloud service is added.
 
-Codex uses its own existing ChatGPT authentication; an unavailable sign-in, model or subscription allowance remains visible through the existing runtime state. Provider credentials and configured budgets remain prerequisites for their collectors.
+Pi uses an app-owned ChatGPT connection under appdata; existing Codex authentication is untouched; an unavailable sign-in, model or subscription allowance remains visible through the existing runtime state. Provider credentials and configured budgets remain prerequisites for their collectors.
 
 ## Expected outcomes
 
@@ -41,11 +41,11 @@ The installed app keeps its canonical data in `~/Library/Application Support/unu
 - `secrets/` and `desktop.env`: locally retained provider credentials and runtime configuration.
 - `backups/`: database snapshots; `desktop.log`: runtime diagnostics. Other files track the active process and preferred local port.
 
-The current Mac installation uses the existing official Codex authentication home at `~/.codex`, separate from application records. Browser preferences such as theme belong to WKWebView's website store at `~/Library/WebKit/local.ununemploy.desktop/WebsiteData/`; an unsent assistant draft uses browser session storage rather than SQLite. Native window preferences are in `~/Library/Preferences/local.ununemploy.desktop.plist`. Downloaded documents go wherever the user chooses in the Save dialog. Replacing the `.app` bundle leaves these data locations intact. See [backups and restore](../guides/backups.md) for consistent database snapshots.
+Pi authentication lives in `pi-auth/` under canonical appdata. Existing official Codex authentication at `~/.codex` remains untouched and is not imported. Browser preferences such as theme belong to WKWebView's website store at `~/Library/WebKit/local.ununemploy.desktop/WebsiteData/`; an unsent assistant draft uses browser session storage rather than SQLite. Native window preferences are in `~/Library/Preferences/local.ununemploy.desktop.plist`. Downloaded documents go wherever the user chooses in the Save dialog. Replacing the `.app` bundle leaves these data locations intact. See [backups and restore](../guides/backups.md) for consistent database snapshots.
 
 ## Verification recipe
 
-Build prerequisites: current project Node/dependencies, Go, Xcode Command Line Tools and an installed official `@openai/codex` npm package for the current Mac. Initial packaging downloads checksum-pinned Tectonic and generic packages, plus the version-matched Playwright headless browser.
+Build prerequisites: current project Node/dependencies, Go, Xcode Command Line Tools and npm dependencies for the current Mac. Initial packaging downloads checksum-pinned Tectonic and generic packages, plus the version-matched Playwright headless browser.
 
 ```sh
 npm run desktop:build
@@ -62,7 +62,7 @@ Native UI checks: open the app, edit/save a synthetic LaTeX CV, compile and insp
 
 ## Coverage and limitations
 
-The user chose to implement/evaluate a lighter Pi runtime on Mac first on 18 October. The [package-size assessment and handoff](../journal/2026-10-18-pi-runtime-handoff.md) records the measured Windows payload and the proposed `pi-ai` starting point. Neither platform has migrated to Pi; the runtime descriptions here remain current implementation behavior.
+The user chose to implement/evaluate a lighter Pi runtime on Mac first on 18 October. The [package-size assessment and handoff](../journal/2026-10-18-pi-runtime-handoff.md) records the measured Windows payload and the proposed `pi-ai` starting point. The 19 October implementation replaces the runtime on Mac; Windows packaging is updated in source and requires a new Windows-machine verification. See [AI runtime](ai-runtime.md).
 
 The macOS bundle is approximately 1.1 GB because it includes the model/runtime and document-export dependencies. Its native UI uses the system webview. The Mac build is locally ad-hoc signed, not Developer ID signed or notarized for distribution. No Linux desktop package, automatic update system, login item, or tray icon is provided. Unraid remains an independent hosting target; no server deployment is implied.
 
@@ -71,6 +71,8 @@ The [Windows and Linux assessment](../journal/2026-10-16-desktop-portability.md)
 Window routing/filter state is tied to the saved local origin. If another application occupies its port, a new port is used and origin-specific browser preferences may start afresh; SQLite records remain intact. Service failure requires quitting/reopening the app after the displayed error. Existing startup recovery preserves queued work and pauses interrupted model jobs.
 
 ## Verification history
+
+[Large-inbox fix and macOS reconciliation — 18 October 2026](../verification/runs/2026-10-18-inbox-performance.md) checks the combined Windows checkpoint and local fix: macOS Go race tests, packaged lifecycle, build/install and native inbox startup. Windows execution was not repeated on Mac.
 
 [Windows installer integrity — 17 October 2026](../verification/runs/2026-10-17-windows-installer.md) covers package completeness, replacement failures and prerequisite checks after the local port.
 
@@ -92,15 +94,15 @@ Window routing/filter state is tied to the saved local origin. If another applic
 
 The local Windows package is `build/desktop/windows/ununemploy.exe`, with `resources/` beside it. Keep the directory together. The Go host uses Win32 and `github.com/wailsapp/go-webview2` v1.0.23 with the installed Microsoft Edge WebView2 Evergreen Runtime. It has ordinary Windows window controls and **File → Quit ununemploy**, without the macOS traffic-light inset. Close hides the window and leaves services running; reopening activates the same instance. Quit checks unsaved edits before stopping services. Local HTTP/blob downloads use native Save As; explicit external HTTP(S) links open the default browser. Scripted remote navigation cannot replace the application.
 
-Default personal data is `%LOCALAPPDATA%\ununemploy`, including SQLite, `desktop.env`, local logs, instance state, and the `webview2/` browser store. It is outside the installation. `JH_DESKTOP_DATA_DIR` selects isolated data for tests; ordinary new databases start empty. The official Codex runtime retains its own existing authentication separately. No credentials or personal records are included in the package.
+Default personal data is `%LOCALAPPDATA%\ununemploy`, including SQLite, `desktop.env`, local logs, instance state, and the `webview2/` browser store. It is outside the installation. `JH_DESKTOP_DATA_DIR` selects isolated data for tests; ordinary new databases start empty. Pi keeps its app-owned connection in `pi-auth/` under appdata; existing Codex authentication remains separate and untouched. No credentials or personal records are included in the package.
 
 Windows uses `LockFileEx` for one instance per data directory. A plain Node bootstrap waits for the launcher to attach a kill-on-close Job Object before importing application code. The Node API binds loopback, falls back from an occupied preferred port, and publishes its actual address through a private readiness file. Worker IPC provides graceful shutdown; the Job Object reaps remaining descendants on Quit or launcher death. No Unix socket inheritance or process-group signal is assumed on Windows.
 
-The package includes Node, official Codex, checksum-pinned Tectonic 0.15.0, generic offline TeX assets, the Windows compiler isolation helper, and Playwright's headless Chromium. LaTeX uses a Windows AppContainer without network capabilities, private copies of the compiler/cache, an isolated writable work directory, and an atomically attached one-process Job Object. Only the expected bounded PDF returns to the caller. Compiler failure, timeout or unavailable isolation preserves saved source. The generic AppContainer profile is named `ununemploy.tex`; compiler inputs and outputs stay in temporary directories, not that profile. See [LaTeX CV](master-cv.md).
+The package includes Node, the OpenAI-only pi-ai bundle, checksum-pinned Tectonic 0.15.0, generic offline TeX assets, the Windows compiler isolation helper, and Playwright's headless Chromium. LaTeX uses a Windows AppContainer without network capabilities, private copies of the compiler/cache, an isolated writable work directory, and an atomically attached one-process Job Object. Only the expected bounded PDF returns to the caller. Compiler failure, timeout or unavailable isolation preserves saved source. The generic AppContainer profile is named `ununemploy.tex`; compiler inputs and outputs stay in temporary directories, not that profile. See [LaTeX CV](master-cv.md).
 
 ### Build, install and update
 
-Build on Windows x64 with Node 22.19+, npm dependencies, Go 1.24+ and the official Codex executable on PATH. Go race tests additionally need a compatible C compiler. An explicit `JH_DESKTOP_CODEX_SOURCE` may point to the official `codex.exe`. The developer's current installation verified Node 22.23.3, Go 1.26.5 and Codex CLI 0.163.0. Initial build downloads generic compiler/browser resources.
+Build on Windows x64 with Node 22.19+, npm dependencies and Go 1.24+. The build generates the OpenAI-only Pi module. Go race tests additionally need a compatible C compiler. The previous 17 October Windows check used Node 22.23.3, Go 1.26.5 and Codex CLI 0.163.0; the Pi replacement needs a fresh Windows check. Initial build downloads generic compiler/browser resources.
 
 ```powershell
 npm ci
@@ -119,3 +121,5 @@ The builder records every package file's path, size and SHA-256 in `resources/pa
 Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Check` from the package directory for a read-only checksum/prerequisite check. The installer checks Windows x64 and Microsoft's documented per-user/per-machine Evergreen WebView2 registrations before modifying the destination. If WebView2 is missing, it supplies the official download URL; no runtime is silently downloaded or installed. [Microsoft's distribution guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution) describes these registry checks and the manual-install option.
 
 The Windows package is unsigned. WebView2 must already be installed. Clean-machine installation, Windows versions other than the tested Windows 11 x64 build, ARM64, signing, automatic updates and a newly signed-out interactive login remain unverified. This local port does not establish a supported public release or reverify macOS.
+
+[Pi runtime and attachments — 19 October 2026](../verification/runs/2026-10-19-pi-attachments.md) records the Mac runtime replacement, attachment lifecycle, native installation and preserved data.

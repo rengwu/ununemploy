@@ -289,18 +289,86 @@ test("public reference access permits only supplied exact URLs and deterministic
   );
   assert.throws(
     () => referenceTarget("https://chartr.dev/?secret=private", allowed),
-    /exact public URL/,
+    /supplied public URL/,
   );
   assert.throws(
     () => referenceTarget("http://127.0.0.1/admin", allowed),
-    /exact public URL/,
+    /supplied public URL/,
   );
   const a = actions("Read https://chartr.dev");
   await assert.rejects(
     a.execute("read_reference", {
       url: "https://attacker.example/?data=private",
     }),
-    /exact public URL/,
+    /supplied public URL/,
+  );
+});
+
+test("repository research derives commit and PR URLs without asking for pasted links", async () => {
+  const root = "https://github.com/example/project";
+  const allowed = new Set([root]);
+  const user = "Review @contributor's work.";
+  assert.equal(
+    referenceTarget(`${root}/commits?author=contributor`, allowed, user)
+      .request,
+    "https://api.github.com/repos/example/project/commits?per_page=30&author=contributor",
+  );
+  assert.equal(
+    referenceTarget(
+      `${root}/pulls?q=is%3Apr+author%3Acontributor`,
+      allowed,
+      user,
+    ).request,
+    "https://api.github.com/search/issues?per_page=30&q=repo%3Aexample%2Fproject%20is%3Apr%20author%3Acontributor",
+  );
+  assert.equal(
+    referenceTarget(`${root}/commit/1234567`, allowed).request,
+    "https://api.github.com/repos/example/project/commits/1234567",
+  );
+  assert.equal(
+    referenceTarget(`${root}/pull/12/files`, allowed).request,
+    "https://api.github.com/repos/example/project/pulls/12/files",
+  );
+  for (const url of [
+    `${root}/commits?author=not-mentioned`,
+    `${root}/commits?author=contributor&secret=private`,
+    `${root}/pulls?q=private`,
+    `${root}-other/commits`,
+    `${root}/settings`,
+    "https://attacker.example/?data=private",
+    "file:///etc/passwd",
+    "https://user:secret@github.com/example/project/commits",
+  ])
+    assert.throws(() => referenceTarget(url, allowed, user));
+  const reads: string[] = [];
+  const msg = message(`Review ${root} and contributions by @contributor`);
+  const a = new AssistantActions(
+    msg,
+    [],
+    { page: "cv", dirty: false },
+    new AbortController().signal,
+    {
+      reference: async (url) => {
+        reads.push(url);
+        return {
+          id: `reference:${reads.length}`,
+          url,
+          text: "Public source evidence.",
+          truncated: false,
+          fetchedAt: store.now(),
+          links: [`${root}/blob/main/README.md`, "https://attacker.example/"],
+        };
+      },
+    },
+  );
+  await a.execute("read_reference", {
+    url: `${root}/commits?author=contributor`,
+  });
+  await a.execute("read_reference", { url: `${root}/blob/main/README.md` });
+  assert.equal(reads.length, 2);
+  assert.ok(!a.allowedUrls.has("https://attacker.example/"));
+  await assert.rejects(
+    a.execute("read_reference", { url: "https://attacker.example/" }),
   );
 });
 
@@ -665,4 +733,27 @@ test("New chat rejects queued replies and cancelled replies still unwinding in t
   });
   assert.equal(assistant.newAssistantChat().turn, null);
   assert.equal(assistant.assistantState().messages.length, 1);
+});
+
+test("read-only answers have no automatic save footer", async () => {
+  assistant.enqueueAssistantMessage(
+    "Explain how the assistant works.",
+    randomUUID(),
+    { page: "jobs" },
+  );
+  await assistant.processAssistantTurn({
+    check: ready,
+    infer: async () => ({
+      result: {
+        done: true,
+        reply: "I can research your public project references.",
+        calls: [],
+      },
+      usage: null,
+    }),
+  });
+  assert.equal(
+    assistant.assistantState().messages.at(-1)?.content,
+    "I can research your public project references.",
+  );
 });

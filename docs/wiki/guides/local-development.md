@@ -1,13 +1,13 @@
 ---
 title: Local development
 section: Guides
-updated: 2026-10-17
+updated: 2026-10-19
 ---
 # Local development
 
 For everyday use, open the [native desktop app](../features/desktop.md). The commands below are for developing the web application. After desktop installation, this workspace's `.env` points to the same Application Support data directory; avoid running an extra development instance unless needed.
 
-Requires Node 22.19+ and the official Codex CLI signed in with ChatGPT.
+Requires Node 22.19+. Connect your ChatGPT subscription in Settings → AI.
 
 Windows x64 additionally needs Go for local LaTeX sandbox setup. PowerShell can create the development environment file with `if (!(Test-Path .env)) { Copy-Item .env.example .env }`; the `test -f` command below is for Unix shells. The [Windows desktop package](../features/desktop.md#windows-11-x64) bundles the runtimes for everyday use and keeps separate canonical appdata; its installer does not rewrite the development `.env`.
 

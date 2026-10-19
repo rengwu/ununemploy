@@ -1,7 +1,7 @@
 ---
 title: ununemploy wiki
 section: Overview
-updated: 2026-10-18
+updated: 2026-10-19
 order: 0
 ---
 # ununemploy wiki
@@ -25,6 +25,12 @@ Local job discovery, fit assessment, private cover-letter drafting and master CV
 - [Limitations](reference/limitations.md) and [open follow-up](discussions/open-questions.md)
 
 ## Verification and history
+
+- [Pi runtime and assistant attachments — 19 October 2026](verification/runs/2026-10-19-pi-attachments.md)
+
+- [Timezone filter](verification/runs/2026-10-18-timezone-filter.md), [map and offset](verification/runs/2026-10-18-timezone-map.md), [wrapping offset](verification/runs/2026-10-18-timezone-wrap.md) and [Pi compatibility checkpoint](verification/runs/2026-10-18-pi-compatibility.md) — 18 October 2026
+
+- [Large-inbox timeout fix — 18 October 2026](verification/runs/2026-10-18-inbox-performance.md)
 
 - [Package size and Mac-first Pi handoff — 18 October 2026](journal/2026-10-18-pi-runtime-handoff.md)
 

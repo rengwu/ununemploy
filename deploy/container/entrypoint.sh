@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 case "${PUID}:${PGID}" in *[!0-9:]*|:*|*:) echo 'PUID and PGID must be numeric.' >&2; exit 1;; esac
-mkdir -p /config /config/codex /config/home
+mkdir -p /config /config/home
 if [ "$(id -u)" = 0 ]; then
   if ! getent group "$PGID" >/dev/null; then groupadd --gid "$PGID" ununemploy; fi
   if ! getent passwd "$PUID" >/dev/null; then

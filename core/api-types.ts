@@ -39,7 +39,11 @@ export type JobPage = {
   totalPages: number;
   revision: string;
 };
-export type JobLocations = { options: LocationOption[]; revision: string };
+export type JobLocations = {
+  options: LocationOption[];
+  timezoneOffsets: Record<string, number[]>;
+  revision: string;
+};
 export type CvContext = { profile: Profile; template: Template };
 export type Bootstrap = {
   profile: import("./profile/facts.ts").ProfileReadiness & { revision: number };

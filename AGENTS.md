@@ -45,11 +45,11 @@
 
 ## AI runtime
 
-- Use the official Codex runtime with the user's ChatGPT subscription, `gpt-5.6-sol`, and high reasoning. Persist the runtime's own authentication state; do not implement custom OAuth refresh or silently switch models or billing methods.
+- Use pi-ai with the user's ChatGPT subscription, `gpt-5.6-sol`, and high reasoning. Persist app-owned credentials under appdata/pi-auth using the SDK's authentication and refresh flow; preserve existing Codex credentials, do not implement custom OAuth refresh or silently switch models or billing methods.
 - Serialize model jobs. Pause and report unavailable authentication, model access, or subscription allowance; preserve saved jobs and queued drafts.
 - The app-wide assistant may search collected jobs, read supplied public websites/repository READMEs, edit profiles, edit the actual master LaTeX CV, and rewrite saved cover letters through `core/assistant` actions. It has no unrestricted shell, filesystem or external-write capabilities. Preserve user intent across follow-ups; never claim a profile update changed the independent LaTeX source. Stage coordinated changes, validate and save versions atomically, retain manual edits, and report actual save/preview results. See `docs/wiki/features/assistant.md`.
 
-- Jev is temporarily disabled and hidden from the app UI by user request on 8 October 2026. Existing keys, settings, queued work, assessments and counters are retained; no Jev inference or cached assessment enrichment runs. Do not re-enable it through settings, environment variables or API calls. The retained implementation is limited to job fit, geography, work arrangement and applicability; preserve baseline matching and the Codex cover-letter runtime. See `docs/wiki/features/jev.md`.
+- Jev is temporarily disabled and hidden from the app UI by user request on 8 October 2026. Existing keys, settings, queued work, assessments and counters are retained; no Jev inference or cached assessment enrichment runs. Do not re-enable it through settings, environment variables or API calls. The retained implementation is limited to job fit, geography, work arrangement and applicability; preserve baseline matching and subscription-based cover-letter generation. See `docs/wiki/features/jev.md`.
 
 ## State and deployment
 

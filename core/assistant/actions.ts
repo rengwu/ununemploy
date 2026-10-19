@@ -21,6 +21,7 @@ import {
   readReference,
   mentionedUrls,
   referenceTarget,
+  referenceLinks,
   type Reference,
 } from "./references.ts";
 import type { AssistantContext, Receipt } from "./types.ts";
@@ -105,6 +106,7 @@ export class AssistantActions {
   private documents = new Map<string, Doc>();
   readonly references: Reference[] = [];
   readonly allowedUrls: Set<string>;
+  readonly researchText: string;
   readonly budget = { requests: 0, limit: 8 };
   readonly failures = new Map<string, string>();
   focus: AssistantContext | null = null;
@@ -114,6 +116,7 @@ export class AssistantActions {
     readonly context: AssistantContext,
     readonly signal: AbortSignal,
     readonly deps: ActionDependencies = {},
+    readonly attachments: { id: string; text: string; name?: string }[] = [],
   ) {
     this.baseProfile = store.getProfile();
     this.profile = structuredClone(this.baseProfile);
@@ -128,6 +131,10 @@ export class AssistantActions {
       ),
     ];
     this.allowedUrls = new Set(urls);
+    this.researchText = [
+      ...history.filter((m) => m.role === "user").map((m) => m.content),
+      message.content,
+    ].join("\n");
   }
   private guard(kind: string, jobId?: string) {
     this.signal.throwIfAborted();
@@ -147,6 +154,7 @@ export class AssistantActions {
         .filter((m) => m.role === "user" && m.id !== this.message.id)
         .map((m) => ({ id: `profile-chat:${m.id}`, text: m.content })),
       ...this.references,
+      ...this.attachments,
     ];
   }
   private documentKey(kind: string, jobId?: string) {
@@ -233,14 +241,17 @@ export class AssistantActions {
       };
     }
     if (name === "read_reference") {
-      referenceTarget(input.url, this.allowedUrls);
+      referenceTarget(input.url, this.allowedUrls, this.researchText);
       const reference = await (this.deps.reference || readReference)(
         input.url,
         this.allowedUrls,
         this.budget,
         this.signal,
+        this.researchText,
       );
       this.references.push(reference);
+      for (const url of referenceLinks(reference.url, reference.links || []))
+        this.allowedUrls.add(url);
       return reference;
     }
     if (name === "read_document") {

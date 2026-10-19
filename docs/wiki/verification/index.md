@@ -1,13 +1,27 @@
 ---
 title: Verification
 section: Verification
-updated: 2026-10-17
+updated: 2026-10-19
 ---
 # Verification
 
 Use [shared setup](setup.md) before running selected checks. [Feature records](../features/index.md) state expected outcomes and recipes; a pass applies only to its recorded build and scope.
 
 ## Runs
+
+[Assistant citations and public research — 19 October 2026](runs/2026-10-19-assistant-references.md): clickable attachment references, derived GitHub contribution reads and duplicate save-footer repair.
+
+[Timezone filter — 18 October 2026](runs/2026-10-18-timezone-filter.md): country-based UTC range, two-handle control, browser persistence and native installation.
+
+[Timezone map and offset — 18 October 2026](runs/2026-10-18-timezone-map.md): offline country highlights, width-preserving shifts, UTC bounds and map retry.
+
+[Wrapping timezone offset — 18 October 2026](runs/2026-10-18-timezone-wrap.md): rotating map seam, fixed range handles and persisted 24-hour circular matching; supersedes the initial clamped offset.
+
+[Effective timezone labels — 18 October 2026](runs/2026-10-18-timezone-labels.md): visible endpoints, accessible values and closed trigger reflect rotation without moving handles.
+
+[Pi compatibility checkpoint — 18 October 2026](runs/2026-10-18-pi-compatibility.md): pinned SDK, offline request contract and selective bundle measurement; authenticated compatibility remains gated on the new ChatGPT connection.
+
+[Large-inbox timeout fix — 18 October 2026](runs/2026-10-18-inbox-performance.md): large-copy API timings, preserved results, timeout/retry browser behavior and macOS regression after pulling the Windows checkpoint.
 
 [Windows installer integrity — 17 October 2026](runs/2026-10-17-windows-installer.md): complete-package checksums, WebView2 prerequisite detection, path checks, failure recovery and locked-file handling.
 
@@ -60,3 +74,5 @@ Use [shared setup](setup.md) before running selected checks. [Feature records](.
 [Verification history](history.md) preserves the earlier implementation notes and artifact paths. It includes browser, fixture, inference, compiler and local-container checks, with their stated limits. Historical logs remain private under `.local-data/`; missing build fingerprints have not been invented.
 
 [Limitations and pending verification](../reference/limitations.md) distinguishes implemented behavior from unverified integration/deployment paths.
+
+- [Pi runtime and assistant attachments — 19 October 2026](runs/2026-10-19-pi-attachments.md)

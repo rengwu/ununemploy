@@ -1,7 +1,7 @@
 ---
 title: Verification setup
 section: Verification
-updated: 2026-10-17
+updated: 2026-10-19
 ---
 # Verification setup
 
@@ -31,13 +31,19 @@ Build with `npm run desktop:build` on Windows x64. `npm run desktop:test` runs t
 
 Use `noDefaults:true` when attaching Playwright so it does not replace native download behavior. Native captures use CDP `Page.captureScreenshot` with `fromSurface:false`. Only explicit `JH_DESKTOP_DEBUG_PORT` plus `JH_DESKTOP_DATA_DIR` enables the host's test endpoint; ordinary launches expose no debugging port. The Win32 driver targets the launched process and verifies the fixture filename before saving.
 
-For the full Node suite with bundled document runtimes, set `PLAYWRIGHT_BROWSERS_PATH`, `JH_TECTONIC_BIN`, `JH_LATEX_CACHE` and `JH_LATEX_SANDBOX` to their `build/desktop/windows/resources/` paths, then run `npm test`. Windows tests use real filesystem URLs, a compiled fixture Codex executable and ACL assertions; the Homebrew-only scenario skips on Windows. To separately verify actual subscription/model access, `node --import tsx scripts/verify-codex-windows.ts` makes one synthetic inference through the bundled official runtime and consumes ChatGPT allowance. It sends no candidate facts and does not switch model or billing method.
+For the full Node suite with bundled document runtimes, set `PLAYWRIGHT_BROWSERS_PATH`, `JH_TECTONIC_BIN`, `JH_LATEX_CACHE` and `JH_LATEX_SANDBOX` to their `build/desktop/windows/resources/` paths, then run `npm test`. Windows tests use real filesystem URLs, a synthetic Pi transport response and ACL assertions; the Homebrew-only scenario skips on Windows. To separately verify actual subscription/model access, `JH_PI_VERIFY_CREDENTIALS=/private/path/credentials.json npx tsx scripts/verify-pi-app.ts` exercises the current runtime with synthetic PDF/image data (set `JH_PI_VERIFY_APP` to a built app root to verify its bundle) and consumes ChatGPT allowance. It sends no candidate facts and does not switch model or billing method.
 
 For installation tests, run the built `install.ps1` with a fresh workspace-local `-Destination` and `-NoShortcut`, then pass its executable to the native driver. Repeat installation only after Quit and verify replacement hashes and separate fixture-data retention. These tests do not establish clean-machine or fresh-login support.
 
 `node --import tsx --test tests/windows-installer.test.ts` runs Windows-only synthetic package checks through the PowerShell installer: first installation/replacement, same-size corruption, missing dependencies, extra files, inventory errors, junctions and locked files. It also explicitly simulates missing WebView2 registration and publication failure; those two injections do not establish behavior on a clean OS. The test uses a temporary `LOCALAPPDATA` for synthetic records and deletes only its own fixture tree. Check the actual built payload with `powershell -NoProfile -ExecutionPolicy Bypass -File build/desktop/windows/install.ps1 -Check`; this requires the installed WebView2 Runtime but no developer Node or Go on PATH.
 
 ### Shared browser and API
+
+`npx tsx scripts/verify-timezone-ui.ts` uses synthetic Malaysia, Nepal, US and Worldwide jobs with scanning/inference disabled. It checks pointer and keyboard range/offset input, fixed handle coordinates with effective rotated labels, wrapped map geometry, identical full-turn endpoints, matching map countries, filtering, independent range/offset reload/Saved persistence, Escape focus return, light/dark/mobile layout, map error/retry and clearing. Build first. Evidence goes to `.local-data/verification/timezone-labels/`; the driver removes its temporary database and browser/server. `tests/timezones.test.ts` checks seasonal offsets, multi-zone countries, shared map/server matching, date-line equivalence and unresolved locations; `tests/job-query.test.ts` checks API composition, serialized offsets, wrapped rotation and invalid inputs.
+
+`npx tsx scripts/verify-inbox-loading.ts` uses synthetic data and holds a jobs request past the real 15-second deadline, then checks the failure label, Retry, empty results and bootstrap revision header. Build first.
+
+`npx tsx scripts/verify-inbox-performance.ts /path/to/job-hunter.db` opens the supplied database read-only and backs it up into a disposable temporary directory before importing application code. Use a collection of at least 30,000 jobs. It checks cold/warm API requests, ETags, document choices, refresh reuse across a second connection’s writes, minute expiry and filters against a 10-second per-request budget. It starts no worker, scans or inference and deletes the working copy on completion. Run without other heavy workloads for comparable timings. Both drivers write reviewed-output candidates under `.local-data/verification/inbox-performance/`; never publish the source database or raw logs.
 
 `npx tsx scripts/verify-ui-design.ts` checks the Cursor-inspired UI against a fresh synthetic database on an ephemeral loopback port. It covers System/explicit appearance, menus and keyboard location selection, dialog cancellation/focus return, Settings persistence, loading/error/empty states, all main pages, sidebar collapse, mobile navigation and reduced motion. It blocks external browser requests and writes synthetic screenshots and a concise result to `docs/wiki/evidence/2026-10-16-cursor-redesign/`. Build first and wait for completion; never replace `dist` while browser drivers are running because lazy chunks may still be requested. The script removes its temporary database and closes its own server/browser.
 

@@ -1,7 +1,7 @@
 ---
 title: Matching and listing quality
 section: Features
-updated: 2026-10-07
+updated: 2026-10-19
 ---
 # Matching and listing quality
 
@@ -38,7 +38,7 @@ Implemented locally on 16 September 2026.
 
 ## Matching
 
-The matcher uses an explicit, deterministic scoring rubric. It does not call an AI model for every discovered job or consume additional Codex allowance. The score expresses fit against the recorded profile, not a probability of getting hired.
+The matcher uses an explicit, deterministic scoring rubric. It does not call an AI model for every discovered job or consume additional ChatGPT allowance. The score expresses fit against the recorded profile, not a probability of getting hired.
 
 - Role family carries the most weight. Frontend, product, full-stack, native/web and developer-tool roles take priority; related engineering roles remain visible.
 - Technology evidence distinguishes employment entries from personal projects. The Match tab shows the score components and the relevant technologies. Project experience does not establish professional AI tenure.

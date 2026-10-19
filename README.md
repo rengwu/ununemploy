@@ -10,7 +10,7 @@ The Windows 11 x64 local port opens **ununemploy.exe** and uses the same Close/Q
 
 For development:
 
-Requires Node 22.19+ and the official Codex CLI signed in with ChatGPT.
+Requires Node 22.19+. Connect your ChatGPT subscription in Settings → AI.
 
 ```sh
 npm ci

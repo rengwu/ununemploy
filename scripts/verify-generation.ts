@@ -9,7 +9,7 @@ import {
   now,
 } from "../core/db/index.ts";
 import { config } from "../core/config.ts";
-import { infer } from "../core/ai/codex.ts";
+import { infer } from "../core/ai/pi.ts";
 import {
   generationPrompt,
   outputSchema,

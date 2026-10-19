@@ -1,3 +1,4 @@
+import { connectPiFixture } from "./pi-test-auth.ts";
 import assert from "node:assert/strict";
 import {
   mkdtempSync,
@@ -151,8 +152,9 @@ try {
   );
   step("Generation failure is visible and Retry requeues the task");
   if (real) {
+    await connectPiFixture();
     console.log(
-      "Running official Codex subscription generation (gpt-5.6-sol, high)…",
+      "Running Pi ChatGPT subscription generation (gpt-5.6-sol, high)…",
     );
     await processCoverLetterTask();
     const completed = store.listTasks().find((t) => t.id === task.id)!;

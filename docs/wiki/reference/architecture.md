@@ -1,7 +1,7 @@
 ---
 title: Architecture
 section: Reference
-updated: 2026-10-16
+updated: 2026-10-19
 ---
 # Architecture
 
@@ -10,7 +10,7 @@ updated: 2026-10-16
 - React and TypeScript with Vite, shared Cursor-inspired controls and unstyled Base UI primitives, and CodeMirror.
 - Fastify HTTP API and static frontend serving in production.
 - SQLite through Node's built-in driver: WAL, versioned migrations, transactions, durable work queues and collection checkpoints.
-- A separate worker handles scheduling and serialized Codex generation. Profile conversations use the single app-wide assistant action loop; unfinished legacy turns are preserved by migration 011. Jev runtime, API, configuration and UI code are retired; its existing local data and archive compatibility remain. Supervisord runs API/worker together in the Unraid image, with automatic process restart.
+- A separate worker handles scheduling and serialized Pi inference. Profile conversations use the single app-wide assistant action loop; unfinished legacy turns are preserved by migration 011. Jev runtime, API, configuration and UI code are retired; its existing local data and archive compatibility remain. Supervisord runs API/worker together in the Unraid image, with automatic process restart.
 - Playwright/Chromium prints cover letters using the shared application layout. Historical resume exports retain their HTML/PDF/Word compatibility code; `docx` is used only for those historical resumes.
 - One locally built `linux/amd64` image, an Unraid XML template, and persistent `/config` appdata. No hosted domain or application login.
 - The [macOS desktop app](../features/desktop.md) bundles the same backend and frontend. A Go/Cocoa/WKWebView launcher owns the loopback API and separate worker process, single-instance lifecycle, native downloads and process cleanup. Appdata lives outside the bundle in Application Support.
@@ -41,7 +41,7 @@ ETags allow unchanged reads to return bodyless 304 responses. The browser polls 
 
 1. Saving a job records its review status and enqueues one idempotent first-save task.
 2. The task snapshots the description, profile revision, and template.
-3. The official Codex CLI uses the user's ChatGPT subscription, exact requested model `gpt-5.6-sol`, and high reasoning. Generation is serialized and has no shell, browser, plugins, connectors, or messaging tools.
+3. The [Pi AI runtime](../features/ai-runtime.md) uses the user's ChatGPT subscription, exact requested model `gpt-5.6-sol`, and high reasoning. Generation is serialized and has no shell, browser, plugins, connectors, or messaging tools.
 4. The output contains 3–5 first-person paragraphs with internal evidence references and separate review notes. The prompt targets 250–350 words and connects relevant experience to the opening. The application validates shape, evidence IDs, numeric claims, candidate evidence, and a 600-word ceiling; it adds a review note above 400 words. Name/contact/company/role/salutation/signature fields come from the application. These checks cannot establish semantic truth; the user reviews the result.
 5. A new cover-letter version is written transactionally to its own table. Manual edits and regeneration append versions, preserving prior work.
 6. The user reviews, edits, and downloads. No submission, employer upload, form filling, outreach, or engagement path exists.

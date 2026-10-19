@@ -217,7 +217,6 @@ func desktopEnvironment(resources, data string) []string {
 	overrides := map[string]string{
 		"PATH":        runtimePath(resources),
 		"JH_DATA_DIR": data, "JH_HOST": "127.0.0.1", "JH_TEST_SERVER": "1", "JH_DESKTOP": "1",
-		"JH_CODEX_BIN":   filepath.Join(resources, "codex/bin/"+executableName("codex")),
 		"JH_CODEX_MODEL": "gpt-5.6-sol", "JH_CODEX_REASONING_EFFORT": "high",
 		"JH_TECTONIC_BIN":          filepath.Join(resources, "bin/"+executableName("tectonic")),
 		"JH_LATEX_CACHE":           filepath.Join(resources, "tex-cache"),

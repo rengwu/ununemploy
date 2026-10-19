@@ -1,3 +1,4 @@
+import { connectPiFixture } from "./pi-test-auth.ts";
 // Explicit opt-in: real subscription inference, isolated synthetic facts only.
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -10,8 +11,9 @@ process.env.JH_PROFILE_SEED = "";
 const store = await import("../core/db/index.ts");
 const assistant = await import("../core/assistant/service.ts");
 const latex = await import("../core/latex/store.ts");
-const { infer } = await import("../core/ai/codex.ts");
+const { infer } = await import("../core/ai/pi.ts");
 try {
+  await connectPiFixture();
   const profile = store.getProfile();
   Object.assign(profile.basics, {
     name: "Maya Chen",
@@ -90,7 +92,7 @@ try {
   );
   assert.ok(latex.latexBuild(updated.hash));
   console.log(
-    "Real Codex coordinated profile/LaTeX update and PDF compilation passed with synthetic data.",
+    "Real Pi coordinated profile/LaTeX update and PDF compilation passed with synthetic data.",
   );
 } finally {
   store.db.close();

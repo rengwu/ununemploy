@@ -1,7 +1,7 @@
 ---
 title: Decision register
 section: Decisions
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 # Decision register
 
@@ -15,7 +15,7 @@ These are established requirements summarized from repository `AGENTS.md` and th
 | DEC-letters | Save generates a cover letter; keep the master CV independent and preserve legacy resumes. Full letter editor belongs inside Saved job detail. | Existing correction supersedes older per-job CV workflow; [cover letters](../features/cover-letters.md), [history](../verification/history.md). |
 | DEC-ui | Lowercase ununemploy; React/TypeScript/Vite with Cursor/Clarity-inspired controls and literal task-focused copy. | 16 October redesign request and submitted design answers replace Kumo; [dashboard decisions](dashboard-ui.md). |
 | DEC-assistant | Persistent right-side overlay without page shift; shared profile facts and bounded document actions with atomic versions. | Established before migration; [assistant](../features/assistant.md). No unrestricted shell/filesystem/external writes. |
-| DEC-runtime | Current implementation uses official Codex, ChatGPT subscription, gpt-5.6-sol, high reasoning; serialized jobs, runtime-owned authentication, no silent fallback. | Established before migration; [architecture](../reference/architecture.md), [cover letters](../features/cover-letters.md). The 18 October Mac-first Pi direction below permits evaluating a replacement; it is not yet implemented. |
+| DEC-runtime | Use pi-ai, ChatGPT subscription, gpt-5.6-sol, high reasoning; serialized jobs, SDK-owned refresh with app-owned credential persistence, no silent fallback. | Established before migration; [architecture](../reference/architecture.md), [cover letters](../features/cover-letters.md). The accepted Mac-first migration is implemented on 19 October; see [AI runtime](../features/ai-runtime.md). |
 | DEC-jev | Retire executable Jev integration while preserving credentials, settings, assessment history, queue and counters. Use baseline matching and Codex letters. | User approval of the lean cleanup on **16 October 2026** supersedes temporary disablement on 8 October. Historical accounting findings remain preserved. [Jev](../features/jev.md), [cleanup plan](../journal/2026-10-16-lean-cleanup.md). |
 | DEC-wiki | Adopt the local jstack collection and migrate project documentation into a Markdown wiki with an offline reader. | User request on **7 October 2026**: “can we adopt jstack (../jstack) for this project? migrate all docs to wiki format”; [migration journal](../journal/2026-10-07-jstack-migration.md). |
 | DEC-desktop | Add a local native Go webview app for macOS; opening it owns service startup, closing the window keeps scanning, and Quit stops services. Preserve existing local state outside the bundle. | User request and explicit “Keep running until Quit” selection on **7 October 2026**; [journal](../journal/2026-10-07-desktop.md), [desktop specification](../features/desktop.md). Supplements the Unraid target. |
@@ -29,7 +29,7 @@ Historical source strategies and probe outcomes remain in the [source evaluation
 
 ## Mac-first Pi implementation direction — 18 October 2026
 
-After reviewing Windows package size and the Pi assessment, the user requested recording the finding, committing/pushing the checkpoint, and implementing it first on their Mac. Preserve the current Windows work and begin the runtime replacement on Mac before returning to Windows distribution. The [handoff](../journal/2026-10-18-pi-runtime-handoff.md) records measured size, sources, constraints and proposed acceptance checks. `pi-ai` alone is the initial recommendation; the full Pi Durable harness remains an option, not a selected or verified implementation. The current runtime remains Codex until a replacement is implemented and verified. ChatGPT subscription intent, exact model/high reasoning, local state and bounded assistant actions remain required.
+After reviewing Windows package size and the Pi assessment, the user requested recording the finding, committing/pushing the checkpoint, and implementing it first on their Mac. Preserve the current Windows work and begin the runtime replacement on Mac before returning to Windows distribution. The [handoff](../journal/2026-10-18-pi-runtime-handoff.md) records measured size, sources, constraints and proposed acceptance checks. `pi-ai` alone is the initial recommendation; the full Pi Durable harness remains an option, not a selected or verified implementation. This was the transition gate; the 19 October [AI runtime](../features/ai-runtime.md) record supersedes the implementation status. ChatGPT subscription intent, exact model/high reasoning, local state and bounded assistant actions remain required.
 
 ## Windows port implementation — 17 October 2026
 
@@ -42,3 +42,11 @@ The user approved sequential removal of redundant and speculative paths. The [cl
 ### Lean cover-letter authoring — 16 October 2026
 
 Accepted: plain-text fields and paragraphs, one shared layout, Copy text and PDF. Remove cover-letter code tabs, layout actions and DOCX/HTML exports. Existing storage remains intact; no old-layout compatibility UI is needed. See the [submitted answers](../journal/2026-10-15-grill-c7050aa1-cfbb-429f-9ecd-6ff4875c9c24.md), [current feature](../features/cover-letters.md) and [completed lean plan](../journal/2026-10-16-lean-cleanup.md).
+
+### Accepted first pass
+
+The [submitted Pi scope answer](../journal/2026-10-17-grill-98222632-c041-4b36-850a-7b00e43f80b5.md) selects `pi-ai` first and preserves current recovery behavior. Implement the model transport/authentication replacement on Mac while keeping SQLite histories, queues, constrained actions and explicit Retry after interrupted work. Pi Durable and resumable execution are deferred. This scope is implemented on 19 October; Pi Durable remains deferred.
+
+## Assistant attachments — 19 October 2026
+
+The user requested local-file reading and pasted screenshot attachments. Exact user-supplied paths are imported only from local requests, with bounded PDF/text extraction and image attachments. No filesystem tool is exposed to the model. Current-chat retention and New chat cleanup follow the existing conversation lifecycle; see [assistant](../features/assistant.md#files-and-screenshots).

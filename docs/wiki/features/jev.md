@@ -1,7 +1,7 @@
 ---
 title: Retired Jev assessment
 section: Features
-updated: 2026-10-16
+updated: 2026-10-19
 ---
 # Retired Jev assessment
 
@@ -9,7 +9,7 @@ Feature ID: `FEAT-jev`
 
 ## Intent and basis
 
-The user accepted permanent executable-code retirement in the [lean cleanup plan](../journal/2026-10-16-lean-cleanup.md) on 16 October 2026. This supersedes temporary disablement on 8 October. Existing private data remains stored; baseline local matching and Codex cover-letter generation remain the active behavior.
+The user accepted permanent executable-code retirement in the [lean cleanup plan](../journal/2026-10-16-lean-cleanup.md) on 16 October 2026. This supersedes temporary disablement on 8 October. Existing private data remains stored; baseline local matching and [Pi subscription generation](ai-runtime.md) remain the active behavior.
 
 ## Entry points and prerequisites
 
@@ -43,7 +43,7 @@ No live provider inference is needed or authorized. Historical quality and billi
 
 ## Historical implementation reference — before retirement
 
-The sections below describe the preserved implementation before suspension. They are not currently available app workflows. Jev previously supplemented local job matching through TypeSafe AI's official `POST https://api.typesafe.ai/v1/systemone` endpoint using `jev-latest`. It was a separately configured integration, not a fallback for Codex. Cover letters still use the configured official Codex runtime.
+The sections below describe the preserved implementation before suspension. They are not currently available app workflows. Jev previously supplemented local job matching through TypeSafe AI's official `POST https://api.typesafe.ai/v1/systemone` endpoint using `jev-latest`. It was a separately configured integration, not a fallback for Codex. Current cover letters use the [Pi runtime](ai-runtime.md); the Codex references here describe historical behavior.
 
 ## Previous configuration workflow
 

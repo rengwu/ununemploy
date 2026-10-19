@@ -13,7 +13,7 @@ import {
 } from "../db/index.ts";
 import type { CoverLetterDocument, Job, Profile, Task } from "../types.ts";
 import { fromProfile } from "../cv/render.ts";
-import { checkCodex, infer } from "./codex.ts";
+import { checkAi, infer } from "./pi.ts";
 
 export const generationSchema = z
   .object({
@@ -158,7 +158,7 @@ Every paragraph must list supporting evidenceIds: profile-summary, employment bu
 ${JSON.stringify({ job: { evidenceId: "job", title: task.input.job.title, company: task.input.job.company, description: task.input.job.description.slice(0, 40000) }, candidate: evidence })}`;
 }
 export async function refreshAiStatus() {
-  const health = await checkCodex();
+  const health = await checkAi();
   const status = {
     ...health,
     model: config.model,
@@ -239,7 +239,7 @@ async function runCoverLetterTask() {
       error instanceof Error
         ? error.message
         : "Cover letter generation failed.";
-    task.state = /Another Codex generation/.test(task.error)
+    task.state = /Another model generation/.test(task.error)
       ? "queued"
       : /subscription|sign.in|cannot use|not installed/i.test(task.error)
         ? "paused"

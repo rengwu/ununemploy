@@ -1,3 +1,5 @@
+import { registerAiAuth } from "./ai-auth.ts";
+import { registerAssistantAttachments } from "./assistant-attachments.ts";
 import { defaultCoverLetterTemplate } from "../core/cover-letter/template.ts";
 import { isRetiredSource } from "../core/source-catalog.ts";
 import { profileReadiness } from "../core/profile/facts.ts";
@@ -5,7 +7,6 @@ import {
   assistantState,
   startAssistant,
   newAssistantChat,
-  enqueueAssistantMessage,
 } from "../core/assistant/service.ts";
 import { contextSchema } from "../core/assistant/types.ts";
 import {
@@ -90,23 +91,13 @@ app.addHook("onResponse", async (req) => {
 });
 registerLatex(app);
 registerBackup(app);
+registerAiAuth(app);
 app.get("/api/assistant", async (req, reply) =>
   conditional(req, reply, assistantState()),
 );
 app.post("/api/assistant/start", async () => startAssistant());
 app.post("/api/assistant/new", async () => newAssistantChat());
-app.post("/api/assistant/messages", async (req, reply) => {
-  const body = z
-    .object({
-      message: z.string().trim().min(1).max(16000),
-      clientId: z.string().uuid(),
-      context: contextSchema,
-    })
-    .parse(req.body);
-  return reply
-    .code(202)
-    .send(enqueueAssistantMessage(body.message, body.clientId, body.context));
-});
+registerAssistantAttachments(app);
 app.post<{ Params: { id: string } }>("/api/assistant/:id/cancel", async (req) =>
   cancelProfileTurn(req.params.id),
 );
@@ -150,10 +141,14 @@ app.get("/api/bootstrap", async (req, reply) => {
     .get() as Bootstrap["counts"];
   const coverLetterJobs = store.db
     .prepare(
-      `SELECT id, json_extract(document,'$.title') AS title,
-    json_extract(document,'$.company') AS company FROM jobs
-    WHERE json_extract(document,'$.savedAt') IS NOT NULL OR EXISTS (SELECT 1 FROM cover_letter_versions WHERE job_id=jobs.id)
-    ORDER BY first_seen_at DESC,id`,
+      `WITH document_jobs AS (
+        SELECT id FROM jobs WHERE json_extract(document,'$.savedAt') IS NOT NULL
+        UNION SELECT job_id FROM cover_letter_versions
+      )
+      SELECT j.id, json_extract(j.document,'$.title') AS title,
+        json_extract(j.document,'$.company') AS company
+      FROM document_jobs d JOIN jobs j ON j.id=d.id
+      ORDER BY j.first_seen_at DESC,j.id`,
     )
     .all() as Bootstrap["coverLetterJobs"];
   const tasks = store.db
@@ -188,18 +183,32 @@ app.get("/api/bootstrap", async (req, reply) => {
   };
   return conditional(req, reply, value);
 });
+function requestedJobsRevision(req: FastifyRequest) {
+  const value = req.headers["x-jobs-revision"];
+  return typeof value === "string" ? value : undefined;
+}
 app.get("/api/jobs", async (req, reply) =>
-  conditional(req, reply, queryJobs(jobQuerySchema.parse(req.query))),
+  conditional(
+    req,
+    reply,
+    queryJobs(jobQuerySchema.parse(req.query), [], requestedJobsRevision(req)),
+  ),
 );
 app.get("/api/job-locations", async (req, reply) => {
-  const snapshot = jobSnapshot();
+  const snapshot = jobSnapshot(requestedJobsRevision(req));
   return conditional(req, reply, {
     options: snapshot.locations.options,
+    timezoneOffsets: Object.fromEntries(
+      [...snapshot.timezoneOffsets].map(([country, offsets]) => [
+        country,
+        [...offsets],
+      ]),
+    ),
     revision: snapshot.revision,
   });
 });
 app.get<{ Params: { id: string } }>("/api/jobs/:id", async (req, reply) => {
-  const job = jobSnapshot().byId.get(req.params.id);
+  const job = jobSnapshot(requestedJobsRevision(req)).byId.get(req.params.id);
   if (!job) throw new Error("Job not found.");
   return conditional(req, reply, {
     ...job,

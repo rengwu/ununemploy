@@ -39,7 +39,10 @@ export function useRemote<T>(
       const response = await fetch(`/api${url}`, {
         signal: request.signal,
         cache: "no-store",
-        headers: cached?.etag ? { "If-None-Match": cached.etag } : {},
+        headers: {
+          ...(cached?.etag ? { "If-None-Match": cached.etag } : {}),
+          ...(revision ? { "X-Jobs-Revision": revision } : {}),
+        },
       });
       let data: T;
       if (response.status === 304 && cached) data = cached.data;
@@ -74,7 +77,7 @@ export function useRemote<T>(
       clearTimeout(timeout);
       if (id === sequence.current) setPending(false);
     }
-  }, [url]);
+  }, [url, revision]);
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;

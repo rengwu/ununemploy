@@ -1,7 +1,7 @@
+import { packagePi } from "./package-pi.ts";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { cp, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { existsSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkBundleLinks } from "../core/desktop/package.ts";
@@ -60,7 +60,19 @@ await run(
   ["ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund"],
   app,
 );
-let codexVersion: string;
+await packagePi(app);
+await run(
+  "npm",
+  [
+    "uninstall",
+    "@earendil-works/pi-ai",
+    "--omit=dev",
+    "--ignore-scripts",
+    "--no-audit",
+    "--no-fund",
+  ],
+  app,
+);
 if (process.argv.includes("--reuse-runtimes")) {
   const previousResources = join(output, "Contents/Resources");
   const previousBuild = JSON.parse(
@@ -73,37 +85,13 @@ if (process.argv.includes("--reuse-runtimes")) {
     throw new Error(
       "Runtime cache does not match this Node version and architecture.",
     );
-  codexVersion = previousBuild.codex;
-  for (const name of ["bin", "codex", "tex-cache", "browsers"])
+  for (const name of ["bin", "tex-cache", "browsers"])
     await cp(join(previousResources, name), join(resources, name), {
       recursive: true,
       verbatimSymlinks: true,
     });
 } else {
   await cp(process.execPath, join(resources, "bin/node"));
-  const codexEntry = realpathSync(
-    execFileSync("/usr/bin/which", ["codex"], { encoding: "utf8" }).trim(),
-  );
-  const codexRoot = dirname(dirname(codexEntry));
-  codexVersion = JSON.parse(
-    await readFile(join(codexRoot, "package.json"), "utf8"),
-  ).version;
-  const target =
-    process.arch === "arm64" ? "aarch64-apple-darwin" : "x86_64-apple-darwin";
-  const vendor = join(
-    codexRoot,
-    `node_modules/@openai/codex-darwin-${process.arch}/vendor/${target}`,
-  );
-  if (!existsSync(join(vendor, "bin/codex")))
-    throw new Error(
-      "Install the official @openai/codex npm package for this Mac before building.",
-    );
-  await cp(vendor, join(resources, "codex"), {
-    recursive: true,
-    verbatimSymlinks: true,
-  });
-  await cp(join(codexRoot, "README.md"), join(resources, "codex/README.md"));
-
   // Pin/checksum the portable compiler; a Homebrew binary can depend on external dylibs.
   process.env.JH_DATA_DIR = join(resources, "compiler-setup");
   process.env.JH_LATEX_CACHE = join(resources, "tex-cache");
@@ -170,10 +158,10 @@ await writeFile(
         encoding: "utf8",
       }).trim(),
       node: process.version,
-      codex: codexVersion,
+      piAi: "1.3.0",
       hashes: {
         node: await hash(join(resources, "bin/node")),
-        codex: await hash(join(resources, "codex/bin/codex")),
+        piAi: await hash(join(app, "core/ai/pi-sdk.ts")),
         tectonic: await hash(join(resources, "bin/tectonic")),
         wrapper: await hash(join(staging, "Contents/MacOS/ununemploy")),
       },

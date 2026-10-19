@@ -1,3 +1,8 @@
+import { TimezoneFilter } from "./TimezoneFilter.tsx";
+import {
+  parseTimezoneRange,
+  parseTimezoneOffset,
+} from "../core/timezone-range.ts";
 import type { AssistantContext } from "./assistant-context.ts";
 import {
   useEffect,
@@ -485,6 +490,12 @@ function JobsPage({
   const [locations, setLocations] = useState(() =>
     parseLocationSelection(sessionStorage.getItem("jh-locations")),
   );
+  const [timezone, setTimezone] = useState(() =>
+    parseTimezoneRange(sessionStorage.getItem("jh-timezone")),
+  );
+  const [timezoneOffset, setTimezoneOffset] = useState(() =>
+    parseTimezoneOffset(sessionStorage.getItem("jh-timezone-offset")),
+  );
   const locationIndex = useRemote<JobLocations>(
     "/job-locations",
     boot.jobsRevision,
@@ -514,6 +525,8 @@ function JobsPage({
     sessionStorage.setItem("jh-category", category);
     sessionStorage.setItem("jh-arrangement", arrangement);
     sessionStorage.setItem("jh-locations", JSON.stringify(locations));
+    sessionStorage.setItem("jh-timezone", JSON.stringify(timezone));
+    sessionStorage.setItem("jh-timezone-offset", String(timezoneOffset));
     sessionStorage.setItem("jh-sort", sort);
     sessionStorage.setItem("jh-eligibility", eligibility);
     sessionStorage.setItem("jh-seen", seen);
@@ -522,6 +535,8 @@ function JobsPage({
     category,
     arrangement,
     locations,
+    timezone,
+    timezoneOffset,
     sort,
     review,
     saved,
@@ -551,6 +566,8 @@ function JobsPage({
     category,
     arrangement,
     locations: JSON.stringify(locations),
+    timezone: JSON.stringify(timezone),
+    timezoneOffset: String(timezoneOffset),
     review,
     seen,
     availability,
@@ -640,6 +657,7 @@ function JobsPage({
           {category !== "all" ||
           arrangement !== "all" ||
           locations.length > 0 ||
+          timezone !== null ||
           seen !== "all" ||
           (!saved && (availability !== "current" || eligibility !== "possible"))
             ? " · Active"
@@ -708,6 +726,17 @@ function JobsPage({
           value={locations}
           onChange={setLocations}
         />
+        <TimezoneFilter
+          value={timezone}
+          offset={timezoneOffset}
+          onChange={(range, offset) => {
+            setTimezone(range);
+            setTimezoneOffset(offset);
+          }}
+          offsets={locationIndex.data?.timezoneOffsets}
+          mapError={!!locationIndex.error}
+          onRetryMap={locationIndex.reload}
+        />
         <Filter
           label="Seen status"
           value={seen}
@@ -764,7 +793,11 @@ function JobsPage({
               />
             )}
             <span className="muted" aria-live="polite">
-              {results.data ? `${results.data.total} results` : "Loading jobs…"}
+              {results.data
+                ? `${results.data.total} results`
+                : results.error
+                  ? "Jobs unavailable"
+                  : "Loading jobs…"}
             </span>
             <div className="toolbar-spacer" />
             <Filter

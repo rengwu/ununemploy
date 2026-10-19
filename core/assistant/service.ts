@@ -1,8 +1,14 @@
+import {
+  attachmentMetadata,
+  attachmentContext,
+  bindAttachments,
+} from "./attachments.ts";
+import type { InferenceImage } from "./attachment-types.ts";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import * as store from "../db/index.ts";
 import { config } from "../config.ts";
-import { checkCodex, infer } from "../ai/codex.ts";
+import { checkAi, infer } from "../ai/pi.ts";
 import {
   enqueueProfileMessage,
   profileMessages,
@@ -22,7 +28,7 @@ import {
 export type AssistantInference = (
   prompt: string,
   schema: object,
-  options?: { signal?: AbortSignal },
+  options?: { signal?: AbortSignal; images?: InferenceImage[] },
 ) => Promise<{ result: unknown; usage: unknown }>;
 export type AssistantTurn = ProfileTurn & {
   engine: string;
@@ -51,7 +57,11 @@ function turnDetail(id: string): AssistantTurn {
 }
 export function assistantState() {
   const latest = latestProfileTurn();
-  const messages = profileMessages();
+  const attachments = attachmentMetadata();
+  const messages = profileMessages().map((message) => ({
+    ...message,
+    attachments: attachments.filter((a) => a.messageId === message.id),
+  }));
   return {
     messages,
     turn: latest ? turnDetail(latest.id) : null,
@@ -90,6 +100,7 @@ export function enqueueAssistantMessage(
   content: string,
   clientId: string,
   rawContext: unknown,
+  attachmentIds: string[] = [],
 ) {
   const context = contextSchema.parse(rawContext);
   return store.transaction(() => {
@@ -101,6 +112,17 @@ export function enqueueAssistantMessage(
       clientId,
       store.getProfile().revision,
     );
+    if (existing) {
+      const linked = attachmentMetadata()
+        .filter((a) => a.messageId === clientId)
+        .map((a) => a.id)
+        .sort();
+      if (JSON.stringify(linked) !== JSON.stringify([...attachmentIds].sort()))
+        throw new Error(
+          "This message was already sent with different attachments.",
+        );
+    }
+    bindAttachments(attachmentIds, clientId);
     if (!existing)
       store.db
         .prepare(
@@ -134,6 +156,7 @@ export function newAssistantChat() {
       // optional link to the conversation that the user chose to clear.
       store.db.exec(`
         UPDATE profile_changes SET message_id=NULL WHERE message_id IS NOT NULL;
+        DELETE FROM assistant_attachments;
         DELETE FROM assistant_steps;
         DELETE FROM profile_turns;
         DELETE FROM profile_messages;
@@ -159,7 +182,7 @@ const activities: Record<string, string> = {
 export async function processAssistantTurn(
   deps: ActionDependencies & {
     infer?: AssistantInference;
-    check?: typeof checkCodex;
+    check?: typeof checkAi;
   } = {},
 ): Promise<boolean> {
   const owner = randomUUID();
@@ -189,7 +212,7 @@ export async function processAssistantTurn(
         );
       return true;
     }
-    const health = await (deps.check || checkCodex)();
+    const health = await (deps.check || checkAi)();
     if (turnDetail(turn.id).state !== "queued") return true;
     if (health.state !== "ready") {
       store.putSetting("aiStatus", {
@@ -216,12 +239,16 @@ export async function processAssistantTurn(
     }, 250);
     const history = profileMessages(),
       message = history.find((m) => m.id === turn.userMessageId)!;
+    const attachments = attachmentContext(history.map((m) => m.id));
     const actions = new AssistantActions(
       message,
       history,
       turn.context,
       controller.signal,
       deps,
+      attachments.sources.filter(
+        (s) => !s.text.startsWith("Image supplied by the user."),
+      ),
     );
     const steps: unknown[] = [],
       usages: unknown[] = [];
@@ -247,10 +274,11 @@ export async function processAssistantTurn(
             message,
             history,
             steps,
+            attachments: attachments.sources,
             allowedUrls: [...actions.allowedUrls],
           }),
           z.toJSONSchema(stepSchema),
-          { signal: controller.signal },
+          { signal: controller.signal, images: attachments.images },
         );
         if (turnDetail(turn.id).state !== "running") return true;
         usages.push(output.usage);
@@ -279,7 +307,7 @@ export async function processAssistantTurn(
                       `- Saved [${r.label}](${r.href}), ${r.kind === "profile" ? "revision" : "version"} ${r.version}.${r.preview === "compiled" ? " PDF compiled successfully." : r.preview === "rendered" ? " HTML preview rendered." : r.preview === "failed" ? ` PDF preview failed: ${r.warning} The previous preview is preserved.` : ""}`,
                   )
                   .join("\n")
-              : "\n\nNo changes saved.";
+              : "";
             store.db
               .prepare("INSERT INTO profile_messages VALUES (?,?,?,?,?,?)")
               .run(
@@ -368,7 +396,7 @@ export async function processAssistantTurn(
           : error instanceof Error
             ? error.message
             : "Assistant request failed. No changes were saved.";
-      const state = /Another Codex generation/.test(message)
+      const state = /Another model generation/.test(message)
         ? "queued"
         : /changed in another window/.test(message)
           ? "conflict"

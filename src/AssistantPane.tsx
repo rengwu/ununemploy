@@ -1,4 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  attachmentAdapter,
+  AttachmentList,
+  ComposerAttachments,
+} from "./AssistantAttachments.tsx";
+import type { AssistantAttachment } from "../core/assistant/attachment-types.ts";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import {
   AssistantRuntimeProvider,
@@ -25,14 +38,22 @@ import { SafeMarkdown } from "./SafeMarkdown.tsx";
 import type { AssistantContext } from "./assistant-context.ts";
 import type { ProfileMessage } from "../core/profile/chat.ts";
 import type { assistantState } from "../core/assistant/service.ts";
+const ChatAttachments = createContext<AssistantAttachment[]>([]);
 const MarkdownPart = ({ text }: TextMessagePartProps) => (
   <SafeMarkdown
-    text={text}
+    text={text.replace(
+      /(?:\n\nNo changes saved\.){2,}\s*$/,
+      "\n\nNo changes saved.",
+    )}
+    attachments={useContext(ChatAttachments)}
     onNavigate={() => window.dispatchEvent(new Event("jh-assistant-hide"))}
   />
 );
 function ChatMessage() {
   const role = useAuiState((s) => s.message.role);
+  const attachments = useAuiState(
+    (s) => s.message.metadata.custom.attachments,
+  ) as AssistantAttachment[] | undefined;
   const kind = useAuiState((s) => s.message.metadata.custom.kind);
   return (
     <MessagePrimitive.Root
@@ -43,18 +64,21 @@ function ChatMessage() {
           ? "You"
           : ["welcome", "notice", "assistant-intro"].includes(String(kind))
             ? "Assistant"
-            : "Codex"}
+            : "Assistant"}
       </div>
+      {!!attachments?.length && <AttachmentList items={attachments} />}
       <MessagePrimitive.Parts components={{ Text: MarkdownPart }} />
     </MessagePrimitive.Root>
   );
 }
-const convertMessage = (m: ProfileMessage): ThreadMessageLike => ({
+const convertMessage = (
+  m: ProfileMessage & { attachments?: AssistantAttachment[] },
+): ThreadMessageLike => ({
   id: m.id,
   role: m.role,
   createdAt: new Date(m.createdAt),
   content: [{ type: "text", text: m.content }],
-  metadata: { custom: { kind: m.kind } },
+  metadata: { custom: { kind: m.kind, attachments: m.attachments || [] } },
 });
 export function AssistantPane({
   boot,
@@ -186,18 +210,25 @@ export function AssistantPane({
       .map((p) => p.text)
       .join("\n")
       .trim();
-    if (!text) throw new MessageNotSentError();
+    const attachmentIds = (message.attachments || []).map((a) => a.id);
+    if (!text && !attachmentIds.length) throw new MessageNotSentError();
+    const key = JSON.stringify([text, attachmentIds]);
     const id =
-      pendingMessage.current?.text === text
+      pendingMessage.current?.text === key
         ? pendingMessage.current.id
         : crypto.randomUUID();
-    pendingMessage.current = { id, text };
+    pendingMessage.current = { id, text: key };
     setSending(true);
     setError("");
     try {
       await api("/assistant/messages", {
         method: "POST",
-        body: jsonBody({ message: text, clientId: id, context }),
+        body: jsonBody({
+          message: text,
+          clientId: id,
+          context,
+          attachments: attachmentIds,
+        }),
       });
       pendingMessage.current = null;
       sessionStorage.removeItem("jh-assistant-draft");
@@ -210,7 +241,9 @@ export function AssistantPane({
       setSending(false);
     }
   };
+  const attachments = useMemo(() => attachmentAdapter(setError), []);
   const runtime = useExternalStoreRuntime({
+    adapters: { attachments },
     messages: state?.messages || [],
     convertMessage,
     isRunning: running,
@@ -226,7 +259,46 @@ export function AssistantPane({
         sessionStorage.getItem("jh-profile-draft") ||
         "",
     );
+    const saved = sessionStorage.getItem("jh-assistant-attachments");
+    if (saved) {
+      try {
+        for (const item of JSON.parse(saved) as AssistantAttachment[]) {
+          void api<AssistantAttachment>(`/assistant/attachments/${item.id}`)
+            .then((meta) => {
+              if (!meta.messageId)
+                runtime.thread.composer.addAttachment({
+                  id: meta.id,
+                  type: meta.mediaType.startsWith("image/")
+                    ? "image"
+                    : "document",
+                  name: meta.name,
+                  contentType: meta.mediaType,
+                  content: [],
+                });
+            })
+            .catch(() =>
+              setError(
+                "A draft attachment is no longer available. Attach it again.",
+              ),
+            );
+        }
+      } catch {
+        sessionStorage.removeItem("jh-assistant-attachments");
+      }
+    }
     return runtime.thread.composer.subscribe(() => {
+      const items = runtime.thread.composer
+        .getState()
+        .attachments.filter(
+          (a) => a.status.type !== "running" && a.status.type !== "incomplete",
+        )
+        .map((a) => ({ id: a.id, name: a.name, mediaType: a.contentType }));
+      if (items.length)
+        sessionStorage.setItem(
+          "jh-assistant-attachments",
+          JSON.stringify(items),
+        );
+      else sessionStorage.removeItem("jh-assistant-attachments");
       const text = runtime.thread.composer.getState().text;
       if (text) sessionStorage.setItem("jh-assistant-draft", text);
       else sessionStorage.removeItem("jh-assistant-draft");
@@ -241,7 +313,8 @@ export function AssistantPane({
       pendingMessage.current = null;
       sessionStorage.removeItem("jh-assistant-draft");
       sessionStorage.removeItem("jh-profile-draft");
-      runtime.thread.composer.setText("");
+      runtime.thread.composer.reset();
+      sessionStorage.removeItem("jh-assistant-attachments");
       await resource.reload();
       requestAnimationFrame(() =>
         panel.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus(),
@@ -334,70 +407,92 @@ export function AssistantPane({
             </Button>
           </div>
         )}
-        <AssistantRuntimeProvider runtime={runtime}>
-          <ThreadPrimitive.Root className="profile-thread">
-            <ThreadPrimitive.Viewport
-              className="profile-chat-viewport"
-              aria-label="Assistant conversation"
-            >
-              <ThreadPrimitive.Messages components={{ Message: ChatMessage }} />
-              {!state && <p role="status">Loading conversation…</p>}
-              {running && (
-                <p className="profile-run-state" role="status">
-                  {turn.state === "queued"
-                    ? "Waiting for Codex…"
-                    : turn.activity || "Thinking…"}
-                </p>
-              )}
-              {turn?.error && (
-                <div className="profile-turn-error" role="alert">
-                  <p>{turn.error}</p>
-                  <Button
-                    variant="secondary"
-                    disabled={sending || running}
-                    onClick={() =>
-                      void run(`/assistant/${turn.id}/retry`, { context })
-                    }
-                  >
-                    Retry message
-                  </Button>
-                </div>
-              )}
-              {turn?.state === "cancelled" && (
-                <p role="status">Stopped. No changes were saved.</p>
-              )}
-            </ThreadPrimitive.Viewport>
-            <ComposerPrimitive.Root className="profile-composer">
-              <ComposerPrimitive.Input
-                asChild
-                maxLength={16000}
-                addAttachmentOnPaste={false}
-                unstable_insertNewlineOnTouchEnter
+        <ChatAttachments.Provider
+          value={state?.messages.flatMap((m) => m.attachments) || []}
+        >
+          <AssistantRuntimeProvider runtime={runtime}>
+            <ThreadPrimitive.Root className="profile-thread">
+              <ThreadPrimitive.Viewport
+                className="profile-chat-viewport"
+                aria-label="Assistant conversation"
               >
-                <InputArea
-                  aria-label="Message assistant"
-                  placeholder="Ask about jobs or edit your profile, CV, or letters…"
-                  rows={3}
+                <ThreadPrimitive.Messages
+                  components={{ Message: ChatMessage }}
                 />
-              </ComposerPrimitive.Input>
-              <div className="profile-composer-actions">
-                {running ? (
-                  <ComposerPrimitive.Cancel asChild>
-                    <Button variant="secondary" icon={StopIcon}>
-                      Stop
-                    </Button>
-                  </ComposerPrimitive.Cancel>
-                ) : (
-                  <ComposerPrimitive.Send asChild>
-                    <Button variant="primary" icon={ArrowUpIcon}>
-                      Send
-                    </Button>
-                  </ComposerPrimitive.Send>
+                {!state && <p role="status">Loading conversation…</p>}
+                {running && (
+                  <p className="profile-run-state" role="status">
+                    {turn.state === "queued"
+                      ? "Waiting for the model…"
+                      : turn.activity || "Thinking…"}
+                  </p>
                 )}
-              </div>
-            </ComposerPrimitive.Root>
-          </ThreadPrimitive.Root>
-        </AssistantRuntimeProvider>
+                {turn?.error && (
+                  <div className="profile-turn-error" role="alert">
+                    <p>{turn.error}</p>
+                    <Button
+                      variant="secondary"
+                      disabled={sending || running}
+                      onClick={() =>
+                        void run(`/assistant/${turn.id}/retry`, { context })
+                      }
+                    >
+                      Retry message
+                    </Button>
+                  </div>
+                )}
+                {turn?.state === "cancelled" && (
+                  <p role="status">Stopped. No changes were saved.</p>
+                )}
+              </ThreadPrimitive.Viewport>
+              <ComposerPrimitive.Root className="profile-composer">
+                <ComposerAttachments
+                  remove={(id) =>
+                    void runtime.thread.composer
+                      .getAttachmentByIndex(
+                        runtime.thread.composer
+                          .getState()
+                          .attachments.findIndex((a) => a.id === id),
+                      )
+                      .remove()
+                  }
+                />
+                <ComposerPrimitive.Input
+                  asChild
+                  maxLength={16000}
+                  addAttachmentOnPaste={true}
+                  unstable_insertNewlineOnTouchEnter
+                >
+                  <InputArea
+                    aria-label="Message assistant"
+                    placeholder="Ask about jobs or edit your profile, CV, or letters…"
+                    rows={3}
+                  />
+                </ComposerPrimitive.Input>
+                <div className="profile-composer-actions">
+                  <ComposerPrimitive.AddAttachment asChild>
+                    <Button variant="ghost" disabled={running || sending}>
+                      Attach files
+                    </Button>
+                  </ComposerPrimitive.AddAttachment>
+                  {running ? (
+                    <ComposerPrimitive.Cancel asChild>
+                      <Button variant="secondary" icon={StopIcon}>
+                        Stop
+                      </Button>
+                    </ComposerPrimitive.Cancel>
+                  ) : (
+                    <ComposerPrimitive.Send asChild>
+                      <Button variant="primary" icon={ArrowUpIcon}>
+                        Send
+                      </Button>
+                    </ComposerPrimitive.Send>
+                  )}
+                </div>
+              </ComposerPrimitive.Root>
+            </ThreadPrimitive.Root>
+          </AssistantRuntimeProvider>
+        </ChatAttachments.Provider>
       </aside>
     </>
   );

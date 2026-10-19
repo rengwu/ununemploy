@@ -1144,3 +1144,126 @@ summary {
 .job-date {
   white-space: nowrap;
 }
+
+.timezone-options {
+  width: min(400px, calc(100vw - 24px));
+  max-height: var(--available-height);
+  overflow-y: auto;
+  padding: 14px;
+}
+.timezone-title {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 14px;
+}
+.timezone-values {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.timezone-slider {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  margin: 2px 8px;
+  touch-action: none;
+  user-select: none;
+}
+.timezone-track {
+  height: 4px;
+  width: 100%;
+  position: relative;
+  border-radius: 4px;
+  background: var(--line);
+}
+.timezone-indicator {
+  border-radius: 4px;
+  background: var(--accent);
+}
+.timezone-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text);
+  border: 2px solid var(--panel);
+}
+.timezone-thumb:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.timezone-slider[data-disabled] {
+  opacity: 0.4;
+}
+.timezone-map {
+  margin: 0 0 16px;
+}
+.timezone-map svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.timezone-map g {
+  fill: var(--line);
+  stroke: var(--panel);
+  stroke-width: 0.6;
+}
+.timezone-map g[data-matches="true"] {
+  fill: var(--text);
+}
+.timezone-map g:hover {
+  stroke: var(--muted);
+  stroke-width: 1.2;
+}
+.timezone-map figcaption,
+.timezone-map-status {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 6px 0 0;
+}
+.timezone-description {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 6px 0 10px;
+}
+
+.assistant-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.assistant-attachments:empty {
+  display: none;
+}
+.assistant-attachments > a,
+.assistant-attachment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: inherit;
+  font-size: 13px;
+}
+.assistant-attachments span {
+  overflow-wrap: anywhere;
+}
+.assistant-attachments img {
+  width: 56px;
+  height: 44px;
+  object-fit: contain;
+  border-radius: 3px;
+}
+.profile-message .assistant-attachments {
+  margin-bottom: 10px;
+}
+.profile-composer-actions > button:first-child {
+  margin-right: auto;
+}

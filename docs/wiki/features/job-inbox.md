@@ -1,7 +1,7 @@
 ---
 title: Job inbox and saved jobs
 section: Features
-updated: 2026-10-16
+updated: 2026-10-18
 ---
 # Job inbox and saved jobs
 
@@ -37,6 +37,8 @@ Live-dashboard recipes depend on inventory and were not rerun for this documenta
 
 ## Verification history
 
+[Large-inbox timeout fix — 18 October 2026](../verification/runs/2026-10-18-inbox-performance.md) records indexed reads, refresh reuse, timeout recovery and macOS checks after the Windows checkpoint was pulled.
+
 [Cursor-inspired UI redesign — 16 October 2026](../verification/runs/2026-10-16-cursor-redesign.md) records the replacement controls, responsive/theme checks, preserved workflows and native installation.
 
 [Lean cleanup first pass — 16 October 2026](../verification/runs/2026-10-15T165802Z-lean-first-pass.md): WebMCP removal, retired legacy CV writes with preserved downloads, and hidden/unscanned placeholder sources; 200 tests, build and isolated browser checks passed.
@@ -51,7 +53,11 @@ Live-dashboard recipes depend on inventory and were not rerun for this documenta
 ## Dashboard loading
 
 
-Jobs and Saved filter and paginate on the server, with 75 summaries per page. Full descriptions and match evidence load when the detail pane opens; document data loads when its editor opens. The eight-second status check uses ETags, so unchanged responses have no body. Collection changes refresh the visible results, and polling pauses while the browser tab is hidden. Failed or invalid responses show a Retry action without discarding existing data or edits.
+Jobs and Saved filter and paginate on the server, with 75 summaries per page. Full descriptions and match evidence load when the detail pane opens; document data loads when its editor opens. The eight-second status check uses ETags, so unchanged responses have no body. Collection changes refresh the visible results, and polling pauses while the browser tab is hidden. Failed or invalid responses show a Retry action without discarding existing data or edits. An initial failure changes the result count to **Jobs unavailable**, rather than leaving **Loading jobs…** visible. The request deadline remains 15 seconds.
+
+Large collections use an ordering index and streamed job rows. Listing-quality reads omit duplicate description text while preserving the complete stored source evidence for details and backups. A partial saved-job index keeps bootstrap document choices from scanning every job document.
+
+Related job, location and detail requests carry the bootstrap `X-Jobs-Revision` hint and reuse a snapshot at least that recent. This avoids repeated rebuilds when collection writes land between those requests. The next bootstrap revision picks up newer writes; the minute boundary still refreshes time-based freshness. Requests without a valid hint use the current revision. Snapshot construction still processes the whole collection synchronously; the measured improvement does not establish unlimited scaling.
 
 The API now returns `{items, total, page, pageSize, totalPages, revision}` from `GET /api/jobs`, with zero-based pages and a maximum page size of 100. Use `GET /api/jobs/:id` for full details, `/api/job-locations` for filter options, and `/api/master` for the profile/template. `/api/bootstrap` contains status, counts and compact document choices, not the complete collection.
 
@@ -67,6 +73,28 @@ Country filters include recognized cities using a bundled, server-only [GeoNames
 
 The detail header labels explicit candidate restrictions as **Hiring locations** for Himalayas, Remotive, Jobicy, and We Work Remotely; other source fields are labeled **Location**. Filtering uses these listed fields, not incidental headquarters mentions in descriptions, and does not determine visa eligibility. Organic posts have free-form location headers: their dropdown values are limited to place names also found in structured boards (plus explicit Worldwide); unrecognized headers fall under Unspecified. Original posting text is preserved.
 
+
+## Timezone filter
+
+In Jobs or Saved, open **Filters → Any timezone**. Drag either handle to select an inclusive UTC offset range from UTC−12:00 to UTC+14:00 in 15-minute increments. Arrow keys move by 15 minutes; Page Up/Down move by an hour; Home/End move to the permitted endpoint. Handles cannot cross. **Clear timezone** restores unrestricted results. The selection is shared across Jobs/Saved and survives reload in the same browser tab; changing it resets pagination and combines with the other filters.
+
+A posting matches when any resolved country has at least one current UTC offset in the selected range after the circular rotation described below. Countries with several timezones match any actual offset, not the gaps between offsets. This is deliberately country-level: a city resolved to the US can match any US timezone. Region-only, Worldwide-only, remote-only and unresolved locations are excluded while the filter is active because they do not establish a country. Listing text and eligibility are unchanged; this filter does not infer required working hours.
+
+Country mappings come from the bundled IANA table; Node’s timezone rules determine the offset, including daylight saving at the current instant. The cached snapshot refreshes at the next minute boundary. See [timezone data provenance](../reference/geography.md). The API accepts `timezone=[minimumMinutes,maximumMinutes]`, or `null`/omitted for no restriction, and rejects reversed, out-of-bounds or non-quarter-hour ranges.
+
+The picker includes an offline world map. Highlighted countries/territories match the current draft range; hovering shows the country and its current UTC offsets. A country with multiple zones is highlighted as a whole when any zone matches. The accessible map description lists matching names. Small territories use visible markers. Outlines are geographic context, not precise timezone boundaries or a new location resolver. The map uses the exact country-offset values returned by `/api/job-locations` from the same snapshot as filtering. It updates immediately while dragging, and results update when a slider adjustment is committed. A failed offset lookup replaces the map with **Retry map** instead of showing misleading highlights.
+
+**Offset** rotates the map and its matching coordinate system underneath the fixed range. It does not move either range handle or change either stored coordinate. The two endpoint labels, accessible slider value text, map description and closed trigger display the effective UTC range after rotation. Labels update while dragging and wrap into the supported UTC bounds; for example, base −05:15/00:00 with −12:00 rotation displays +06:45/+12:00. The separate Offset value continues to show the rotation itself. The map wraps horizontally through its seam instead of staying bounded at Alaska/Russia. The independent offset uses 15-minute steps from −12 through +12 hours, covering one complete turn; both ends represent the same rotation. It remains usable with the full range. Positive offset moves the map west and the matching window east. Job results update on commit.
+
+Matching wraps on a 24-hour clock: a country's current offset minus the rotation minus the selected minimum, modulo 1,440 minutes, must be within the selected width. Consequently UTC+14 and UTC−10 share a clock position; calendar dates are not part of this filter. A selection at least 24 hours wide includes every recognized country. The displayed −12…+14 coordinates remain available for selecting fractional offsets. The range and offset persist independently across reopening, reload and Jobs/Saved navigation. Old stored ranges start with offset zero. **Clear timezone** resets both range and rotation. With no active range, rotating the map alone leaves jobs unrestricted. The API additionally accepts `timezoneOffset` in quarter-hour minutes from −720 to +720, defaulting to zero.
+
+[Timezone range verification — 18 October 2026](../verification/runs/2026-10-18-timezone-filter.md) records fixtures, browser interactions and native installation.
+
+[Timezone map and offset verification — 18 October 2026](../verification/runs/2026-10-18-timezone-map.md) covers the map, width-preserving shifts, bounds, error recovery and native update.
+
+[Wrapping timezone offset — 18 October 2026](../verification/runs/2026-10-18-timezone-wrap.md) supersedes the initial clamped-shift behavior with a rotating seam and fixed selection values.
+
+[Effective timezone labels — 18 October 2026](../verification/runs/2026-10-18-timezone-labels.md) verifies that endpoint labels reflect rotation while handle coordinates stay fixed.
 
 ## Seen posts
 

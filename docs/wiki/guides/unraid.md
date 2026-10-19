@@ -1,7 +1,7 @@
 ---
 title: Unraid installation
 section: Guides
-updated: 2026-10-07
+updated: 2026-10-19
 ---
 # Unraid installation
 
@@ -39,17 +39,9 @@ The template uses `ununemploy:local`, container port 3000, PUID 99, PGID 100, an
 
 ## Sign in to Codex
 
-The official CLI is included. Run this on Unraid after starting the container:
+Connect after starting the container:
 
-```sh
-docker exec -it -u 99:100 -e CODEX_HOME=/config/codex -e HOME=/config/home ununemploy codex login --device-auth
-```
-
-Follow the CLI's own sign-in instructions using your ChatGPT subscription. If you changed PUID/PGID, use those values. The official CLI owns its authentication and refresh state under `/config/codex`; the application does not implement OAuth. Device sign-in may need enabling in the account's security settings. See [Codex authentication](https://learn.chatgpt.com/docs/auth).
-
-Open **Settings → Codex → Check connection** afterwards. Generation uses `gpt-5.6-sol` with high reasoning, one task at a time. Login, model-access, and subscription-allowance failures pause drafts. Retry after resolving the displayed issue. No API-key billing fallback is configured.
-
-Your current Mac login is used by the development instance. A new container needs its own official sign-in; credentials are not baked into the image.
+Open Settings → AI → **Sign in with ChatGPT**, then **Continue with ChatGPT**. When signing in from another device, copy the final localhost redirect URL from the browser into **Finish sign-in from another device**. The SDK validates the OAuth state and exchanges the code. App-owned credentials persist at `/config/pi-auth`; existing `/config/codex` records are retained but unused. This replacement sign-in flow still needs deployment verification on Unraid. No API key or model fallback is used.
 
 ## Configure the additional sources
 
@@ -73,7 +65,7 @@ Create a consistent database backup while the app is running:
 docker exec -u 99:100 ununemploy /app/node_modules/.bin/tsx scripts/backup.ts
 ```
 
-The command prints the backup path under `/config/backups`. Keep `secrets/` and `codex/` with a separate private backup if you need to preserve sign-in. To restore a database, stop the container first, keep a copy of its current appdata, replace `job-hunter.db`, and remove stale WAL/SHM sidecars before restarting.
+The command prints the backup path under `/config/backups`. Keep `secrets/` and `pi-auth/` with a separate private backup if you need to preserve sign-in. To restore a database, stop the container first, keep a copy of its current appdata, replace `job-hunter.db`, and remove stale WAL/SHM sidecars before restarting.
 
 ## Local container check
 

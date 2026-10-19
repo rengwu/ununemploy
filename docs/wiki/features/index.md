@@ -1,7 +1,7 @@
 ---
 title: Feature map
 section: Features
-updated: 2026-10-16
+updated: 2026-10-19
 ---
 # Feature map
 
@@ -17,6 +17,7 @@ These records separate expected behavior from dated verification. Stable IDs ide
 | FEAT-profile | [User profile and evidence](profile.md) | User profile / assistant |
 | FEAT-master-cv | [LaTeX CV](master-cv.md) | CV |
 | FEAT-cover-letters | [Saved-job cover letters](cover-letters.md) | Saved → job → Cover letter |
+| FEAT-ai-runtime | [AI runtime](ai-runtime.md) | Settings → AI |
 | FEAT-assistant | [App-wide assistant](assistant.md) | Header assistant button |
 | FEAT-jev | [Jev — retired; stored data retained](jev.md) | Hidden; no active entry points |
 | FEAT-documentation | [Project wiki](documentation.md) | README / offline reader |

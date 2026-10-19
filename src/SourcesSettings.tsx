@@ -1,3 +1,4 @@
+import { AiConnection } from "./AiConnection.tsx";
 import { BackupSettings } from "./BackupSettings.tsx";
 import { useState, type FormEvent } from "react";
 import { Button, Input, Select, Dialog, Table, Banner } from "./ui.tsx";
@@ -516,7 +517,11 @@ export function SettingsPage({
             </div>
           </section>
           <section hidden={section !== "ai"}>
-            <h2>Codex</h2>
+            <h2>ChatGPT</h2>
+            <AiConnection
+              action={action}
+              signedIn={boot.ai.state !== "signed_out"}
+            />
             <dl className="settings-facts">
               <div>
                 <dt>Model</dt>

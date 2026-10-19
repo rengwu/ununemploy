@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "existingAttachmentCitationLinks": 3,
+  "originalUploadLink": true,
+  "rawAttachmentIdsVisible": false,
+  "databaseUnchangedDuringInstall": true,
+  "settingsUnchangedDuringInstall": true,
+  "piAuthUnchangedDuringInstall": true,
+  "codexAuthUnchanged": true,
+  "installedFilesMatchBuild": true,
+  "strictDeepCodeSignature": true,
+  "nativeRelaunched": true,
+  "privateConversationNotExported": true
+}

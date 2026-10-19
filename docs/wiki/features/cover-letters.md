@@ -1,7 +1,7 @@
 ---
 title: Saved-job cover letters
 section: Features
-updated: 2026-10-16
+updated: 2026-10-19
 ---
 # Saved-job cover letters
 
@@ -13,7 +13,7 @@ Saving a job prepares a private tailored cover letter while keeping the master C
 
 ## Entry points and prerequisites
 
-Jobs → Save; Saved → job → Cover letter. Requires complete posting text, supported profile evidence and available Codex authentication/allowance.
+Jobs → Save; Saved → job → Cover letter. Requires complete posting text, supported profile evidence and an available [Pi ChatGPT connection](ai-runtime.md) and subscription allowance.
 
 ## Expected outcomes
 
@@ -27,7 +27,7 @@ The browser driver uses a temporary database, a fictional candidate/job fixture 
 
 ## Coverage and limitations
 
-`--real-generation` consumes subscription allowance. Layout checks apply to tested fixtures; letters require user review and are never sent.
+`--real-generation` consumes subscription allowance and requires `JH_PI_VERIFY_CREDENTIALS` pointing to a fresh app-owned Pi credential file. Its live generation mode has not been rerun after the Pi migration; the pipeline is covered with synthetic inference. Layout checks apply to tested fixtures; letters require user review and are never sent.
 
 ## Verification history
 
@@ -44,7 +44,7 @@ Saving snapshots the job description and master profile revision. Generation, ma
 
 Cover letters have their own storage and version history. Migration 004 converts unfinished resume tasks to cover-letter tasks, pausing interrupted runs for retry. Completed resumes and manual edits stay stored with API-only read/download access. Existing saved jobs with only a resume show **Generate cover letter**; the update does not bulk-generate new documents. New saved jobs generate letters automatically. The master CV remains independently editable and exportable.
 
-Codex has no shell, browser, connector, plugin, or messaging capabilities in generation runs. Job text is treated as untrusted source material. Authentication, model-access, allowance, or validation failures keep the saved job and expose a retryable task. There is no model or paid API fallback. Retry paused tasks after restoring access or allowance.
+The model has no shell, browser, connector, plugin, or messaging capabilities in generation runs. Job text is treated as untrusted source material. Authentication, model-access, allowance, or validation failures keep the saved job and expose a retryable task. There is no model or paid API fallback. Retry paused tasks after restoring access or allowance.
 
 ## Plain-text editing and output
 
@@ -55,3 +55,5 @@ Company, role, greeting and sign-off are normal fields. Contact details can be e
 Generation/retry, review notes, version restoration, save conflicts and unsaved-edit guards remain. Restoring appends a version. Assistant updates reload a clean editor and preserve unsaved text.
 
 [Lean cover-letter verification — 16 October 2026](../verification/runs/2026-10-16-lean-cover-letters.md).
+
+[Pi runtime and attachments — 19 October 2026](../verification/runs/2026-10-19-pi-attachments.md) records the Mac runtime replacement, attachment lifecycle, native installation and preserved data.

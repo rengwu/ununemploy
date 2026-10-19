@@ -10,8 +10,6 @@ export const config = {
   origin: process.env.ORIGIN || null,
   model: process.env.JH_CODEX_MODEL || "gpt-5.6-sol",
   reasoning: process.env.JH_CODEX_REASONING_EFFORT || "high",
-  codexHome: process.env.JH_CODEX_HOME || null,
-  codexCommand: process.env.JH_CODEX_BIN || "codex",
   xToken: process.env.JH_X_BEARER_TOKEN || "",
   web3Token: process.env.JH_WEB3_API_TOKEN || "",
 };

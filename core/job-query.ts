@@ -1,3 +1,5 @@
+import { isTimezoneRange } from "./timezone-range.ts";
+import { countryTimezoneOffsets, matchesTimezoneRange } from "./timezones.ts";
 import { z } from "zod";
 import * as store from "./db/index.ts";
 import { matchesLocations } from "./locations.ts";
@@ -36,6 +38,25 @@ export const jobQuerySchema = z
           return z.NEVER;
         }
       }),
+    timezoneOffset: z.coerce
+      .number()
+      .int()
+      .min(-720)
+      .max(720)
+      .multipleOf(15)
+      .default(0),
+    timezone: z
+      .string()
+      .max(40)
+      .default("null")
+      .transform((value, ctx) => {
+        try {
+          const parsed: unknown = JSON.parse(value);
+          if (parsed === null || isTimezoneRange(parsed)) return parsed;
+        } catch {}
+        ctx.addIssue({ code: "custom", message: "Invalid timezone range." });
+        return z.NEVER;
+      }),
     minScore: z.coerce.number().min(0).max(100).default(0),
     page: z.coerce.number().int().min(0).max(1000000).default(0),
     pageSize: z.coerce.number().int().min(1).max(100).default(75),
@@ -63,11 +84,30 @@ function makeSnapshot(revision: string) {
       ]),
     ),
     locations: buildRegionLocationIndex(jobs),
+    timezoneOffsets: countryTimezoneOffsets(),
   };
 }
 let cached: ReturnType<typeof makeSnapshot> | undefined;
-export function jobSnapshot() {
-  if (!cached || cached.revision !== jobsRevision()) {
+export function jobSnapshot(minimumRevision?: string) {
+  const current = jobsRevision();
+  // One UI refresh requests locations, results and details from the revision
+  // announced by bootstrap. A scanner write between those requests must not
+  // force three full rebuilds. The next bootstrap revision still refreshes data,
+  // and the minute boundary always refreshes time-based listing quality.
+  const requested =
+    minimumRevision && /^\d{1,15}:\d{1,12}$/.test(minimumRevision)
+      ? minimumRevision
+      : current;
+  const [version, minute] = requested.split(":").map(Number);
+  const [cachedVersion, cachedMinute] = (cached?.revision || "-1:-1")
+    .split(":")
+    .map(Number);
+  if (
+    !cached ||
+    cachedVersion < version ||
+    cachedMinute < minute ||
+    cachedMinute !== Number(current.split(":")[1])
+  ) {
     // All joins and the revision come from the same SQLite snapshot while the worker scans.
     store.db.exec("BEGIN");
     try {
@@ -125,8 +165,12 @@ export function summarizeJob(job: Job): JobSummary {
     listingCount: (job.relatedListings?.length || 0) + 1,
   };
 }
-export function queryJobs(query: JobQuery, terms: string[] = []): JobPage {
-  const snapshot = jobSnapshot(),
+export function queryJobs(
+  query: JobQuery,
+  terms: string[] = [],
+  minimumRevision?: string,
+): JobPage {
+  const snapshot = jobSnapshot(minimumRevision),
     saved = query.view === "saved";
   const needle = query.query.toLowerCase();
   const filtered = visibleListings(
@@ -156,6 +200,12 @@ export function queryJobs(query: JobQuery, terms: string[] = []): JobPage {
           matchesLocations(
             snapshot.locations.byJob.get(job.id),
             query.locations,
+          ) &&
+          matchesTimezoneRange(
+            snapshot.locations.byJob.get(job.id),
+            query.timezone,
+            snapshot.timezoneOffsets,
+            query.timezoneOffset,
           ) &&
           (query.arrangement === "all" ||
             job.arrangement.toLowerCase().includes(query.arrangement)) &&

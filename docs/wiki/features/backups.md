@@ -1,7 +1,7 @@
 ---
 title: ZIP backups
 section: Features
-updated: 2026-10-16
+updated: 2026-10-19
 ---
 # ZIP backups
 
@@ -59,3 +59,5 @@ Large inventories require memory proportional to the current records while creat
 [ZIP backups and LaTeX-only CV — 8 October 2026](../verification/runs/2026-10-07T182813Z-backups.md) records archive validation/replacement, the two-button browser and native flows, LaTeX/assistant checks and installation.
 
 See the dated [verification index](../verification/index.md) for exact build identity, results and untested paths.
+
+[Pi runtime and attachments — 19 October 2026](../verification/runs/2026-10-19-pi-attachments.md) records the Mac runtime replacement, attachment lifecycle, native installation and preserved data.

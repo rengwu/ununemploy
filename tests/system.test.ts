@@ -22,7 +22,8 @@ const { collectX, xScanBudget, reserveXPosts, xBudgetKey } =
 const { config } = await import("../core/config.ts");
 const { validateGeneration } = await import("../core/ai/generate.ts");
 const { fromProfile, renderCv } = await import("../core/cv/render.ts");
-const { codexArgs, codexEnvironment } = await import("../core/ai/codex.ts");
+const { models } = await import("../core/ai/pi.ts");
+const { credentials } = await import("../core/ai/pi-credentials.ts");
 for (const s of store.listSources()) store.saveSource({ ...s, enabled: false });
 store.putSetting("app", {
   ...store.getSettings(),
@@ -337,22 +338,8 @@ test("no application or engagement endpoints exist; foreign browser writes are r
     ).statusCode,
     403,
   );
-  const args = codexArgs("/tmp/isolated", "/tmp/schema", "/tmp/result");
-  for (const feature of [
-    "shell_tool",
-    "apps",
-    "plugins",
-    "hooks",
-    "browser_use",
-    "computer_use",
-    "multi_agent",
-  ])
-    assert.ok(args.includes(feature));
-  assert.ok(args.includes("--ignore-user-config"));
-  assert.ok(args.includes("gpt-5.6-sol"));
-  assert.ok(args.includes('model_reasoning_effort="high"'));
   process.env.OPENAI_API_KEY = "test-excluded";
-  assert.equal(codexEnvironment().OPENAI_API_KEY, undefined);
+  assert.equal(await models.checkAuth("openai"), undefined);
   delete process.env.OPENAI_API_KEY;
 });
 
@@ -643,7 +630,7 @@ test("X limits a multi-page scan to its paced allowance and persists the next sc
   }
 });
 
-test("saving a job flows through the Codex process boundary to a persistent draft", async () => {
+test("saving a job flows through the model runtime to a persistent draft", async () => {
   const { writeFileSync, chmodSync } = await import("node:fs");
   const { processCoverLetterTask } = await import("../core/ai/generate.ts");
   for (const task of store.listTasks()) {
@@ -658,24 +645,23 @@ test("saving a job flows through the Codex process boundary to a persistent draf
     }),
     reviewNotes: [],
   };
-  let runtime = join(directory, "fixture-codex.mjs");
-  writeFileSync(
-    runtime,
-    `#!/usr/bin/env node\nimport {writeFileSync} from 'node:fs';\nif(process.argv.includes('status')){console.log('Logged in using ChatGPT');process.exit(0);}\nprocess.stdin.resume();process.stdin.on('end',()=>{writeFileSync(process.argv[process.argv.indexOf('--output-last-message')+1],${JSON.stringify(JSON.stringify(generation))});console.log(JSON.stringify({type:'turn.completed',usage:{input_tokens:1,output_tokens:1}}));});\n`,
-  );
-  chmodSync(runtime, 0o700);
-  if (process.platform === "win32") {
-    const { execFileSync } = await import("node:child_process");
-    const source = join(directory, "fixture-codex.go");
-    writeFileSync(
-      source,
-      `package main\nimport("os";"fmt";"io")\nfunc main(){for _,a:=range os.Args{if a=="status"{fmt.Println("Logged in using ChatGPT");return}};io.ReadAll(os.Stdin);for i,a:=range os.Args{if a=="--output-last-message"{if err:=os.WriteFile(os.Args[i+1],[]byte(${JSON.stringify(JSON.stringify(generation))}),0600);err!=nil{panic(err)}}};fmt.Println("{}")}`,
-    );
-    runtime = join(directory, "fixture-codex.exe");
-    execFileSync("go", ["build", "-o", runtime, source], { windowsHide: true });
-  }
-  const previous = config.codexCommand;
-  config.codexCommand = runtime;
+  const previousComplete = models.complete;
+  const previousFetch = globalThis.fetch;
+  models.complete = (async () => ({
+    stopReason: "stop",
+    content: [{ type: "text", text: JSON.stringify(generation) }],
+    usage: { input: 1, output: 1 },
+  })) as unknown as typeof models.complete;
+  globalThis.fetch = (async () =>
+    new Response(JSON.stringify({ models: [{ slug: config.model }] }), {
+      status: 200,
+    })) as typeof fetch;
+  await credentials.modify("openai", async () => ({
+    type: "oauth",
+    access: "synthetic-access",
+    refresh: "synthetic-refresh",
+    expires: Date.now() + 3600000,
+  }));
   store.putSetting("app", { ...store.getSettings(), aiEnabled: true });
   try {
     const job = store.ingestJob(source, {
@@ -707,7 +693,9 @@ test("saving a job flows through the Codex process boundary to a persistent draf
       "Keep my manual edit.",
     );
   } finally {
-    config.codexCommand = previous;
+    models.complete = previousComplete;
+    globalThis.fetch = previousFetch;
+    await credentials.delete("openai");
     store.putSetting("app", { ...store.getSettings(), aiEnabled: false });
   }
 });

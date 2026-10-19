@@ -221,6 +221,25 @@ db.exec(
         new Date().toISOString(),
       );
     }
+    if (
+      !db
+        .prepare("SELECT version FROM schema_migrations WHERE version=12")
+        .get()
+    ) {
+      db.exec(
+        readFileSync(
+          new URL("./migrations/012_inbox_index.sql", import.meta.url),
+          "utf8",
+        ),
+      );
+      db.prepare("INSERT INTO schema_migrations VALUES (12, ?)").run(
+        new Date().toISOString(),
+      );
+    }
+    if (!db.prepare("SELECT version FROM schema_migrations WHERE version=13").get()) {
+      db.exec(readFileSync(new URL("./migrations/013_assistant_attachments.sql", import.meta.url), "utf8"));
+      db.prepare("INSERT INTO schema_migrations VALUES (13, ?)").run(new Date().toISOString());
+    }
     db.exec("COMMIT");
   } catch (error) {
     db.exec("ROLLBACK");
@@ -473,10 +492,13 @@ export function getJob(id: string): Job | null {
 export function listJobs(): Job[] {
   // Load each relation once. Calling getJob for every listing performs seven
   // queries per job and repeatedly parses entire CVs and source settings.
-  const jobs = db
+  // Stream rows so the complete JSON collection isn't retained alongside its
+  // parsed objects. The ordering index avoids sorting those large documents.
+  const jobs: Job[] = [];
+  for (const row of db
     .prepare("SELECT document FROM jobs ORDER BY first_seen_at DESC")
-    .all()
-    .map((row) => parse<Job>(row)!);
+    .iterate())
+    jobs.push(parse<Job>(row)!);
   const byId = new Map(jobs.map((job) => [job.id, job]));
   const latest = (rows: { job_id: string; value: string }[]) => {
     const values = new Map<string, string>();
@@ -519,8 +541,15 @@ export function listJobs(): Job[] {
     job.sourceLinks = [];
   }
   for (const row of db
-    .prepare("SELECT * FROM source_items ORDER BY rowid")
-    .all() as unknown as ObservationRow[]) {
+    // Listing quality needs dates/removal state and source links, not a second
+    // copy of every description. Detail/export paths still read the full evidence.
+    .prepare(
+      `SELECT source_id, job_id, last_seen_at, first_seen_at, changed_at, missing_at,
+      CASE WHEN document IS NULL THEN NULL
+        ELSE json_set(document, '$.description', '') END AS document
+      FROM source_items ORDER BY rowid`,
+    )
+    .iterate() as unknown as Iterable<ObservationRow>) {
     const job = byId.get(row.job_id),
       source = sources.get(row.source_id);
     if (!job || !source) continue;

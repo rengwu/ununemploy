@@ -322,6 +322,7 @@ export async function importBackup(buffer: Buffer) {
     const latexRevision =
       Math.max(Number(latexCurrent?.version || 0), data.latex.version) + 1;
     for (const table of [
+      "assistant_attachments",
       "assistant_steps",
       "profile_turns",
       "profile_changes",
