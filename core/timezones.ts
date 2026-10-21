@@ -6,7 +6,7 @@ const zones = readFileSync(
   new URL("../data/geography/zone1970.tab", import.meta.url),
   "utf8",
 )
-  .split("\n")
+  .split(/\r?\n/)
   .filter((line) => line && !line.startsWith("#"))
   .map((line) => {
     const [countries, , zone] = line.split("\t");

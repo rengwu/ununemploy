@@ -1,7 +1,7 @@
 ---
 title: Open questions and follow-up
 section: Discussions
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 # Open questions and follow-up
 
@@ -9,7 +9,7 @@ This page distinguishes unfinished verification and implementation from decision
 
 | Item | Current state | Next evidence needed |
 | --- | --- | --- |
-| Mac-first Pi runtime and package size | User wants implementation first on Mac. Windows package measured 1,002.8 MiB unpacked; Codex is 325.5 MiB, with separate Chromium and npm dependency overhead. `pi-ai` first is now selected, preserving current Retry recovery; Pi Durable is deferred | Mac implementation and live exact-model compatibility are verified; repeat native build, sign-in, inference and package-integrity checks on Windows before its next release. See [AI runtime](../features/ai-runtime.md). [Findings and handoff](../journal/2026-10-18-pi-runtime-handoff.md). |
+| Pi runtime and package size | Mac implementation and live exact-model compatibility are verified. The Windows Pi package is now 678.0 MiB unpacked, down from 1,002.8 MiB; build/install, private ACLs and offline native checks are recorded in the [20 October run](../verification/runs/2026-10-20-windows-pi.md). Pi Durable remains deferred | Complete fresh Windows ChatGPT sign-in and live inference before claiming authenticated Windows compatibility. See [AI runtime](../features/ai-runtime.md) and the historical [Mac-first handoff](../journal/2026-10-18-pi-runtime-handoff.md). |
 | Actual Unraid installation | Unverified; local container checks exist | Run on the intended server, verify persistence and native Landlock compilation; [guide](../guides/unraid.md). |
 | Windows and Linux native releases | Windows 11 x64 local build now includes WebView2, lifecycle handling, bundled runtimes, isolated compilation and a per-user installer with package integrity and replacement checks. Linux remains an assessed future option | Clean-machine installation/WebView2 provisioning, fresh interactive ChatGPT login, signing/distribution and a macOS regression run remain. See the [Windows run](../verification/runs/2026-10-17-windows-port.md) and [installer follow-up](../verification/runs/2026-10-17-windows-installer.md). |
 | Web3.career authentication | Implemented, authenticated collection unverified | Configure a local token and record a bounded live scan. |

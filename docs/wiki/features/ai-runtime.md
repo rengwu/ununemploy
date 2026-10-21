@@ -1,7 +1,7 @@
 ---
 title: AI runtime
 section: Features
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 # AI runtime
 
@@ -17,6 +17,8 @@ Settings → AI offers Sign in with ChatGPT, Continue with ChatGPT, Cancel sign-
 
 `core/ai/pi-credentials.ts` stores credentials in `JH_DATA_DIR/pi-auth/credentials.json` with private file permissions and atomic replacement. A stable host identifier is stored alongside it. SQLite leases serialize read-modify-write refresh and deletion across API/worker processes; reads reload the file to avoid stale tokens. SDK refresh results are persisted even if the initiating inference request is cancelled. Sign out removes only this app-owned connection. Existing Codex authentication is never imported, modified or removed. Personal-record ZIP backups omit credentials, and ZIP import preserves destination credentials.
 
+On Windows, POSIX file modes do not protect credentials. Before accessing connection files, each process removes inherited/broad ACL entries from the Pi directory and existing credential/host-ID files, allowing only the current user, SYSTEM and Administrators. New files inherit that private directory ACL. Links are rejected and permission failures stop connection access. Regression tests cover a broadly readable parent, previously exposed files and concurrent processes.
+
 `core/ai/pi.ts` registers only the OpenAI provider from pinned `@earendil-works/pi-ai@1.3.0`; ambient environment/API-key auth is disabled. Account model discovery checks the exact requested model. Requests use the public Responses endpoint, `store:false`, streaming transport, high reasoning and a strict JSON schema. The app waits for successful stream completion and selects final-answer text instead of concatenating commentary before parsing structured output. There are no provider tools, shell processes, filesystem tools or silent model/billing fallbacks. Application actions still execute through the existing validated assistant loop.
 
 The existing shared inference lease serializes assistant and cover-letter model jobs, including across an old/new worker overlap during upgrade. Timeout is four minutes; cancellation or lease loss aborts the request. Automatic HTTP retries are disabled. Authentication, subscription allowance, model-access and malformed-output failures leave stored records intact and expose retryable errors. The app never accepts a partial stream as a completed answer.
@@ -27,7 +29,7 @@ Legacy `JH_CODEX_MODEL` and `JH_CODEX_REASONING_EFFORT` variable names remain co
 
 Source development installs pi-ai normally. Native builds bundle only `core/ai/pi-sdk.ts` and its selected provider/OAuth flow, then remove the full SDK dependency tree from the staged application. `scripts/package-pi.ts` explicitly includes the SDK's otherwise dynamically loaded Node OAuth implementation. Build metadata records the SDK version and bundled module hash. No Codex executable is packaged. The source dependency and bundled output remain pinned; regenerate the bundle when upgrading the SDK.
 
-Mac build/install behavior is recorded in the [19 October run](../verification/runs/2026-10-19-pi-attachments.md). Windows build and installer source now expect the same Pi module instead of `codex.exe`; a Windows-machine build/sign-in/inference/installer rerun remains required. Docker no longer installs the Codex CLI; its Pi connection flow and deployment need an Unraid rerun. No current Mac result certifies those platforms.
+Mac build/install behavior is recorded in the [19 October run](../verification/runs/2026-10-19-pi-attachments.md). The [20 October Windows run](../verification/runs/2026-10-20-windows-pi.md) checks the same Pi module without `codex.exe`, Windows packaging/installation, private credential ACLs and bundled OAuth start/cancel. Completed Windows account sign-in and live inference remain unverified. Docker no longer installs the Codex CLI; its Pi connection flow and deployment need an Unraid rerun.
 
 ## Verification recipe
 

@@ -1,13 +1,17 @@
 ---
 title: Verification
 section: Verification
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 # Verification
 
 Use [shared setup](setup.md) before running selected checks. [Feature records](../features/index.md) state expected outcomes and recipes; a pass applies only to its recorded build and scope.
 
 ## Runs
+
+[Windows Pi build — 20 October 2026](runs/2026-10-20-windows-pi.md): current Windows packaging, CRLF startup and credential ACL repairs, attachment/timezone/inbox regressions and bounded native checks.
+
+[Pi runtime and assistant attachments — 19 October 2026](runs/2026-10-19-pi-attachments.md): Mac implementation, live subscription compatibility, selective packaging and attachment lifecycle.
 
 [Assistant citations and public research — 19 October 2026](runs/2026-10-19-assistant-references.md): clickable attachment references, derived GitHub contribution reads and duplicate save-footer repair.
 

@@ -1,0 +1,59 @@
+{
+  "revision": "e49324633efcfcb71e87e20c0bc48cc80ab0451f",
+  "dirty": true,
+  "scope": "Product repairs, regression tests and native driver; documentation excluded",
+  "contentFingerprint": "95ce054a0e21db89ee6b2e5aef312ac90e1e49caff91493d555a7df53cf5e50b",
+  "files": [
+    {
+      "path": "core/ai/pi-credentials.ts",
+      "sha256": "0d6797faba88c5c62cad8f450a32e6a3a6402d6bca13ddbc4f53044ac663eedb"
+    },
+    {
+      "path": "core/timezones.ts",
+      "sha256": "a6048e4f0e4830f5e4d112ce5a52cc5b0c0ee61e9b92d0a7e6c84fb7ceb6408a"
+    },
+    {
+      "path": "scripts/verify-desktop-windows.ts",
+      "sha256": "cbae433ad926deef5e4a7e5ca79830397bca8be4adc478abeeb564ed3b60e20c"
+    },
+    {
+      "path": "tests/attachments.test.ts",
+      "sha256": "cf11c0d65edd0dd596cbf7e289c35216f4f9f0a16def9cd8ac54be87a2892cac"
+    },
+    {
+      "path": "tests/pi-runtime.test.ts",
+      "sha256": "955aceb7ab789e318cb41118d73735168db23cfa5a0fcd377e1c39ddefda0c86"
+    },
+    {
+      "path": "tests/timezones.test.ts",
+      "sha256": "51d65fc4bc8f018891fb4920ea246db05b6bfb00ec3ab56bb4a0b0f114435997"
+    }
+  ],
+  "build": {
+    "builtAt": "2026-10-19T17:20:17.967Z",
+    "platform": "win32",
+    "arch": "x64",
+    "node": "v22.23.3",
+    "piAi": "1.3.0",
+    "revision": "e49324633efcfcb71e87e20c0bc48cc80ab0451f",
+    "stage": "local-windows-build",
+    "bundled": [
+      "node",
+      "pi-ai-openai",
+      "isolated-latex",
+      "chromium-pdf",
+      "application"
+    ],
+    "signing": "unsigned local build",
+    "webview2": "installed Evergreen Runtime required",
+    "hashes": {
+      "wrapper": "d36d09a231b93dd204f082442f18c2ffac5239bae8f05f1b2dd2631ef831c863",
+      "node": "9c9245166b4a8e182e0b797da9c20136117ff24368eaff1fec8343a123c8db0e",
+      "piAi": "8f0aba19be5663759a8815e027369bea6a484da9f765d19c537a89b1a96410ff",
+      "tectonic": "6760c6368d3219c687eb1811e55379af9526fbd97e97fa954968267f5241deb9",
+      "sandbox": "4fcbe76876317549d82c8eb5d70bb80d44b065d50d4233e31f0e98efae8fd857"
+    }
+  },
+  "packageInventorySha256": "8abe82d638e464d78d193514748b7a4a02656323c2b784416a40e60b45be6406",
+  "installedMatchesBuild": true
+}

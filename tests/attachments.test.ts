@@ -1,6 +1,12 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync, symlinkSync } from "node:fs";
+import {
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+  symlinkSync,
+  mkdirSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -80,11 +86,22 @@ test("only explicit user paths import files, with loopback and credential protec
     (await files.importLocalAttachment(path)).name,
     "candidate notes.txt",
   );
-  const secret = join(directory, "credentials.json");
+  const secretDirectory = join(directory, ".codex");
+  mkdirSync(secretDirectory);
+  const secret = join(secretDirectory, "session.txt");
   writeFileSync(secret, "{}");
   const alias = join(directory, "innocent.txt");
-  symlinkSync(secret, alias);
-  await assert.rejects(files.importLocalAttachment(alias), /Credential/);
+  symlinkSync(
+    process.platform === "win32" ? secretDirectory : secret,
+    alias,
+    process.platform === "win32" ? "junction" : "file",
+  );
+  await assert.rejects(
+    files.importLocalAttachment(
+      process.platform === "win32" ? join(alias, "session.txt") : alias,
+    ),
+    /Credential/,
+  );
   const remote = await app.inject({
     method: "POST",
     url: "/api/assistant/messages",

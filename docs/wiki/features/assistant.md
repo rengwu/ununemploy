@@ -1,7 +1,7 @@
 ---
 title: App-wide assistant
 section: Features
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 # App-wide assistant
 
@@ -108,6 +108,8 @@ The assistant cannot access app credentials, run shell commands, explore the loc
 All edits create versions. Restore profile/CV/letter versions with their existing editor controls. Saved-version receipts link to the correct view. Clean editors refresh after completion; dirty or historical editors retain their text and show a notice. Manual saves carry expected version identifiers so they cannot silently overwrite an assistant edit. Save a local copy before reloading if concurrent edits need to be reconciled. Retry rereads current records rather than blindly replaying old writes.
 
 ## Verification commands
+
+[Windows Pi verification — 20 October 2026](../verification/runs/2026-10-20-windows-pi.md) records Windows attachment browser checks and packaged PDF extraction coverage, with live Windows model inference remaining separate.
 
 `npm test` covers the action loop, capabilities, evidence, job filters, version conflicts, cancellation and rollback. `npx tsx scripts/verify-assistant-ui.ts` runs a synthetic browser workflow with simulated inference and actual PDF compilation. `JH_PI_VERIFY_CREDENTIALS=/private/path/credentials.json npx tsx scripts/verify-pi-app.ts` performs real subscription inference with synthetic profile/CV data in an isolated temporary database; it consumes allowance and does not edit the user's documents. See [verification results](../verification/history.md).
 

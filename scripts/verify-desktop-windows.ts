@@ -1,12 +1,20 @@
 import assert from "node:assert/strict";
 import { spawn, execFile, type ChildProcess } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtemp, readFile, writeFile, rm, mkdir } from "node:fs/promises";
+import {
+  mkdtemp,
+  readFile,
+  writeFile,
+  rm,
+  mkdir,
+  readdir,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { createServer } from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
 import { chromium, type Browser } from "playwright";
+import { assertPrivateFile } from "../tests/helpers/private-file.ts";
 
 if (process.platform !== "win32")
   throw new Error("Run this driver on Windows.");
@@ -15,7 +23,9 @@ const executable = resolve(
   process.argv[2] || "build/desktop/windows/ununemploy.exe",
 );
 const data = await mkdtemp(join(tmpdir(), "ununemploy-windows-"));
-const output = resolve(".local-data/verification/windows");
+const output = resolve(
+  process.env.JH_WINDOWS_VERIFY_OUTPUT || ".local-data/verification/windows",
+);
 await mkdir(output, { recursive: true });
 process.env.JH_DATA_DIR = data;
 process.env.JH_PROFILE_SEED = resolve("tests/fixtures/profile.json");
@@ -98,6 +108,7 @@ function spawnApp(args: string[] = []) {
   const child = spawn(executable, args, {
     env: {
       ...process.env,
+      PATH: `${process.env.SystemRoot || "C:\\Windows"}\\System32;${process.env.SystemRoot || "C:\\Windows"}`,
       JH_DESKTOP_DATA_DIR: data,
       JH_DESKTOP_DEBUG_PORT: String(debugPort),
     },
@@ -138,9 +149,15 @@ async function json(url: string, body?: unknown, method = "GET") {
 }
 try {
   const first = await launch();
-  const boot = await json(first.state.url + "/api/bootstrap");
+  const boot = await until(async () => {
+    const boot = await json(first.state.url + "/api/bootstrap");
+    return boot.ai.state === "checking" ? null : boot;
+  }, "Packaged AI status did not finish checking");
   assert.equal(boot.settings.scheduleEnabled, false);
   assert.equal(boot.profile.revision, 1);
+  assert.equal(boot.ai.state, "signed_out");
+  assert.equal(boot.ai.model, "gpt-5.6-sol");
+  assert.equal(boot.ai.reasoning, "high");
   results.startup =
     "Passed: packaged API/worker healthy with synthetic profile and collection/inference disabled";
   if (process.argv.includes("--verify-installer")) {
@@ -204,6 +221,7 @@ try {
   await page
     .getByRole("button", { name: "Open assistant", exact: true })
     .waitFor();
+  await page.getByRole("heading", { name: "Jobs", exact: true }).waitFor();
   assert.equal(
     await page.evaluate(() => document.documentElement.dataset.native),
     undefined,
@@ -235,6 +253,50 @@ try {
   assert(page.url().startsWith(first.state.url));
   results.navigation =
     "Passed: remote scripted navigation cannot replace the local application";
+  await page.getByRole("button", { name: "Filters", exact: true }).click();
+  await page.getByRole("button", { name: "Timezone", exact: true }).click();
+  await page.locator(".timezone-map svg").waitFor();
+  const minimum = page.getByRole("slider", { name: "Minimum UTC offset" });
+  await minimum.press("Home");
+  await minimum.press("ArrowRight");
+  assert.equal(await minimum.getAttribute("aria-valuenow"), "-705");
+  await minimum.press("Escape");
+  results.timezone =
+    "Passed: packaged timezone data loaded, map rendered and keyboard filtering worked in WebView2";
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "AI", exact: true }).click();
+  // Exercise the actual bundled OAuth module without opening the external
+  // sign-in page or using any real account. Repeat to check callback cleanup.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await page
+      .getByRole("button", { name: "Sign in with ChatGPT", exact: true })
+      .click();
+    const link = page.getByRole("link", {
+      name: "Continue with ChatGPT",
+      exact: true,
+    });
+    await link.waitFor();
+    assert.equal(
+      new URL((await link.getAttribute("href"))!).origin,
+      "https://auth.openai.com",
+    );
+    assertPrivateFile(join(data, "pi-auth/host-id"));
+    await page
+      .getByRole("button", { name: "Cancel sign-in", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Sign in with ChatGPT", exact: true })
+      .waitFor();
+  }
+  assert.equal(
+    (await json(first.state.url + "/api/ai/connect/cancel", {}, "POST")).ok,
+    true,
+  );
+  await assert.rejects(readFile(join(data, "pi-auth/credentials.json")), {
+    code: "ENOENT",
+  });
+  results.piSignIn =
+    "Passed: signed-out exact-model state, bundled OAuth start/cancel twice, private host ID and no saved tokens";
   await page.getByRole("button", { name: "CV", exact: true }).click();
   const editor = page.locator('.cm-content[contenteditable="true"]');
   await editor.waitFor();
@@ -290,6 +352,11 @@ try {
   );
   await previewSession.detach();
   const downloaded = join(data, "native-download.pdf");
+  page.on("download", (download) => {
+    void download.failure().then((failure) => {
+      results.downloadState = failure || "Completed";
+    });
+  });
   await page.getByRole("button", { name: "Download PDF", exact: true }).click();
   await until(async () => {
     await windowAction(first.state.pid, "save-download", downloaded);
@@ -302,6 +369,39 @@ try {
   );
   results.download =
     "Passed: the native Save As dialog saved a valid PDF at the chosen fixture path";
+  await page
+    .getByRole("button", { name: "Open assistant", exact: true })
+    .click();
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Attach files", exact: true }).click();
+  await (await chooser).setFiles(downloaded);
+  await page
+    .getByRole("button", { name: "Remove native-download.pdf", exact: true })
+    .waitFor();
+  await page.reload();
+  await page
+    .getByRole("button", { name: "Remove native-download.pdf", exact: true })
+    .waitFor();
+  const attachmentDb = new (await import("node:sqlite")).DatabaseSync(
+    join(data, "job-hunter.db"),
+    { readOnly: true },
+  );
+  const attachment = attachmentDb
+    .prepare("SELECT extracted_text FROM assistant_attachments WHERE name = ?")
+    .get("native-download.pdf");
+  assert(
+    attachment &&
+      JSON.stringify(attachment).includes("Windows document fixture"),
+  );
+  attachmentDb.close();
+  await page
+    .getByRole("button", { name: "Remove native-download.pdf", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Hide assistant", exact: true })
+    .click();
+  results.pdfAttachment =
+    "Passed: packaged PDF worker extracted the native download; assistant attachment survived reload and could be removed";
   const letter = await fetch(first.state.url + "/api/cover-letters/export", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -427,14 +527,16 @@ try {
   console.log(JSON.stringify(results, null, 2));
 } catch (error) {
   await writeFile(
+    join(output, "partial-results.json"),
+    JSON.stringify({ results, files: await readdir(data) }, null, 2),
+  );
+  await writeFile(
     join(output, "failed-desktop.log"),
     await readFile(join(data, "desktop.log"), "utf8").catch(
       () => "unavailable",
     ),
   );
-  console.error(
-    "Isolated diagnostics saved under .local-data/verification/windows/failed-desktop.log",
-  );
+  console.error(`Isolated diagnostics saved under ${output}`);
   throw error;
 } finally {
   for (const child of children)

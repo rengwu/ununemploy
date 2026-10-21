@@ -1,7 +1,7 @@
 ---
 title: Native desktop app
 section: Features
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 # Native desktop app
 
@@ -102,7 +102,7 @@ The package includes Node, the OpenAI-only pi-ai bundle, checksum-pinned Tectoni
 
 ### Build, install and update
 
-Build on Windows x64 with Node 22.19+, npm dependencies and Go 1.24+. The build generates the OpenAI-only Pi module. Go race tests additionally need a compatible C compiler. The previous 17 October Windows check used Node 22.23.3, Go 1.26.5 and Codex CLI 0.163.0; the Pi replacement needs a fresh Windows check. Initial build downloads generic compiler/browser resources.
+Build on Windows x64 with Node 22.19+, npm dependencies and Go 1.24+. The build generates the OpenAI-only Pi module. Go race tests additionally need a compatible C compiler. The [20 October Windows check](../verification/runs/2026-10-20-windows-pi.md) uses Node 22.23.3, Go 1.26.5 and pi-ai 1.3.0, with a fresh staged production dependency installation. Initial build downloads generic compiler/browser resources.
 
 ```powershell
 npm ci
@@ -123,3 +123,5 @@ Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Check` f
 The Windows package is unsigned. WebView2 must already be installed. Clean-machine installation, Windows versions other than the tested Windows 11 x64 build, ARM64, signing, automatic updates and a newly signed-out interactive login remain unverified. This local port does not establish a supported public release or reverify macOS.
 
 [Pi runtime and attachments — 19 October 2026](../verification/runs/2026-10-19-pi-attachments.md) records the Mac runtime replacement, attachment lifecycle, native installation and preserved data.
+
+[Windows Pi verification — 20 October 2026](../verification/runs/2026-10-20-windows-pi.md) records the current build, installer, credential ACL/CRLF repairs and native/UI regressions. The unpacked Windows package is 678.0 MiB, about 32.4% smaller than the earlier Codex package. Completed Windows account sign-in and live inference remain separate from the verified OAuth start/cancel path.

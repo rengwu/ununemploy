@@ -1,7 +1,7 @@
 ---
 title: Verification setup
 section: Verification
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 # Verification setup
 
@@ -30,6 +30,8 @@ Existing drivers store artifacts under `.local-data/verification/`. Keep raw/pri
 Build with `npm run desktop:build` on Windows x64. `npm run desktop:test` runs the platform Go tests, including AppContainer denial and process cleanup probes; the race detector needs a C compiler. `node --import tsx scripts/verify-desktop-windows.ts [path-to-ununemploy.exe]` seeds isolated synthetic appdata with discovery/inference disabled, waits for the real worker/API, and drives WebView2 through a loopback CDP port. It checks UI, dirty Quit cancellation, offline CV preview/Save/native download, cover-letter PDF export, ZIP restore, Close/reopen, Quit, restart and crash cleanup. It leaves reviewed-output candidates in `.local-data/verification/windows/` and removes its temporary data/processes. `--verify-installer` additionally checks that the built installer rejects replacement of a running separately installed fixture.
 
 Use `noDefaults:true` when attaching Playwright so it does not replace native download behavior. Native captures use CDP `Page.captureScreenshot` with `fromSurface:false`. Only explicit `JH_DESKTOP_DEBUG_PORT` plus `JH_DESKTOP_DATA_DIR` enables the host's test endpoint; ordinary launches expose no debugging port. The Win32 driver targets the launched process and verifies the fixture filename before saving.
+
+The Windows driver also asserts the opening Jobs heading, checks timezone-map keyboard input, starts/cancels the actual bundled Pi OAuth flow twice without opening the external sign-in page, checks private host-ID permissions, and attaches its downloaded synthetic PDF to verify extraction and draft reload. `JH_WINDOWS_VERIFY_OUTPUT` selects an alternative local evidence directory. It does not complete account authentication or send model requests.
 
 For the full Node suite with bundled document runtimes, set `PLAYWRIGHT_BROWSERS_PATH`, `JH_TECTONIC_BIN`, `JH_LATEX_CACHE` and `JH_LATEX_SANDBOX` to their `build/desktop/windows/resources/` paths, then run `npm test`. Windows tests use real filesystem URLs, a synthetic Pi transport response and ACL assertions; the Homebrew-only scenario skips on Windows. To separately verify actual subscription/model access, `JH_PI_VERIFY_CREDENTIALS=/private/path/credentials.json npx tsx scripts/verify-pi-app.ts` exercises the current runtime with synthetic PDF/image data (set `JH_PI_VERIFY_APP` to a built app root to verify its bundle) and consumes ChatGPT allowance. It sends no candidate facts and does not switch model or billing method.
 

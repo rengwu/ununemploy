@@ -1,7 +1,7 @@
 ---
 title: Job inbox and saved jobs
 section: Features
-updated: 2026-10-18
+updated: 2026-10-20
 ---
 # Job inbox and saved jobs
 
@@ -95,6 +95,8 @@ Matching wraps on a 24-hour clock: a country's current offset minus the rotation
 [Wrapping timezone offset — 18 October 2026](../verification/runs/2026-10-18-timezone-wrap.md) supersedes the initial clamped-shift behavior with a rotating seam and fixed selection values.
 
 [Effective timezone labels — 18 October 2026](../verification/runs/2026-10-18-timezone-labels.md) verifies that endpoint labels reflect rotation while handle coordinates stay fixed.
+
+[Windows verification — 20 October 2026](../verification/runs/2026-10-20-windows-pi.md) records the CRLF timezone-data startup repair, seasonal/quarter-hour regression, timezone browser workflow and inbox timeout/Retry checks.
 
 ## Seen posts
 

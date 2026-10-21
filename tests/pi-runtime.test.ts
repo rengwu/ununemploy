@@ -1,14 +1,15 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, statSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
+import { assertPrivateFile } from "./helpers/private-file.ts";
 const directory = mkdtempSync(join(tmpdir(), "ununemploy-pi-test-"));
 process.env.JH_DATA_DIR = directory;
 process.env.JH_PROFILE_SEED = "";
 const store = await import("../core/db/index.ts");
-const { credentials } = await import("../core/ai/pi-credentials.ts");
+const { credentials, hostId } = await import("../core/ai/pi-credentials.ts");
 const { infer, models, checkAi, finalResponseText } =
   await import("../core/ai/pi.ts");
 const credential = {
@@ -22,6 +23,11 @@ after(() => {
   rmSync(directory, { recursive: true, force: true });
 });
 test("subscription-only credentials persist privately and serialize writes across processes", async () => {
+  if (process.platform === "win32")
+    execFileSync("icacls.exe", [directory, "/grant", "*S-1-1-0:(OI)(CI)R"], {
+      windowsHide: true,
+      stdio: "ignore",
+    });
   process.env.OPENAI_API_KEY = "must-not-be-used";
   assert.equal(await models.checkAuth("openai"), undefined);
   assert.equal((await checkAi()).state, "signed_out");
@@ -29,11 +35,22 @@ test("subscription-only credentials persist privately and serialize writes acros
     ...credential,
     counter: 0,
   }));
-  if (process.platform !== "win32")
-    assert.equal(
-      statSync(join(directory, "pi-auth/credentials.json")).mode & 0o777,
-      0o600,
-    );
+  assertPrivateFile(join(directory, "pi-auth/credentials.json"));
+  const device = await hostId();
+  assert.equal(await hostId(), device);
+  assertPrivateFile(join(directory, "pi-auth/host-id"));
+  // Simulate files created by the previous release. Fresh processes must
+  // repair explicit broad access as well as protect newly inherited ACLs.
+  if (process.platform === "win32")
+    for (const name of ["credentials.json", "host-id"])
+      execFileSync(
+        "icacls.exe",
+        [join(directory, "pi-auth", name), "/grant", "*S-1-1-0:R"],
+        {
+          windowsHide: true,
+          stdio: "ignore",
+        },
+      );
   const child = () =>
     new Promise<void>((resolve, reject) => {
       const process = spawn(
@@ -54,8 +71,12 @@ test("subscription-only credentials persist privately and serialize writes acros
         code === 0 ? resolve() : reject(new Error(errors)),
       );
     });
-  await Promise.all([child(), child(), child()]);
+  const writes = await Promise.allSettled([child(), child(), child()]);
+  for (const result of writes)
+    if (result.status === "rejected") throw result.reason;
   assert.equal((await credentials.read("openai"))?.counter, 3);
+  assertPrivateFile(join(directory, "pi-auth/credentials.json"));
+  assertPrivateFile(join(directory, "pi-auth/host-id"));
   delete process.env.OPENAI_API_KEY;
 });
 test("production inference sends the exact model, schema and images; limits surface without retry or fallback", async () => {

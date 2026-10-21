@@ -1,7 +1,7 @@
 ---
 title: ununemploy wiki
 section: Overview
-updated: 2026-10-19
+updated: 2026-10-20
 order: 0
 ---
 # ununemploy wiki
@@ -25,6 +25,8 @@ Local job discovery, fit assessment, private cover-letter drafting and master CV
 - [Limitations](reference/limitations.md) and [open follow-up](discussions/open-questions.md)
 
 ## Verification and history
+
+- [Windows Pi build and bug fixes — 20 October 2026](verification/runs/2026-10-20-windows-pi.md)
 
 - [Pi runtime and assistant attachments — 19 October 2026](verification/runs/2026-10-19-pi-attachments.md)
 

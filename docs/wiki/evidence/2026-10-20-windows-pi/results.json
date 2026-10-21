@@ -1,0 +1,144 @@
+{
+  "checkedAt": "2026-10-19T17:32:35.741Z",
+  "nodeTests": {
+    "total": 218,
+    "passed": 217,
+    "skipped": 1,
+    "failed": 0,
+    "skip": "Homebrew-only fixture"
+  },
+  "strengthenedCredentialRegression": {
+    "passed": 3,
+    "failed": 0
+  },
+  "goRaceTests": "Passed: desktop, texsandbox and command package",
+  "build": "Passed: fresh staged production install, TypeScript/Vite, bundled Pi and Windows executables",
+  "installer": "Passed: old Codex fixture replaced, source/stage checksums validated, installed manifest and executable match build",
+  "native": {
+    "checkedAt": "2026-10-19T17:30:29.064Z",
+    "platform": "win32",
+    "node": "v22.23.3",
+    "results": {
+      "startup": "Passed: packaged API/worker healthy with synthetic profile and collection/inference disabled",
+      "savedJob": "Passed: actual manual-add and Save APIs retained notes and queued a cover letter",
+      "nativeUI": "Passed: real WebView2 rendered Jobs and assistant controls without macOS inset",
+      "navigation": "Passed: remote scripted navigation cannot replace the local application",
+      "timezone": "Passed: packaged timezone data loaded, map rendered and keyboard filtering worked in WebView2",
+      "piSignIn": "Passed: signed-out exact-model state, bundled OAuth start/cancel twice, private host ID and no saved tokens",
+      "latex": "Passed: packaged AppContainer compiler produced a PDF rendered as selectable text in WebView2",
+      "dirtyQuit": "Passed: cancelling native Quit retained unsaved LaTeX edits; the editor then saved them",
+      "download": "Passed: the native Save As dialog saved a valid PDF at the chosen fixture path",
+      "pdfAttachment": "Passed: packaged PDF worker extracted the native download; assistant attachment survived reload and could be removed",
+      "letterPdf": "Passed: bundled headless Chromium exported a synthetic cover-letter PDF",
+      "backup": "Passed: packaged backup/export restored fixture records and retained destination settings/counters",
+      "closeAndReopen": "Passed: Close hid the window while services stayed healthy; second launch reopened the same instance",
+      "nativeQuit": "Passed: File → Quit exited the wrapper, services and observed descendants",
+      "crashRecovery": "Passed: persistent origin and saved records survived restart; killing the launcher reaped the real service tree",
+      "persistence": "Passed: profile, saved job, notes and usage counter retained; SQLite integrity OK"
+    }
+  },
+  "installedNative": {
+    "checkedAt": "2026-10-19T17:31:50.016Z",
+    "platform": "win32",
+    "node": "v22.23.3",
+    "results": {
+      "startup": "Passed: packaged API/worker healthy with synthetic profile and collection/inference disabled",
+      "savedJob": "Passed: actual manual-add and Save APIs retained notes and queued a cover letter",
+      "nativeUI": "Passed: real WebView2 rendered Jobs and assistant controls without macOS inset",
+      "navigation": "Passed: remote scripted navigation cannot replace the local application",
+      "timezone": "Passed: packaged timezone data loaded, map rendered and keyboard filtering worked in WebView2",
+      "piSignIn": "Passed: signed-out exact-model state, bundled OAuth start/cancel twice, private host ID and no saved tokens",
+      "latex": "Passed: packaged AppContainer compiler produced a PDF rendered as selectable text in WebView2",
+      "dirtyQuit": "Passed: cancelling native Quit retained unsaved LaTeX edits; the editor then saved them",
+      "download": "Passed: the native Save As dialog saved a valid PDF at the chosen fixture path",
+      "pdfAttachment": "Passed: packaged PDF worker extracted the native download; assistant attachment survived reload and could be removed",
+      "letterPdf": "Passed: bundled headless Chromium exported a synthetic cover-letter PDF",
+      "backup": "Passed: packaged backup/export restored fixture records and retained destination settings/counters",
+      "closeAndReopen": "Passed: Close hid the window while services stayed healthy; second launch reopened the same instance",
+      "nativeQuit": "Passed: File → Quit exited the wrapper, services and observed descendants",
+      "crashRecovery": "Passed: persistent origin and saved records survived restart; killing the launcher reaped the real service tree",
+      "persistence": "Passed: profile, saved job, notes and usage counter retained; SQLite integrity OK"
+    }
+  },
+  "initialNativeAttempt": "Failed at PDF download timeout; unchanged product passed the complete built-package rerun and installed-package rerun. Cause not established.",
+  "attachments": {
+    "passed": true,
+    "picker": true,
+    "pastedImage": true,
+    "draftReload": true,
+    "remove": true,
+    "imageOnlySend": true,
+    "failedSendRetry": true,
+    "history": true,
+    "attachmentCitation": true,
+    "citationDownload": true,
+    "citationReload": true,
+    "filenameEscaping": true,
+    "unknownCitation": true,
+    "literalCodePreserved": true,
+    "duplicateFooter": true,
+    "newChat": true,
+    "mobile": true,
+    "consoleErrors": []
+  },
+  "timezone": {
+    "passed": true,
+    "checks": [
+      "two range handles and one keyboard-accessible offset slider",
+      "effective endpoint labels, trigger and accessible value text include rotation",
+      "effective labels wrap at UTC limits without moving handle coordinates",
+      "full-range offset remains available for map rotation",
+      "map highlights Malaysia, Nepal, Singapore but excludes US for selected range",
+      "offset updates map and jobs while keeping both selected endpoint values fixed",
+      "full-turn endpoints produce identical map transforms and country matches",
+      "pointer offset rotates the map without moving range handles",
+      "map failure hides stale highlights and Retry map recovers",
+      "light and dark appearance",
+      "pointer dragging updates the range",
+      "quarter-hour offsets and inclusive range",
+      "country filtering excludes Worldwide without a country",
+      "Escape returns focus",
+      "range and independent offset persist after reload and in Saved",
+      "mobile popup stays in viewport",
+      "clear restores all jobs",
+      "no browser errors"
+    ]
+  },
+  "inbox": {
+    "passed": true,
+    "checks": [
+      "Real 15-second deadline shows timeout and Jobs unavailable",
+      "No Loading jobs text remains after failure",
+      "Retry recovers results",
+      "Empty results remain distinct",
+      "No browser exceptions",
+      "Job requests carry the bootstrap revision"
+    ]
+  },
+  "package": {
+    "files": 31696,
+    "bytes": 710885985,
+    "categories": {
+      "other": 15701981,
+      "productionDependencies": 240780647,
+      "node": 86973768,
+      "tectonic": 50167808,
+      "chromium": 286993336,
+      "texCache": 19900957,
+      "launcher": 10367488
+    },
+    "pi": {
+      "package": "@earendil-works/pi-ai",
+      "version": "1.3.0",
+      "bytes": 383195
+    },
+    "codexExecutable": false,
+    "fullPiDependency": false
+  },
+  "untested": [
+    "Fresh completed Windows account authentication and live inference",
+    "Real token refresh or subscription exhaustion",
+    "Clean Windows installation and automatic WebView2 provisioning",
+    "Signing, GitHub publication, ARM64, other OS releases and macOS regression"
+  ]
+}
