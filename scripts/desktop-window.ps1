@@ -1,21 +1,52 @@
 param(
   [Parameter(Mandatory=$true)][int]$TargetPid,
-  [ValidateSet('inspect','activate','close','quit','processes','cancel-quit','save-download')][string]$Action = 'inspect',
-  [string]$SavePath
+  [ValidateSet('inspect','activate','close','quit','processes','wait-processes','cancel-quit','save-download')][string]$Action = 'inspect',
+  [string]$SavePath,
+  [string]$ProcessSnapshot
 )
 $ErrorActionPreference = 'Stop'
 $env:PSModulePath = $PSHOME + '\Modules'
 if ($Action -eq 'processes') {
-  $processes = @(Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId)
-  $owned = [System.Collections.Generic.HashSet[int]]::new()
-  [void]$owned.Add($TargetPid)
+  $processes = @(Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,CreationDate)
+  $root = $processes | Where-Object { $_.ProcessId -eq $TargetPid } | Select-Object -First 1
+  if (!$root) { throw 'Fixture process not found' }
+  $owned = [System.Collections.Generic.Dictionary[int,datetime]]::new()
+  $owned.Add($TargetPid,$root.CreationDate)
   do {
     $changed = $false
     foreach ($entry in $processes) {
-      if ($owned.Contains([int]$entry.ParentProcessId) -and $owned.Add([int]$entry.ProcessId)) { $changed = $true }
+      if (!$owned.ContainsKey([int]$entry.ProcessId) -and $owned.ContainsKey([int]$entry.ParentProcessId) -and $entry.CreationDate -ge $owned[[int]$entry.ParentProcessId]) {
+        $owned.Add([int]$entry.ProcessId,$entry.CreationDate); $changed = $true
+      }
     }
   } while ($changed)
-  ConvertTo-Json -Compress -InputObject @($owned | Sort-Object)
+  $snapshot = @(foreach ($id in $owned.Keys) {
+    try {
+      $process = [Diagnostics.Process]::GetProcessById($id)
+      try { @{ pid=$id; started=$process.StartTime.ToUniversalTime().Ticks.ToString(); name=$process.ProcessName } } finally { $process.Dispose() }
+    } catch [ArgumentException] { }
+  })
+  ConvertTo-Json -Compress -InputObject $snapshot
+  exit
+}
+if ($Action -eq 'wait-processes') {
+  $tracked = @()
+  try {
+    foreach ($identity in (ConvertFrom-Json $ProcessSnapshot)) {
+      try { $process = [Diagnostics.Process]::GetProcessById([int]$identity.pid) } catch [ArgumentException] { continue }
+      if ($process.StartTime.ToUniversalTime().Ticks.ToString() -ne $identity.started) { $process.Dispose(); continue }
+      # Retain the OS process handle so later PID reuse cannot look like a survivor.
+      $null = $process.Handle
+      $tracked += @{ process=$process; identity=$identity }
+    }
+    $deadline = [DateTime]::UtcNow.AddSeconds(30)
+    do {
+      $remaining = @($tracked | Where-Object { !$_.process.HasExited })
+      if ($remaining.Count -eq 0) { break }
+      Start-Sleep -Milliseconds 200
+    } while ([DateTime]::UtcNow -lt $deadline)
+    ConvertTo-Json -Compress -Depth 4 @{ exited=($remaining.Count -eq 0); remaining=@($remaining | ForEach-Object { $_.identity }) }
+  } finally { foreach ($entry in $tracked) { $entry.process.Dispose() } }
   exit
 }
 Add-Type -TypeDefinition @'

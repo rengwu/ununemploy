@@ -48,6 +48,7 @@ type State = {
   control: string;
   token: string;
 };
+type ProcessIdentity = { pid: number; started: string; name: string };
 const children: ChildProcess[] = [];
 const results: Record<string, string> = {};
 let browser: Browser | undefined;
@@ -76,7 +77,12 @@ function alive(pid: number) {
     return false;
   }
 }
-async function windowAction(pid: number, action: string, savePath?: string) {
+async function windowAction(
+  pid: number,
+  action: string,
+  savePath?: string,
+  processes?: ProcessIdentity[],
+) {
   const result = await exec(
     "powershell.exe",
     [
@@ -90,8 +96,9 @@ async function windowAction(pid: number, action: string, savePath?: string) {
       "-Action",
       action,
       ...(savePath ? ["-SavePath", savePath] : []),
+      ...(processes ? ["-ProcessSnapshot", JSON.stringify(processes)] : []),
     ],
-    { windowsHide: true, timeout: 10000 },
+    { windowsHide: true, timeout: action === "wait-processes" ? 40000 : 10000 },
   );
   return JSON.parse(result.stdout);
 }
@@ -483,13 +490,23 @@ try {
   );
   results.closeAndReopen =
     "Passed: Close hid the window while services stayed healthy; second launch reopened the same instance";
-  const owned: number[] = await windowAction(first.state.pid, "processes");
+  const owned: ProcessIdentity[] = await windowAction(
+    first.state.pid,
+    "processes",
+  );
   await browser!.close();
   browser = undefined;
   await windowAction(first.state.pid, "quit");
-  await until(
-    () => owned.every((pid) => !alive(pid)),
-    "Native Quit left owned processes running",
+  const quitProcesses = await windowAction(
+    first.state.pid,
+    "wait-processes",
+    undefined,
+    owned,
+  );
+  assert.equal(
+    quitProcesses.exited,
+    true,
+    `Native Quit left owned processes running: ${JSON.stringify(quitProcesses.remaining)}`,
   );
   results.nativeQuit =
     "Passed: File → Quit exited the wrapper, services and observed descendants";
@@ -498,14 +515,21 @@ try {
   const restored = await json(second.state.url + `/api/jobs/${job.id}`);
   assert.equal(restored.notes, "Windows persistence fixture");
   assert.equal(restored.status, "saved");
-  const crashOwned: number[] = await windowAction(
+  const crashOwned: ProcessIdentity[] = await windowAction(
     second.state.pid,
     "processes",
   );
   second.child.kill("SIGKILL");
-  await until(
-    () => crashOwned.every((pid) => !alive(pid)),
-    "Launcher crash orphaned services",
+  const crashProcesses = await windowAction(
+    second.state.pid,
+    "wait-processes",
+    undefined,
+    crashOwned,
+  );
+  assert.equal(
+    crashProcesses.exited,
+    true,
+    `Launcher crash orphaned services: ${JSON.stringify(crashProcesses.remaining)}`,
   );
   results.crashRecovery =
     "Passed: persistent origin and saved records survived restart; killing the launcher reaped the real service tree";
