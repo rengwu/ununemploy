@@ -250,16 +250,23 @@ try {
   await cdp.detach();
   results.nativeUI =
     "Passed: real WebView2 rendered Jobs and assistant controls without macOS inset";
-  // A script navigation must be cancelled at the native boundary, without opening a browser.
+  // Run in a page timer, outside the host/CDP API call that WebView2 may
+  // classify as user initiated. No real external browser should be opened.
   const navigation = await page.context().newCDPSession(page);
   await navigation.send("Runtime.evaluate", {
     expression:
-      'location.href = "https://example.com/blocked-native-navigation"',
+      'setTimeout(() => { location.href = "https://example.com/blocked-native-navigation"; }, 100)',
     userGesture: false,
   });
   await navigation.detach();
-  await delay(400);
+  await delay(600);
   assert(page.url().startsWith(first.state.url));
+  assert(
+    !(await readFile(join(data, "desktop.log"), "utf8")).includes(
+      "External browser handoff:",
+    ),
+    "Scripted navigation opened an external browser",
+  );
   results.navigation =
     "Passed: remote scripted navigation cannot replace the local application";
   await page.getByRole("button", { name: "Filters", exact: true }).click();

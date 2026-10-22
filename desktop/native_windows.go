@@ -329,6 +329,9 @@ func openExternal(raw string) {
 	if err != nil || parsed.User != nil || parsed.Host == "" || (parsed.Scheme != "https" && parsed.Scheme != "http") {
 		return
 	}
+	if native != nil && native.debug {
+		log.Printf("External browser handoff: %s://%s", parsed.Scheme, parsed.Host)
+	}
 	shell32.NewProc("ShellExecuteW").Call(0, uintptr(unsafe.Pointer(utf16("open"))), uintptr(unsafe.Pointer(utf16(raw))), 0, 0, 1)
 }
 func (w *nativeWindow) installNavigationPolicy() error {
@@ -347,9 +350,9 @@ func (w *nativeWindow) installNavigationPolicy() error {
 		if err != nil || (!sameOrigin(raw, w.origin) && !stringsHasLocalBlob(raw, w.origin)) {
 			obj := (*webObject)(unsafe.Pointer(args))
 			obj.vtable[8].Call(args, 1)
-			if err == nil && comBool(args, 4) && !comBool(args, 5) {
-				openExternal(raw)
-			}
+			// External application links use target=_blank and are handled below.
+			// A remote top-level navigation must never launch an external browser:
+			// WebView2 can classify programmatic navigations as user initiated.
 		}
 		return 0
 	}); err != nil {
