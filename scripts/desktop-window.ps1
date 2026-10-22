@@ -29,23 +29,59 @@ public static class DesktopWindowCheck {
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr window);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr window, int command);
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern IntPtr SetFocus(IntPtr window);
+  [DllImport("user32.dll")] public static extern IntPtr GetFocus();
+  [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint from, uint to, bool attach);
+  [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
+  [StructLayout(LayoutKind.Sequential)] public struct KeyboardInput { public ushort key, scan; public uint flags, time; public UIntPtr extra; }
+  [StructLayout(LayoutKind.Sequential)] public struct MouseInput { public int x, y; public uint data, flags, time; public UIntPtr extra; }
+  [StructLayout(LayoutKind.Explicit)] public struct InputData { [FieldOffset(0)] public KeyboardInput keyboard; [FieldOffset(0)] public MouseInput mouse; }
+  [StructLayout(LayoutKind.Sequential)] public struct Input { public uint type; public InputData data; }
+  [DllImport("user32.dll")] public static extern uint SendInput(uint count, Input[] inputs, int size);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr window, uint message, IntPtr wp, IntPtr lp);
-  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr wp, string text);
   [DllImport("user32.dll", EntryPoint="SendMessageW", CharSet=CharSet.Unicode)] public static extern IntPtr ReadMessage(IntPtr window, uint message, IntPtr wp, System.Text.StringBuilder text);
   [DllImport("user32.dll")] public static extern bool EnumChildWindows(IntPtr parent, EnumCallback callback, IntPtr param);
   [DllImport("user32.dll")] public static extern int GetDlgCtrlID(IntPtr window);
   public static bool SetFilename(IntPtr dialog, string path) {
     if(dialog==IntPtr.Zero) return false;
-    bool found=false;
+    IntPtr edit=IntPtr.Zero;
     EnumChildWindows(dialog,(window,param)=>{
       var name=new System.Text.StringBuilder(256);GetClassName(window,name,256);
       if(GetDlgCtrlID(window)==1001 && name.ToString()=="Edit") {
-        SendMessage(window,0xc,IntPtr.Zero,path);
-        var text=new System.Text.StringBuilder(32768);ReadMessage(window,0xd,(IntPtr)32768,text);
-        found=text.ToString()==path;return false;
+        edit=window;return false;
       }
       return true;
-    },IntPtr.Zero);return found;
+    },IntPtr.Zero);
+    if(edit==IntPtr.Zero) return false;
+    uint owner; uint targetThread=GetWindowThreadProcessId(dialog,out owner);
+    uint currentThread=GetCurrentThreadId();
+    uint foregroundThread=GetWindowThreadProcessId(GetForegroundWindow(),out owner);
+    bool foregroundAttached=foregroundThread!=currentThread && foregroundThread!=targetThread && AttachThreadInput(currentThread,foregroundThread,true);
+    bool targetAttached=false;
+    bool focused=false;
+    try {
+      targetAttached=AttachThreadInput(currentThread,targetThread,true);
+      if(!targetAttached) throw new InvalidOperationException("Cannot attach to fixture input thread");
+      SetForegroundWindow(dialog);SetFocus(edit);
+      focused=GetFocus()==edit && GetForegroundWindow()==dialog;
+    } finally {
+      if(targetAttached) AttachThreadInput(currentThread,targetThread,false);
+      if(foregroundAttached) AttachThreadInput(currentThread,foregroundThread,false);
+    }
+    if(!focused || GetForegroundWindow()!=dialog) throw new InvalidOperationException("Cannot focus fixture filename: foreground="+GetForegroundWindow()+", dialog="+dialog+", focused="+focused);
+    // WM_SETTEXT can update the legacy Edit without updating the shell's
+    // filename model. Type through the focused control as a user would.
+    var keys=new List<Input>();
+    keys.Add(Key(0x11,0,0));keys.Add(Key(0x41,0,0));
+    keys.Add(Key(0x41,0,2));keys.Add(Key(0x11,0,2));
+    foreach(char character in path) {
+      keys.Add(Key(0,character,4));keys.Add(Key(0,character,6));
+    }
+    return SendInput((uint)keys.Count,keys.ToArray(),Marshal.SizeOf(typeof(Input)))==keys.Count;
+  }
+  private static Input Key(ushort key, ushort scan, uint flags) {
+    return new Input { type=1, data=new InputData { keyboard=new KeyboardInput { key=key, scan=scan, flags=flags } } };
   }
   public static string Filename(IntPtr dialog) {
     string result=null;
@@ -119,8 +155,9 @@ if ($Action -eq 'save-download') {
   [void][DesktopWindowCheck]::SetForegroundWindow($dialog)
   Start-Sleep -Milliseconds 500
   if (!([DesktopWindowCheck]::SetFilename($dialog,$canonicalSavePath))) { throw 'Fixture filename did not reach the dialog' }
-  Start-Sleep -Milliseconds 500
-  if ([DesktopWindowCheck]::Filename($dialog) -ne $canonicalSavePath) { throw 'Save As is still initializing; retry the filename' }
+  $filenameDeadline = [DateTime]::UtcNow.AddSeconds(3)
+  while ([DesktopWindowCheck]::Filename($dialog) -ne $canonicalSavePath -and [DateTime]::UtcNow -lt $filenameDeadline) { Start-Sleep -Milliseconds 100 }
+  if ([DesktopWindowCheck]::Filename($dialog) -ne $canonicalSavePath) { throw 'Fixture filename input did not finish' }
   if (!([DesktopWindowCheck]::ClickSave($dialog))) { throw 'Native Save button not found' }
 }
 $dialogs = if ($Action -eq 'inspect') { [DesktopWindowCheck]::DialogControls($TargetPid) } else { @() }

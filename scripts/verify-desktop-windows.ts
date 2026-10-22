@@ -371,8 +371,16 @@ try {
   await page.getByRole("button", { name: "Download PDF", exact: true }).click();
   if (process.env.JH_WINDOWS_SAVE_DELAY_MS)
     await delay(Number(process.env.JH_WINDOWS_SAVE_DELAY_MS));
+  let saveDialogError = "";
   await until(async () => {
-    await windowAction(first.state.pid, "save-download", downloaded);
+    try {
+      await windowAction(first.state.pid, "save-download", downloaded);
+    } catch (error: any) {
+      const message = String(error.stderr || error.message).slice(0, 2000);
+      if (message !== saveDialogError) console.warn(message);
+      saveDialogError = message;
+      throw error;
+    }
     return true;
   }, "Native Save As dialog did not open");
   await until(
