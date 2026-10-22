@@ -14,6 +14,22 @@ function Assert-PlainPath([string]$Path) {
   }
 }
 
+function Get-CanonicalPath([string]$Path) {
+  $cursor = [IO.Path]::GetFullPath($Path)
+  Assert-PlainPath $cursor
+  $missing = [Collections.Generic.Stack[string]]::new()
+  while (!(Test-Path -LiteralPath $cursor)) {
+    $cursor = $cursor.TrimEnd('\')
+    $missing.Push([IO.Path]::GetFileName($cursor))
+    $cursor = [IO.Path]::GetDirectoryName($cursor)
+    if (!$cursor) { throw 'Installation path has no existing parent.' }
+  }
+  # Get-Item expands DOS 8.3 aliases; GetFullPath and Resolve-Path do not.
+  $canonical = (Get-Item -LiteralPath $cursor -Force).FullName
+  while ($missing.Count) { $canonical = [IO.Path]::Combine($canonical, $missing.Pop()) }
+  return $canonical.TrimEnd('\')
+}
+
 function Get-PackageFiles([string]$Path) {
   Assert-PlainPath $Path
   $pending = [Collections.Generic.Stack[IO.DirectoryInfo]]::new()

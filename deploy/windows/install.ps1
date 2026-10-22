@@ -6,9 +6,9 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'package.ps1')
-$source = [IO.Path]::GetFullPath($PSScriptRoot)
-$destinationPath = [IO.Path]::GetFullPath($Destination).TrimEnd('\')
-$dataPath = [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'ununemploy')).TrimEnd('\')
+$source = Get-CanonicalPath $PSScriptRoot
+$destinationPath = Get-CanonicalPath $Destination
+$dataPath = Get-CanonicalPath (Join-Path $env:LOCALAPPDATA 'ununemploy')
 if ($destinationPath -eq $dataPath -or $dataPath.StartsWith($destinationPath + '\',[StringComparison]::OrdinalIgnoreCase) -or $destinationPath.StartsWith($dataPath + '\',[StringComparison]::OrdinalIgnoreCase)) { throw 'Installation and personal data must use separate directories.' }
 if ($destinationPath -eq $source -or $source.StartsWith($destinationPath + '\',[StringComparison]::OrdinalIgnoreCase) -or $destinationPath.StartsWith($source + '\',[StringComparison]::OrdinalIgnoreCase)) { throw 'Choose a destination outside the extracted package.' }
 Assert-PlainPath $destinationPath

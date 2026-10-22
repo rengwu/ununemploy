@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { test } from "node:test";
 import {
@@ -139,6 +139,80 @@ test(
             ),
             "fixture resources/app/node_modules/snow ☃/fixture.js",
           );
+          await unchanged();
+        },
+      );
+      await t.test(
+        "running applications are detected through DOS short-path aliases",
+        async (t) => {
+          const alias = (
+            await exec(
+              "powershell.exe",
+              [
+                "-NoProfile",
+                "-Command",
+                `(New-Object -ComObject Scripting.FileSystemObject).GetFolder(${psQuote(destination)}).ShortPath`,
+              ],
+              { windowsHide: true },
+            )
+          ).stdout.trim();
+          if (alias.toLowerCase() === destination.toLowerCase()) {
+            t.skip("This filesystem does not provide DOS short names");
+            return;
+          }
+          const executable = join(destination, "ununemploy.exe");
+          await cp(process.execPath, executable);
+          const running = spawn(
+            executable,
+            ["-e", "setInterval(()=>{},1000)"],
+            { windowsHide: true, stdio: "ignore" },
+          );
+          const exited = new Promise<void>((yes) =>
+            running.once("exit", () => yes()),
+          );
+          try {
+            await assert.rejects(
+              exec(
+                "powershell.exe",
+                [
+                  "-NoProfile",
+                  "-ExecutionPolicy",
+                  "Bypass",
+                  "-File",
+                  installer,
+                  "-Destination",
+                  alias,
+                  "-NoShortcut",
+                ],
+                { env, windowsHide: true },
+              ),
+              /Quit ununemploy before installing/,
+            );
+            await assert.rejects(
+              exec(
+                "powershell.exe",
+                [
+                  "-NoProfile",
+                  "-ExecutionPolicy",
+                  "Bypass",
+                  "-File",
+                  resolve("deploy/windows/setup-uninstall-check.ps1"),
+                  "-Destination",
+                  alias,
+                ],
+                { env, windowsHide: true },
+              ),
+              (error: unknown) =>
+                !!error &&
+                typeof error === "object" &&
+                "code" in error &&
+                error.code === 2,
+            );
+          } finally {
+            running.kill("SIGKILL");
+            await exited;
+            await writeFile(executable, "fixture ununemploy.exe");
+          }
           await unchanged();
         },
       );

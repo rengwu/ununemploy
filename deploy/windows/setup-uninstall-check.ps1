@@ -5,7 +5,7 @@ try {
   Assert-PlainPath $Destination
   Get-PackageFiles $Destination | Out-Null
   Assert-PackageIdentity $Destination
-  $root = [IO.Path]::GetFullPath($Destination).TrimEnd('\') + '\'
+  $root = (Get-CanonicalPath $Destination) + '\'
   $running = @(Get-CimInstance Win32_Process -Filter "Name='ununemploy.exe'" | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith($root, [StringComparison]::OrdinalIgnoreCase) })
   if ($running.Count) { exit 2 }
 } catch { exit 1 }

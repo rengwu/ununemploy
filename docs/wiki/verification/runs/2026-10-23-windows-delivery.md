@@ -2,7 +2,7 @@
 title: Compact Windows setup
 section: Verification
 updated: 2026-10-23
-result: Untested
+result: Failed
 ---
 # Compact Windows setup
 
@@ -28,14 +28,20 @@ The installer checks use a temporary installation directory containing spaces, s
 | Focused code checks | Preserve assistant/profile/runtime/install invariants | 56 focused tests passed before the final rollback addition; the expanded installer suite then passed 11 tests, including transaction rollback/commit and fresh-install rollback. The repeated/concurrent PDF and onboarding suite passed 11 tests; Go tests passed. TypeScript/Vite production build passed with the existing frontend chunk-size advisory | Passed |
 | Fresh missing-WebView2 installation | Automatically provision the shared runtime with verified Microsoft bootstrapper | Implemented signature validation and readiness check; local host already has WebView2, so actual missing-runtime provisioning was not exercised | Untested |
 | Clean-machine live onboarding | Complete ChatGPT sign-in and interpret the user's original resume naturally | No app-owned credentials or original PDF available. OAuth start/cancel and synthetic inference checks do not establish interpretation quality or subscription access | Untested |
-| Hosted release workflow | Build, verify and publish the tagged setup on GitHub Actions | GitHub rejected publishing the locally committed workflow because the saved OAuth login lacks workflow scope. A GitHub authorization form is pending; no remote commit, tag, release or hosted run was published | Untested |
+| Hosted release workflow | Build, verify and publish the tagged setup on GitHub Actions | Authorization succeeded. The first run at `e41e389` failed credential tests. At `8d79950` those tests and the package build passed, but empty installed startup reported unavailable authentication instead of signed out; publication did not run | Failed |
 
-Final evidence: [setup, empty first run, interruption, update, native journey and uninstall](../../evidence/2026-10-23-windows-delivery/setup-final.json). Latest local install/update took about 20 seconds each on this host. Source implementation is committed locally as `9b17318`; publishing is blocked on GitHub authorization.
+Final local evidence: [setup, empty first run, interruption, update, native journey and uninstall](../../evidence/2026-10-23-windows-delivery/setup-final.json). Latest local install/update took about 20 seconds each on this host. The initial source implementation is `9b17318`. GitHub authorization was completed and `v0.2.0-beta.1` was pushed at `e41e389`; the first hosted build failed before publication.
 
-Evidence: [initial setup/native results](../../evidence/2026-10-23-windows-delivery/setup-initial.json), [PDF checks](../../evidence/2026-10-23-windows-delivery/pdf.json). The aggregate is **Untested** because the selected external/live-machine scenarios remain unverified.
+Evidence: [initial setup/native results](../../evidence/2026-10-23-windows-delivery/setup-initial.json), [PDF checks](../../evidence/2026-10-23-windows-delivery/pdf.json). The aggregate is **Failed** pending a successful hosted rerun; selected external/live-machine scenarios also remain unverified.
 
 ## Failure investigation and limits
 
 The first native PDF prototype rejected WebView2's initial in-memory data URL. The policy now permits only the exact first document navigation and blocks frames/subsequent navigation. Native and PDF isolation checks then passed. The fresh-appdata driver initially asserted authentication before the worker finished its startup check; it now waits for the reported state. One local build overlapped a setup compile and could not rename the previous output; the existing package remained intact. Build/compile steps must run sequentially, as in the release workflow.
+
+The [first hosted run](https://github.com/rengwu/ununemploy/actions/runs/39834162496) failed while securing a fresh synthetic credential directory. PowerShell 7 passes its module search path through Node to Windows PowerShell 5.1, which can resolve incompatible modules; [Microsoft documents this inheritance behavior](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_psmodulepath#starting-windows-powershell-from-powershell-7). A local incompatible-module fixture reproduced the same credential-read failure. Fixed scripts now select the executing shell's system modules. The new regression, four existing credential/inference tests and TypeScript check pass locally.
+
+The [second hosted run](https://github.com/rengwu/ununemploy/actions/runs/39835014232) at clean revision `8d79950` passed all 47 focused tests, Go tests, application build and setup compile. Setup installed in 56 seconds, but the empty installed application's authentication state was unavailable instead of signed out. The same packaged startup with a synthetic incompatible module path and minimal PATH passed locally. Revision `184b7d2` retains the permission error cause and adds diagnostics only for the empty installer-test fixture. Its [hosted diagnostic run](https://github.com/rengwu/ununemploy/actions/runs/39836656701) passed empty first run, interrupted-install rollback and upgrade, then exposed a short-path process-detection bug: `RUNNER~1` did not match the running executable's full path. The original unavailable-authentication event did not recur in that run; its precise cause remains unknown, so the next setup driver checks three separate empty data directories and retains failure diagnostics.
+
+Installer path checks now expand existing DOS short-name components before comparing installation, personal-data and running-process paths. The added real-process alias regression and all 12 installer tests pass locally, including the uninstaller's running-process refusal. The next tagged build is `v0.2.0-beta.2`; the failed `beta.1` tag is retained unchanged. No checks were bypassed and no release was published by the failed attempts.
 
 The setup is unsigned. Signing, ARM64, automatic/delta updates and macOS/Unraid runtime execution were not part of this Windows delivery. The existing alternate PDF implementation remains for non-Windows-desktop environments; no claim of cross-platform runtime verification is made.

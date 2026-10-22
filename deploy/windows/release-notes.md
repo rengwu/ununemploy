@@ -2,6 +2,8 @@ Download the Windows x64 **setup.exe**, run it, then open **ununemploy** from th
 
 This beta includes a smaller compiled application, PDF exports using the shared Windows WebView2 runtime, offline LaTeX support, and improvements to resume onboarding and assistant response recovery. PDF reading runs in a separate process to contain native parser failures.
 
+Windows sign-in files and installer checks also work when the application is launched from PowerShell 7.
+
 For an update, use **File → Quit ununemploy**, then run the new setup. Personal records and settings remain outside the installation directory. Uninstalling also preserves them.
 
 The beta is unsigned: Windows may show a publisher/reputation prompt. Completed ChatGPT sign-in and live resume interpretation on a separate clean Windows machine still require verification. Automated tests cover synthetic documents and sign-in start/cancel, not live subscription availability or interpretation quality.

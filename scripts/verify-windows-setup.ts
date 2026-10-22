@@ -91,95 +91,104 @@ try {
     version,
   };
   const executable = join(destination, "ununemploy.exe");
-  const freshEnv = {
-    ...env,
-    JH_DESKTOP_DATA_DIR: personal,
-    PATH: `${process.env.SystemRoot}\\System32;${process.env.SystemRoot}`,
-  };
-  const fresh = spawn(executable, ["--headless"], {
-    env: freshEnv,
-    windowsHide: true,
-    stdio: "ignore",
-  });
-  const exited = new Promise<void>((yes) => fresh.once("exit", () => yes()));
-  try {
-    let state: { url: string } | undefined;
-    for (let attempt = 0; attempt < 300; attempt++) {
-      state = await readFile(join(personal, "desktop-instance.json"), "utf8")
-        .then(JSON.parse)
-        .catch(() => undefined);
-      if (
-        state?.url &&
-        (await fetch(state.url + "/api/health")
-          .then((r) => r.ok)
-          .catch(() => false))
-      )
-        break;
-      await delay(100);
-    }
-    assert(state?.url, "Fresh installed services did not start");
-    const profile = await fetch(state.url + "/api/profile").then((r) =>
-      r.json(),
-    );
-    assert.equal(profile.profile.basics.name, "");
-    assert.equal(profile.readiness.ready, false);
-    let boot = await fetch(state.url + "/api/bootstrap").then((r) => r.json());
-    for (
-      let attempt = 0;
-      boot.ai.state === "checking" && attempt < 200;
-      attempt++
-    ) {
-      await delay(100);
-      boot = await fetch(state.url + "/api/bootstrap").then((r) => r.json());
-    }
-    assert.equal(boot.counts.total, 0);
-    if (boot.ai.state !== "signed_out") {
-      // Diagnose only this empty synthetic fixture, never the user's appdata.
-      const probe = await exec(
-        process.execPath,
-        [
-          "--import",
-          "tsx",
-          "--input-type=module",
-          "-e",
-          "const {credentials}=await import('./core/ai/pi-credentials.ts'); try { console.log(await credentials.read('openai')); } catch(error) { console.error(error); process.exitCode=1; }",
-        ],
-        {
-          env: { ...freshEnv, JH_DATA_DIR: personal, JH_PROFILE_SEED: "" },
-          windowsHide: true,
-        },
-      ).catch((error) => error);
-      console.error(
-        "Synthetic first-run credential diagnostic:",
-        boot.ai,
-        probe.stdout,
-        probe.stderr,
-      );
-      console.error(
-        await readFile(join(personal, "desktop.log"), "utf8").catch(
-          () => "No synthetic desktop log",
-        ),
-      );
-    }
-    assert.equal(boot.ai.state, "signed_out");
-    await exec(executable, ["--quit"], { env: freshEnv, windowsHide: true });
-    await Promise.race([
-      exited,
-      delay(10000).then(() => {
-        throw new Error("Fresh instance did not quit");
-      }),
-    ]);
-    database = await readFile(join(personal, "job-hunter.db"));
-    results.firstRun = {
-      result: "Passed",
-      emptyProfile: true,
-      noJobs: true,
-      signedOut: true,
-      noDeveloperTools: true,
+  for (let firstRun = 0; firstRun < 3; firstRun++) {
+    const freshData =
+      firstRun === 0 ? personal : join(root, `fresh-${firstRun}`);
+    await mkdir(freshData, { recursive: true });
+    const freshEnv = {
+      ...env,
+      JH_DESKTOP_DATA_DIR: freshData,
+      PATH: `${process.env.SystemRoot}\\System32;${process.env.SystemRoot}`,
     };
-  } finally {
-    if (fresh.exitCode === null) fresh.kill("SIGKILL");
-    await exited;
+    const fresh = spawn(executable, ["--headless"], {
+      env: freshEnv,
+      windowsHide: true,
+      stdio: "ignore",
+    });
+    const exited = new Promise<void>((yes) => fresh.once("exit", () => yes()));
+    try {
+      let state: { url: string } | undefined;
+      for (let attempt = 0; attempt < 300; attempt++) {
+        state = await readFile(join(freshData, "desktop-instance.json"), "utf8")
+          .then(JSON.parse)
+          .catch(() => undefined);
+        if (
+          state?.url &&
+          (await fetch(state.url + "/api/health")
+            .then((r) => r.ok)
+            .catch(() => false))
+        )
+          break;
+        await delay(100);
+      }
+      assert(state?.url, "Fresh installed services did not start");
+      const profile = await fetch(state.url + "/api/profile").then((r) =>
+        r.json(),
+      );
+      assert.equal(profile.profile.basics.name, "");
+      assert.equal(profile.readiness.ready, false);
+      let boot = await fetch(state.url + "/api/bootstrap").then((r) =>
+        r.json(),
+      );
+      for (
+        let attempt = 0;
+        boot.ai.state === "checking" && attempt < 200;
+        attempt++
+      ) {
+        await delay(100);
+        boot = await fetch(state.url + "/api/bootstrap").then((r) => r.json());
+      }
+      assert.equal(boot.counts.total, 0);
+      if (boot.ai.state !== "signed_out") {
+        // Diagnose only this empty synthetic fixture, never the user's appdata.
+        const probe = await exec(
+          process.execPath,
+          [
+            "--import",
+            "tsx",
+            "--input-type=module",
+            "-e",
+            "const {credentials}=await import('./core/ai/pi-credentials.ts'); try { console.log(await credentials.read('openai')); } catch(error) { console.error(error); process.exitCode=1; }",
+          ],
+          {
+            env: { ...freshEnv, JH_DATA_DIR: freshData, JH_PROFILE_SEED: "" },
+            windowsHide: true,
+          },
+        ).catch((error) => error);
+        console.error(
+          "Synthetic first-run credential diagnostic:",
+          boot.ai,
+          probe.stdout,
+          probe.stderr,
+        );
+        console.error(
+          await readFile(join(freshData, "desktop.log"), "utf8").catch(
+            () => "No synthetic desktop log",
+          ),
+        );
+      }
+      assert.equal(boot.ai.state, "signed_out");
+      await exec(executable, ["--quit"], { env: freshEnv, windowsHide: true });
+      await Promise.race([
+        exited,
+        delay(10000).then(() => {
+          throw new Error("Fresh instance did not quit");
+        }),
+      ]);
+      if (firstRun === 0)
+        database = await readFile(join(personal, "job-hunter.db"));
+      results.firstRun = {
+        result: "Passed",
+        emptyProfile: true,
+        noJobs: true,
+        signedOut: true,
+        noDeveloperTools: true,
+        freshInstances: firstRun + 1,
+      };
+    } finally {
+      if (fresh.exitCode === null) fresh.kill("SIGKILL");
+      await exited;
+    }
   }
   await writeFile(
     join(destination, "obsolete-fixture.txt"),
