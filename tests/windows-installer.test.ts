@@ -151,7 +151,7 @@ test(
               [
                 "-NoProfile",
                 "-Command",
-                `(New-Object -ComObject Scripting.FileSystemObject).GetFolder(${psQuote(destination)}).ShortPath`,
+                `$env:PSModulePath = $PSHOME + '\\Modules'; (New-Object -ComObject Scripting.FileSystemObject).GetFolder(${psQuote(destination)}).ShortPath`,
               ],
               { windowsHide: true },
             )
@@ -163,7 +163,7 @@ test(
           const executable = join(destination, "ununemploy.exe");
           await cp(process.execPath, executable);
           const running = spawn(
-            executable,
+            join(alias, "ununemploy.exe"),
             ["-e", "setInterval(()=>{},1000)"],
             { windowsHide: true, stdio: "ignore" },
           );

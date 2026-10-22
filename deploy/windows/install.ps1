@@ -24,7 +24,7 @@ if (Test-Path -LiteralPath $destinationPath) {
   Get-PackageFiles $destinationPath | Out-Null
   Assert-PackageIdentity $destinationPath
 }
-$running = @(Get-CimInstance Win32_Process -Filter "Name='ununemploy.exe'" | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith($destinationPath + '\',[StringComparison]::OrdinalIgnoreCase) })
+$running = @(Get-CimInstance Win32_Process -Filter "Name='ununemploy.exe'" | Where-Object { $_.ExecutablePath -and (Get-CanonicalPath $_.ExecutablePath).StartsWith($destinationPath + '\',[StringComparison]::OrdinalIgnoreCase) })
 if ($running.Count) { throw 'Quit ununemploy before installing this update.' }
 $parent = [IO.Path]::GetDirectoryName($destinationPath)
 [IO.Directory]::CreateDirectory($parent) | Out-Null
