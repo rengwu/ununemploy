@@ -264,6 +264,15 @@ try {
   results.timezone =
     "Passed: packaged timezone data loaded, map rendered and keyboard filtering worked in WebView2";
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  assert(boot.build?.version, "Packaged version is missing");
+  await page
+    .getByText(`ununemploy ${boot.build.version}`, { exact: false })
+    .waitFor();
+  await page
+    .getByRole("link", { name: "Download updates", exact: true })
+    .waitFor();
+  results.buildIdentity =
+    "Passed: Settings displays the package version and release download link";
   await page.getByRole("button", { name: "AI", exact: true }).click();
   // Exercise the actual bundled OAuth module without opening the external
   // sign-in page or using any real account. Repeat to check callback cleanup.
@@ -427,7 +436,7 @@ try {
     "%PDF-",
   );
   results.letterPdf =
-    "Passed: bundled headless Chromium exported a synthetic cover-letter PDF";
+    "Passed: installed WebView2 exported a synthetic cover-letter PDF without bundled Chromium";
   const backup = await fetch(first.state.url + "/api/backups/export");
   assert(backup.ok);
   const zip = Buffer.from(await backup.arrayBuffer());

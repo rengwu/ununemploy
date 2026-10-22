@@ -50,6 +50,7 @@ import { refreshAiStatus } from "../core/ai/generate.ts";
 import { registerLatex } from "./latex.ts";
 import { registerBackup } from "./backup.ts";
 import { personalDataActivity } from "../core/backup/activity.ts";
+import { buildInfo } from "../core/build-info.ts";
 
 export const app = Fastify({ logger: true, bodyLimit: 2 * 1024 * 1024 });
 app.addHook("onRequest", async (req, reply) => {
@@ -162,6 +163,7 @@ app.get("/api/bootstrap", async (req, reply) => {
       jobTitle: row.title,
     })) as Bootstrap["tasks"];
   const value: Bootstrap = {
+    build: buildInfo(),
     jobsRevision: jobsRevision(),
     profile: {
       revision: store.getProfile().revision,

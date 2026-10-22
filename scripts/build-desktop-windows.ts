@@ -1,4 +1,4 @@
-import { packagePi } from "./package-pi.ts";
+import { packageWindowsApp } from "./package-windows-app.ts";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { cp, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
@@ -16,9 +16,6 @@ const staging = join(root, "build/desktop/windows-staging");
 const previous = join(root, "build/desktop/windows-previous");
 const resources = join(staging, "resources");
 const app = join(resources, "app");
-const npm =
-  process.env.npm_execpath ||
-  join(dirname(process.execPath), "node_modules/npm/bin/npm-cli.js");
 async function run(
   command: string,
   args: string[],
@@ -75,63 +72,58 @@ if (
   throw new Error("Quit the built Windows application before rebuilding it.");
 await remove(staging);
 // Build only code/generic assets. The user data directory is outside this tree.
-await run(process.execPath, [npm, "run", "build"]);
+await run(process.execPath, ["node_modules/typescript/bin/tsc", "--noEmit"]);
+await run(process.execPath, ["node_modules/vite/bin/vite.js", "build"]);
 await mkdir(join(resources, "bin"), { recursive: true });
 await mkdir(app, { recursive: true });
-for (const name of ["core", "server", "worker", "dist", "data/geography"]) {
-  const destination = join(app, name);
-  if (!resolve(destination).startsWith(app + sep))
-    throw new Error("Invalid package path");
-  await rm(destination, { recursive: true, force: true });
-  await cp(join(root, name), destination, {
-    recursive: true,
-    verbatimSymlinks: true,
-  });
-}
-for (const name of ["package.json", "package-lock.json"])
-  await cp(join(root, name), join(app, name));
-await mkdir(join(app, "scripts"), { recursive: true });
-for (const name of ["desktop-service.ts", "desktop-bootstrap.mjs"])
-  await cp(join(root, "scripts", name), join(app, "scripts", name));
+await packageWindowsApp(app);
 const lock = await readFile(join(root, "package-lock.json"), "utf8");
-const previousLock = await readFile(
-  join(output, "resources/installed-lock.json"),
-  "utf8",
-).catch(() => "");
-if (lock === previousLock && process.argv.includes("--reuse-runtimes")) {
-  await cp(
-    join(output, "resources/app/node_modules"),
-    join(app, "node_modules"),
-    { recursive: true, verbatimSymlinks: true },
-  );
-} else {
-  await run(
-    process.execPath,
-    [npm, "ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund"],
-    app,
-  );
-}
 await writeFile(join(resources, "installed-lock.json"), lock);
 await cp(process.execPath, join(resources, "bin/node.exe"));
-await packagePi(app);
-await run(
-  process.execPath,
+await run("go", ["mod", "download"], join(root, "desktop"));
+const notices = join(resources, "licenses");
+await mkdir(notices, { recursive: true });
+for (const [name, url] of [
   [
-    npm,
-    "uninstall",
-    "@earendil-works/pi-ai",
-    "--omit=dev",
-    "--ignore-scripts",
-    "--no-audit",
-    "--no-fund",
+    "node.txt",
+    `https://raw.githubusercontent.com/nodejs/node/${process.version}/LICENSE`,
   ],
-  app,
-);
+  [
+    "tectonic.txt",
+    "https://raw.githubusercontent.com/tectonic-typesetting/tectonic/tectonic%400.15.0/LICENSE",
+  ],
+]) {
+  const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
+  if (!response.ok)
+    throw new Error(`Could not fetch ${name} license (${response.status})`);
+  await writeFile(join(notices, name), await response.text());
+}
+const moduleCache = execFileSync("go", ["env", "GOMODCACHE"], {
+  encoding: "utf8",
+  windowsHide: true,
+}).trim();
+for (const [name, module] of [
+  ["go-webview2", "github.com/wailsapp/go-webview2@v1.0.23"],
+  [
+    "go-winloader",
+    "github.com/jchv/go-winloader@v0.0.0-20210711035445-715c2860da7e",
+  ],
+  ["golang-x-sys", "golang.org/x/sys@v0.27.0"],
+])
+  await cp(
+    join(
+      moduleCache,
+      module,
+      name === "go-winloader" ? "LICENSE.md" : "LICENSE",
+    ),
+    join(notices, name + ".txt"),
+  );
 await run(
   "go",
   [
     "build",
     "-trimpath",
+    "-ldflags=-s -w",
     "-o",
     join(resources, "bin/ununemploy-tex-sandbox.exe"),
     "./cmd/texsandbox",
@@ -160,26 +152,11 @@ await cp(process.env.JH_LATEX_CACHE, join(resources, "tex-cache"), {
   recursive: true,
 });
 await run(
-  process.execPath,
-  ["node_modules/playwright/cli.js", "install", "chromium", "--only-shell"],
-  app,
-  {
-    ...process.env,
-    PLAYWRIGHT_BROWSERS_PATH: join(root, "build/desktop/windows-browsers"),
-  },
-);
-await cp(
-  join(root, "build/desktop/windows-browsers"),
-  join(resources, "browsers"),
-  { recursive: true },
-);
-await remove(join(resources, "browsers/.links"));
-await run(
   "go",
   [
     "build",
     "-trimpath",
-    "-ldflags=-H windowsgui",
+    "-ldflags=-H windowsgui -s -w",
     "-o",
     join(staging, "ununemploy.exe"),
     ".",
@@ -196,17 +173,21 @@ await writeFile(
       arch: process.arch,
       node: process.version,
       piAi: "1.3.0",
+      version: JSON.parse(await readFile(join(root, "package.json"), "utf8"))
+        .version,
+      packageFormat: 2,
       revision: execFileSync("git", ["rev-parse", "HEAD"], {
         cwd: root,
         encoding: "utf8",
         windowsHide: true,
       }).trim(),
-      stage: "local-windows-build",
+      stage: process.env.CI ? "ci-windows-build" : "local-windows-build",
+      dirty: !!execFileSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8", windowsHide: true }).trim(),
       bundled: [
         "node",
         "pi-ai-openai",
         "isolated-latex",
-        "chromium-pdf",
+        "webview2-pdf",
         "application",
       ],
       signing: "unsigned local build",
@@ -214,7 +195,7 @@ await writeFile(
       hashes: {
         wrapper: await hash(join(staging, "ununemploy.exe")),
         node: await hash(process.execPath),
-        piAi: await hash(join(app, "core/ai/pi-sdk.ts")),
+        application: await hash(join(app, "runtime/desktop-service.mjs")),
         tectonic: await hash(process.env.JH_TECTONIC_BIN),
         sandbox: await hash(process.env.JH_LATEX_SANDBOX),
       },

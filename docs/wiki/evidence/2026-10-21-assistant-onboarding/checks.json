@@ -1,0 +1,21 @@
+{
+    "result":  "Untested",
+    "baselineRecoveryExpectations":  {
+                                         "passed":  1,
+                                         "failed":  4
+                                     },
+    "focusedTests":  {
+                         "passed":  46,
+                         "failed":  0
+                     },
+    "finalRuntimeFixtureTests":  {
+                                     "passed":  4,
+                                     "failed":  0
+                                 },
+    "typecheck":  "Passed",
+    "productionBuild":  "Passed",
+    "browser":  "Passed (simulated inference)",
+    "liveWindowsOnboarding":  "Untested: no app-owned Pi credential available",
+    "originalPdfExtraction":  "Untested: original file not supplied",
+    "nativePackage":  "Not rebuilt or installed"
+}

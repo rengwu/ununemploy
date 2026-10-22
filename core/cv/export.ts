@@ -1,4 +1,8 @@
-import { chromium } from "playwright";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   Document,
   Packer,
@@ -14,6 +18,36 @@ export async function exportPdf(
   document: CvDocument | CoverLetterDocument,
   template: Template,
 ): Promise<Buffer> {
+  if (process.platform === "win32" && process.env.JH_WINDOWS_PDF) {
+    const directory = await mkdtemp(join(tmpdir(), "ununemploy-print-"));
+    try {
+      await writeFile(
+        join(directory, "input.html"),
+        renderCv(document, template),
+      );
+      await promisify(execFile)(
+        process.env.JH_WINDOWS_PDF,
+        ["--print-pdf", directory],
+        {
+          windowsHide: true,
+          timeout: 45000,
+          maxBuffer: 1024 * 1024,
+        },
+      );
+      const pdf = await readFile(join(directory, "output.pdf"));
+      if (pdf.subarray(0, 5).toString() !== "%PDF-")
+        throw new Error("PDF export did not produce a PDF.");
+      return pdf;
+    } finally {
+      await rm(directory, {
+        recursive: true,
+        force: true,
+        maxRetries: 10,
+        retryDelay: 250,
+      });
+    }
+  }
+  const { chromium } = await import("playwright");
   const browser = await chromium.launch({
     headless: true,
     executablePath: process.env.JH_CHROMIUM_PATH || undefined,

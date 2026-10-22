@@ -1,7 +1,7 @@
 ---
 title: Decision register
 section: Decisions
-updated: 2026-10-19
+updated: 2026-10-23
 ---
 # Decision register
 
@@ -9,6 +9,7 @@ These are established requirements summarized from repository `AGENTS.md` and th
 
 | ID | Accepted decision | Basis and related behavior |
 | --- | --- | --- |
+| DEC-windows-delivery | Bundle runtime code, retain offline LaTeX, use system WebView2 for Windows PDF export, and deliver a single per-user setup executable through versioned GitHub prereleases. Preserve appdata through upgrades and uninstall. | User approval on **23 October 2026**, with routine choices delegated; [desktop](../features/desktop.md), [delivery journal](../journal/2026-10-21-windows-delivery.md). |
 | DEC-local | Local development and home-network hosting; no login or cloud domain. Target Docker/Unraid with persistent appdata. | Established before migration; [Unraid](../guides/unraid.md), [architecture](../reference/architecture.md). Actual server deployment is unverified. |
 | DEC-boundaries | Discover, assess, draft and manage CVs. No submission, employer uploads, form filling, outreach, engagement or external notifications. | User-established boundary; [discovery](../features/discovery.md), [cover letters](../features/cover-letters.md). Ordinary application links are manual. |
 | DEC-evidence | SQLite profile versions are canonical; retain attribution, quoted changes and history. Never invent candidate facts or equate total engineering experience with AI tenure. | Established before migration; [profile](../features/profile.md). Private evidence remains local. |

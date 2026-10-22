@@ -10,7 +10,8 @@ import {
   resolve,
   sep,
 } from "node:path";
-import { Worker } from "node:worker_threads";
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import * as store from "../db/index.ts";
 import { config } from "../config.ts";
 import {
@@ -53,17 +54,27 @@ export function attachmentMetadata() {
 }
 function extractPdf(data: Buffer): Promise<string> {
   return new Promise((resolve, reject) => {
-    const worker = new Worker(
-      new URL("./extract-pdf.worker.mjs", import.meta.url),
-      { workerData: data, resourceLimits: { maxOldGenerationSizeMb: 192 } },
+    // Native PDF dependencies can crash while unloading a worker thread on
+    // Windows. A bounded process keeps that failure outside the API process.
+    const worker = spawn(
+      process.execPath,
+      [
+        "--max-old-space-size=192",
+        fileURLToPath(new URL("./extract-pdf.worker.mjs", import.meta.url)),
+      ],
+      {
+        serialization: "advanced",
+        windowsHide: true,
+        stdio: ["ignore", "ignore", "ignore", "ipc"],
+      },
     );
     const timer = setTimeout(() => {
-      void worker.terminate();
+      worker.kill();
       reject(new Error("PDF reading timed out. Attach a smaller document."));
     }, 15000);
-    worker.once("message", (result) => {
+    worker.once("message", (result: { error?: string; text: string }) => {
       clearTimeout(timer);
-      void worker.terminate();
+      worker.kill();
       result.error ? reject(new Error(result.error)) : resolve(result.text);
     });
     worker.once("error", () => {
@@ -73,6 +84,13 @@ function extractPdf(data: Buffer): Promise<string> {
     worker.once("exit", (code) => {
       clearTimeout(timer);
       reject(new Error("Could not read this PDF."));
+    });
+    worker.send(data, (error) => {
+      if (error) {
+        clearTimeout(timer);
+        worker.kill();
+        reject(new Error("Could not read this PDF."));
+      }
     });
   });
 }

@@ -41,6 +41,8 @@ For installation tests, run the built `install.ps1` with a fresh workspace-local
 
 ### Shared browser and API
 
+`npx tsx scripts/verify-assistant-onboarding.ts` uses an empty temporary database with scanning disabled. It exercises the initial open assistant, PDF file picker/extraction, a natural ownership follow-up, correction progress after a simulated empty-action response, save receipts, reload and visible canonical facts. Model inference is simulated. It writes synthetic evidence under `.local-data/verification/assistant-onboarding/` and closes its browser/server/database. On Windows with only bundled runtimes available, use `build/desktop/windows/resources/bin/node.exe --import tsx` instead of `npx tsx`, and set `PLAYWRIGHT_BROWSERS_PATH` to the bundled `resources/browsers` directory.
+
 `npx tsx scripts/verify-timezone-ui.ts` uses synthetic Malaysia, Nepal, US and Worldwide jobs with scanning/inference disabled. It checks pointer and keyboard range/offset input, fixed handle coordinates with effective rotated labels, wrapped map geometry, identical full-turn endpoints, matching map countries, filtering, independent range/offset reload/Saved persistence, Escape focus return, light/dark/mobile layout, map error/retry and clearing. Build first. Evidence goes to `.local-data/verification/timezone-labels/`; the driver removes its temporary database and browser/server. `tests/timezones.test.ts` checks seasonal offsets, multi-zone countries, shared map/server matching, date-line equivalence and unresolved locations; `tests/job-query.test.ts` checks API composition, serialized offsets, wrapped rotation and invalid inputs.
 
 `npx tsx scripts/verify-inbox-loading.ts` uses synthetic data and holds a jobs request past the real 15-second deadline, then checks the failure label, Retry, empty results and bootstrap revision header. Build first.
@@ -78,3 +80,9 @@ node ../jstack/skills/verify-change/scripts/check-reports.mjs docs/wiki
 ```
 
 Open `docs/wiki/index.html` locally. Verify navigation, search, source view and a narrow viewport with no network dependency when the reader changes. Use the existing Playwright installation or an available browser. The report metadata checker lives in the sibling jstack checkout; the reader builder is vendored and works without it. See [documentation maintenance](../guides/documentation.md).
+
+## Windows setup and release verification
+
+Build with `npm run desktop:build:windows`, install the pinned builder using `scripts/setup-windows-builder.ps1`, then `npm run desktop:setup:windows`. Run `node --import tsx scripts/verify-windows-setup.ts` in a Windows account without an existing registered Inno installation. It installs and updates the actual setup into a temporary path containing spaces, runs the native driver against that installed executable with only system directories on PATH, and uninstalls. A separate synthetic personal-data sentinel checks preservation. Setup logs remain private under `.local-data/verification/setup/`. Failures retain the isolated directory for diagnosis.
+
+`node --import tsx scripts/verify-windows-pdf.ts` exercises actual WebView2 legacy/letter PDF export, four-page Unicode/selectable text, disabled scripts and zero resource requests to a local probe server. Generated synthetic documents remain local. `build/releases/windows-release.json` identifies installer SHA-256, source revision, file count and sizes. Fresh setup with WebView2 absent and complete live ChatGPT onboarding require a separate Windows account/machine; sign-in start/cancel and mocked inference do not prove those paths.

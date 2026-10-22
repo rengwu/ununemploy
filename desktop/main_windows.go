@@ -67,6 +67,13 @@ func main() {
 		}
 	}()
 	runtime.LockOSThread()
+	if len(os.Args) == 3 && os.Args[1] == "--print-pdf" {
+		if err := printPDF(os.Args[2]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			exitCode = 1
+		}
+		return
+	}
 	resources, data, err := desktopPaths()
 	headless := false
 	for _, arg := range os.Args[1:] {

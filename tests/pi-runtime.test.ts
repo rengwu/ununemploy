@@ -10,7 +10,7 @@ process.env.JH_DATA_DIR = directory;
 process.env.JH_PROFILE_SEED = "";
 const store = await import("../core/db/index.ts");
 const { credentials, hostId } = await import("../core/ai/pi-credentials.ts");
-const { infer, models, checkAi, finalResponseText } =
+const { infer, models, checkAi, finalResponseText, StructuredResponseError } =
   await import("../core/ai/pi.ts");
 const credential = {
   type: "oauth" as const,
@@ -79,6 +79,65 @@ test("subscription-only credentials persist privately and serialize writes acros
   assertPrivateFile(join(directory, "pi-auth/host-id"));
   delete process.env.OPENAI_API_KEY;
 });
+test("only completed malformed responses are classified for application repair", async () => {
+  const complete = models.complete;
+  const answer: Awaited<ReturnType<typeof models.complete>> = {
+    role: "assistant",
+    api: "openai-responses",
+    provider: "openai",
+    model: "gpt-5.6-sol",
+    timestamp: Date.now(),
+    stopReason: "stop",
+    content: [],
+    usage: {
+      input: 0,
+      output: 7,
+      cacheRead: 0,
+      cacheWrite: 0,
+      totalTokens: 7,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+    },
+  };
+  let requests = 0;
+  try {
+    for (const content of [
+      [{ type: "text" as const, text: "invalid json" }],
+      [
+        {
+          type: "text" as const,
+          text: '{"done":false}',
+          textSignature: JSON.stringify({ v: 1, phase: "commentary" }),
+        },
+      ],
+    ]) {
+      models.complete = async () => {
+        requests++;
+        return { ...answer, content };
+      };
+      await assert.rejects(infer("Synthetic prompt", {}), (error) => {
+        assert.ok(error instanceof StructuredResponseError);
+        assert.deepEqual(error.usage, answer.usage);
+        return true;
+      });
+    }
+    models.complete = async () => ({
+      ...answer,
+      stopReason: "error",
+      errorMessage: "429 quota",
+      content: [],
+    });
+    await assert.rejects(infer("Synthetic prompt", {}), (error) => {
+      assert.ok(error instanceof Error);
+      assert.ok(!(error instanceof StructuredResponseError));
+      assert.match(error.message, /subscription allowance/);
+      return true;
+    });
+    assert.equal(requests, 2);
+  } finally {
+    models.complete = complete;
+  }
+});
+
 test("production inference sends the exact model, schema and images; limits surface without retry or fallback", async () => {
   let requests = 0;
   const fetcher: typeof fetch = async (url, options) => {

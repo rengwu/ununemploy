@@ -1,0 +1,33 @@
+{
+  "builtAt": "2026-10-22T17:43:16.921Z",
+  "platform": "win32",
+  "arch": "x64",
+  "node": "v22.23.3",
+  "piAi": "1.3.0",
+  "version": "0.2.0-beta.1",
+  "packageFormat": 2,
+  "revision": "159bce03bd1b8f0f68c91a2b22e6b9d4135ccf64",
+  "stage": "local-windows-build",
+  "dirty": true,
+  "bundled": [
+    "node",
+    "pi-ai-openai",
+    "isolated-latex",
+    "webview2-pdf",
+    "application"
+  ],
+  "signing": "unsigned local build",
+  "webview2": "installed Evergreen Runtime required",
+  "hashes": {
+    "wrapper": "245649bfdce2df57f9f4e20b1623d9bdfcc6ec2b4572dec1d502dac217f785e0",
+    "node": "9c9245166b4a8e182e0b797da9c20136117ff24368eaff1fec8343a123c8db0e",
+    "application": "dba5d28d6d5122e50eb0f6d6868698c5b69fcd5bf80c40bd51f10c88fd9ee8bb",
+    "tectonic": "6760c6368d3219c687eb1811e55379af9526fbd97e97fa954968267f5241deb9",
+    "sandbox": "0bfbaeacd3395a342ed861bfd77f725e91435e5255171d3f482f01569f3ccb7b"
+  },
+  "installer": "ununemploy-0.2.0-beta.1-windows-x64-setup.exe",
+  "sha256": "a95743a47170bd74b620c0092a990c8033527b0bf0ed3dc9312441ade5446dca",
+  "downloadBytes": 48241624,
+  "unpackedBytes": 219403995,
+  "files": 572
+}

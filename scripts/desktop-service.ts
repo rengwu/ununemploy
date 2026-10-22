@@ -42,11 +42,17 @@ await new Promise<void>((resolve, reject) => {
   });
 });
 // Keep collection/model work in its existing separate process so it cannot block API reads.
-const worker = spawn(process.execPath, ["--import", "tsx", "worker/index.ts"], {
-  env: process.env,
-  windowsHide: true,
-  stdio: ["ignore", "inherit", "inherit", "ipc"],
-});
+const worker = spawn(
+  process.execPath,
+  existsSync("runtime/worker.mjs")
+    ? ["runtime/worker.mjs"]
+    : ["--import", "tsx", "worker/index.ts"],
+  {
+    env: process.env,
+    windowsHide: true,
+    stdio: ["ignore", "inherit", "inherit", "ipc"],
+  },
+);
 if (process.platform === "win32") {
   const path = process.env.JH_DESKTOP_READY;
   const address = app.server.address();

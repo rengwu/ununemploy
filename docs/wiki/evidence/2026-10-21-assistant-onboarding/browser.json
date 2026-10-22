@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "inference": "simulated",
+  "emptyProfile": true,
+  "pdfPickerAndExtraction": true,
+  "naturalConfirmationRetainsEvidence": true,
+  "automaticResponseRecovery": true,
+  "noUserRetry": true,
+  "savedProfileAndReceipt": true,
+  "reload": true,
+  "visibleProfile": true,
+  "consoleErrors": []
+}

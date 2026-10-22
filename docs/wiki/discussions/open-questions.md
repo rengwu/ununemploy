@@ -1,7 +1,7 @@
 ---
 title: Open questions and follow-up
 section: Discussions
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 # Open questions and follow-up
 
@@ -9,9 +9,10 @@ This page distinguishes unfinished verification and implementation from decision
 
 | Item | Current state | Next evidence needed |
 | --- | --- | --- |
-| Pi runtime and package size | Mac implementation and live exact-model compatibility are verified. The Windows Pi package is now 678.0 MiB unpacked, down from 1,002.8 MiB; build/install, private ACLs and offline native checks are recorded in the [20 October run](../verification/runs/2026-10-20-windows-pi.md). Pi Durable remains deferred | Complete fresh Windows ChatGPT sign-in and live inference before claiming authenticated Windows compatibility. See [AI runtime](../features/ai-runtime.md) and the historical [Mac-first handoff](../journal/2026-10-18-pi-runtime-handoff.md). |
+| Fresh Windows résumé onboarding | User reported attachment-reading, special-phrase demands, rejected profile edits and empty-action failures on another clean installation. Contradictory evidence guidance, misleading path errors, invented file-only instructions and missing bounded response correction are repaired locally; see the [21 October run](../verification/runs/2026-10-21-assistant-onboarding.md) | Verify a complete live-model onboarding conversation on a clean Windows installation. The original PDF and remote-machine action trace were not available; extraction quality and the exact rejected path remain unverified. |
+| Pi runtime and package size | Mac implementation and live exact-model compatibility are verified. The Windows package now has compiled runtime code and system WebView2 PDF export; the initial setup prototype is about 46 MiB downloaded and 208 MiB unpacked. See the [23 October delivery run](../verification/runs/2026-10-23-windows-delivery.md). Pi Durable remains deferred | Complete fresh Windows ChatGPT sign-in and live inference before claiming authenticated Windows compatibility. See [AI runtime](../features/ai-runtime.md) and the historical [Mac-first handoff](../journal/2026-10-18-pi-runtime-handoff.md). |
 | Actual Unraid installation | Unverified; local container checks exist | Run on the intended server, verify persistence and native Landlock compilation; [guide](../guides/unraid.md). |
-| Windows and Linux native releases | Windows 11 x64 local build now includes WebView2, lifecycle handling, bundled runtimes, isolated compilation and a per-user installer with package integrity and replacement checks. Linux remains an assessed future option | Clean-machine installation/WebView2 provisioning, fresh interactive ChatGPT login, signing/distribution and a macOS regression run remain. See the [Windows run](../verification/runs/2026-10-17-windows-port.md) and [installer follow-up](../verification/runs/2026-10-17-windows-installer.md). |
+| Windows and Linux native releases | Windows now produces a single compiled per-user setup executable, a conventional uninstaller and versioned release automation, with tested integrity, replacement and retention. Linux remains an assessed future option | Clean-machine installation/WebView2 provisioning, fresh interactive ChatGPT login, signing and a macOS regression run remain. See the [Windows run](../verification/runs/2026-10-17-windows-port.md) and [installer follow-up](../verification/runs/2026-10-17-windows-installer.md). |
 | Web3.career authentication | Implemented, authenticated collection unverified | Configure a local token and record a bounded live scan. |
 | Adzuna / Jooble / Careerjet | Deferred backlog; removed from setup and hidden from Sources, with stored records retained | A working adapter and explicit scope would be needed before offering them again; [coverage](../reference/source-coverage.md). |
 | Broader integration cleanup | Deferred from the first corrective pass | Queue storage redesign, broad policy consolidation, cache retention and unrelated provider-specific repairs need a concrete benefit before expansion; [design rationale](../journal/2026-10-08-integration-design.md). |

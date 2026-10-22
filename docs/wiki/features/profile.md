@@ -1,7 +1,7 @@
 ---
 title: User profile and evidence
 section: Features
-updated: 2026-10-16
+updated: 2026-10-21
 ---
 # User profile and evidence
 
@@ -19,6 +19,8 @@ The top-right assistant button opens the app-wide editor for canonical SQLite pr
 
 Unknown eligibility does not prevent discovery once essential profile fields are complete. Quoted change evidence, revisions and chat persist; invalid/conflicting edits cannot silently replace facts.
 
+Résumé onboarding uses supplied attachment evidence across follow-ups. Natural ownership confirmation continues an existing setup request without requiring an exact phrase. Each changed fact quotes its original source; a short confirmation does not need to restate those facts. The application registers sources, and path/schema errors are corrected by the assistant. Explicit read-only requests remain read-only. See [assistant attachment and recovery behavior](assistant.md#files-and-screenshots).
+
 One toolbar above the read-only facts combines readiness and Previous versions/Restore version, with Build profile before readiness. The redundant Edit with assistant button was removed at the user's request on 8 October 2026; the global header button remains available. There is no extra Profile facts heading or separate version footer. Controls share one line when space permits and wrap together on narrow screens. Paused-scanning and missing-profile details remain visible, and restoration still creates a new canonical revision.
 
 ## Verification recipe
@@ -34,6 +36,8 @@ For toolbar changes, use a synthetic ready profile with two revisions. Check des
 Real interpretation quality is not established by schema validation. Real runtime recipes consume subscription allowance; see [setup](../verification/setup.md).
 
 ## Verification history
+
+[Onboarding recovery — 21 October 2026](../verification/runs/2026-10-21-assistant-onboarding.md): synthetic PDF, ordinary follow-up, attributed atomic edits, automatic response correction and preservation checks. Live interpretation remains untested in this run.
 
 [Cursor-inspired UI redesign — 16 October 2026](../verification/runs/2026-10-16-cursor-redesign.md) records the replacement controls, responsive/theme checks, preserved workflows and native installation.
 

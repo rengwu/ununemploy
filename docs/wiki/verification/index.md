@@ -1,13 +1,17 @@
 ---
 title: Verification
 section: Verification
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 # Verification
 
 Use [shared setup](setup.md) before running selected checks. [Feature records](../features/index.md) state expected outcomes and recipes; a pass applies only to its recorded build and scope.
 
 ## Runs
+
+[Compact Windows setup - 23 October 2026](runs/2026-10-23-windows-delivery.md): smaller runtime, compiled setup, installed native checks, update/uninstall retention and PDF isolation.
+
+[Assistant onboarding recovery — 21 October 2026](runs/2026-10-21-assistant-onboarding.md): corrected evidence guidance, profile-path feedback and bounded response recovery; synthetic API/browser checks, with live clean-install behavior still unverified.
 
 [Windows Pi build — 20 October 2026](runs/2026-10-20-windows-pi.md): current Windows packaging, CRLF startup and credential ACL repairs, attachment/timezone/inbox regressions and bounded native checks.
 

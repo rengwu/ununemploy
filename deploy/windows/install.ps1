@@ -1,7 +1,8 @@
 param(
   [string]$Destination = (Join-Path $env:LOCALAPPDATA 'Programs/ununemploy'),
   [switch]$NoShortcut,
-  [switch]$Check
+  [switch]$Check,
+  [string]$TransactionFile
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'package.ps1')
@@ -34,6 +35,10 @@ $previousPath = $destinationPath + '.previous-' + [Guid]::NewGuid().ToString('N'
 try {
   Copy-Item -LiteralPath $source -Destination $stagingPath -Recurse
   Assert-Package $stagingPath
+  if ($TransactionFile) {
+    if (Test-Path -LiteralPath $TransactionFile) { throw 'An installation transaction already exists.' }
+    @{ version = 1; destination = $destinationPath; previous = $previousPath; hadPrevious = [bool](Test-Path -LiteralPath $destinationPath) } | ConvertTo-Json | Set-Content -LiteralPath $TransactionFile -Encoding UTF8
+  }
   # Directory.Move is a same-volume directory rename. PowerShell Move-Item may
   # recursively move children and leave a partial app if one file is locked.
   if (Test-Path -LiteralPath $destinationPath) { [IO.Directory]::Move($destinationPath, $previousPath) }
@@ -42,7 +47,7 @@ try {
     if (Test-Path -LiteralPath $previousPath) { [IO.Directory]::Move($previousPath, $destinationPath) }
     throw
   }
-  if (Test-Path -LiteralPath $previousPath) {
+  if (!$TransactionFile -and (Test-Path -LiteralPath $previousPath)) {
     try { Remove-Item -LiteralPath $previousPath -Recurse -Force }
     catch { Write-Warning "The update is installed. Previous application files could not be removed from $previousPath. Close programs using those files before removing that directory." }
   }

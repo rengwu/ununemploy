@@ -1,7 +1,7 @@
 ---
 title: AI runtime
 section: Features
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 # AI runtime
 
@@ -21,7 +21,7 @@ On Windows, POSIX file modes do not protect credentials. Before accessing connec
 
 `core/ai/pi.ts` registers only the OpenAI provider from pinned `@earendil-works/pi-ai@1.3.0`; ambient environment/API-key auth is disabled. Account model discovery checks the exact requested model. Requests use the public Responses endpoint, `store:false`, streaming transport, high reasoning and a strict JSON schema. The app waits for successful stream completion and selects final-answer text instead of concatenating commentary before parsing structured output. There are no provider tools, shell processes, filesystem tools or silent model/billing fallbacks. Application actions still execute through the existing validated assistant loop.
 
-The existing shared inference lease serializes assistant and cover-letter model jobs, including across an old/new worker overlap during upgrade. Timeout is four minutes; cancellation or lease loss aborts the request. Automatic HTTP retries are disabled. Authentication, subscription allowance, model-access and malformed-output failures leave stored records intact and expose retryable errors. The app never accepts a partial stream as a completed answer.
+The existing shared inference lease serializes assistant and cover-letter model jobs, including across an old/new worker overlap during upgrade. Timeout is four minutes; cancellation or lease loss aborts the request. Automatic HTTP retries are disabled. Authentication, subscription allowance and model-access failures leave stored records intact and expose retryable errors. A completed response with unusable final JSON carries a distinct error type and its usage, allowing the assistant's bounded [response correction](assistant.md#boundaries-and-recovery). Cover-letter generation retains its existing failure handling. The app never accepts a partial stream as a completed answer or retries transport/authentication/allowance errors as response corrections.
 
 Legacy `JH_CODEX_MODEL` and `JH_CODEX_REASONING_EFFORT` variable names remain compatible; their defaults remain the exact selected model/high reasoning. `JH_CODEX_HOME` and `JH_CODEX_BIN` no longer configure the runtime.
 
@@ -41,6 +41,8 @@ Mac build/install behavior is recorded in the [19 October run](../verification/r
 The production mock tests verify error/request behavior without account inference. The live driver checks packaged OAuth start/cancel, model availability, PDF/image interpretation and an attributable profile action. Other model interpretations, plan-limit exhaustion and credential refresh against the real provider remain separate scenarios.
 
 ## Verification history
+
+[Onboarding recovery — 21 October 2026](../verification/runs/2026-10-21-assistant-onboarding.md) covers repairable completed-output classification, usage retention and the unchanged quota/cancel boundaries with synthetic model responses.
 
 [Pi compatibility checkpoint — 18 October](../verification/runs/2026-10-18-pi-compatibility.md) remains historical. The initial live-check parser used `contentText(answer)` instead of `contentText(answer.content)`, causing a local TypeError after successful inference; that check was repaired on 19 October.
 

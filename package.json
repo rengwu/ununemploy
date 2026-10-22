@@ -1,6 +1,6 @@
 {
   "name": "ununemploy",
-  "version": "0.1.0",
+  "version": "0.2.0-beta.1",
   "private": true,
   "type": "module",
   "engines": {
@@ -19,6 +19,7 @@
     "scan": "tsx scripts/scan.ts",
     "desktop:build": "tsx scripts/build-desktop.ts",
     "desktop:build:windows": "tsx scripts/build-desktop-windows.ts",
+    "desktop:setup:windows": "tsx scripts/build-windows-setup.ts",
     "desktop:install": "tsx scripts/install-desktop.ts",
     "desktop:test": "cd desktop && go test -race ./..."
   },

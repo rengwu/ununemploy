@@ -1,0 +1,41 @@
+{
+  "install": {
+    "result": "Passed",
+    "milliseconds": 31995,
+    "version": "0.2.0-beta.1"
+  },
+  "update": {
+    "result": "Passed",
+    "milliseconds": 18029,
+    "obsoleteFilesRemoved": true,
+    "personalDataRetained": true
+  },
+  "native": {
+    "checkedAt": "2026-10-22T17:32:58.035Z",
+    "platform": "win32",
+    "node": "v22.23.3",
+    "results": {
+      "startup": "Passed: packaged API/worker healthy with synthetic profile and collection/inference disabled",
+      "runningUpdate": "Passed: installer rejected replacing the running installed fixture",
+      "savedJob": "Passed: actual manual-add and Save APIs retained notes and queued a cover letter",
+      "nativeUI": "Passed: real WebView2 rendered Jobs and assistant controls without macOS inset",
+      "navigation": "Passed: remote scripted navigation cannot replace the local application",
+      "timezone": "Passed: packaged timezone data loaded, map rendered and keyboard filtering worked in WebView2",
+      "piSignIn": "Passed: signed-out exact-model state, bundled OAuth start/cancel twice, private host ID and no saved tokens",
+      "latex": "Passed: packaged AppContainer compiler produced a PDF rendered as selectable text in WebView2",
+      "dirtyQuit": "Passed: cancelling native Quit retained unsaved LaTeX edits; the editor then saved them",
+      "download": "Passed: the native Save As dialog saved a valid PDF at the chosen fixture path",
+      "pdfAttachment": "Passed: packaged PDF worker extracted the native download; assistant attachment survived reload and could be removed",
+      "letterPdf": "Passed: installed WebView2 exported a synthetic cover-letter PDF without bundled Chromium",
+      "backup": "Passed: packaged backup/export restored fixture records and retained destination settings/counters",
+      "closeAndReopen": "Passed: Close hid the window while services stayed healthy; second launch reopened the same instance",
+      "nativeQuit": "Passed: File → Quit exited the wrapper, services and observed descendants",
+      "crashRecovery": "Passed: persistent origin and saved records survived restart; killing the launcher reaped the real service tree",
+      "persistence": "Passed: profile, saved job, notes and usage counter retained; SQLite integrity OK"
+    }
+  },
+  "uninstall": {
+    "result": "Passed",
+    "personalDataRetained": true
+  }
+}

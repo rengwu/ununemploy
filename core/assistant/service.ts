@@ -8,7 +8,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import * as store from "../db/index.ts";
 import { config } from "../config.ts";
-import { checkAi, infer } from "../ai/pi.ts";
+import { checkAi, infer, StructuredResponseError } from "../ai/pi.ts";
 import {
   enqueueProfileMessage,
   profileMessages,
@@ -260,34 +260,100 @@ export async function processAssistantTurn(
         .get(turn.id)!.n,
     );
     let focus = store.setting<AssistantContext | null>("assistantFocus", null);
+    let corrections = 0;
+    let correctingResponse = false;
+    const repairResponse = (error: string) => {
+      controller.signal.throwIfAborted();
+      if (corrections >= 2)
+        throw new Error(
+          "The assistant could not complete this request after correcting its response. No changes were saved. Your message and attachments are kept; retry to continue.",
+        );
+      corrections++;
+      correctingResponse = true;
+      const result = {
+        error: error.slice(0, 6000),
+        instruction:
+          "Repair the response or rejected action and continue the existing request. Successful actions remain staged; do not repeat them. Use done=false with at least one call, or done=true with a nonempty reply and no calls. Repair failed edits before finishing. Do not ask the user to repeat a special phrase.",
+      };
+      steps.push({ action: "response_error", result });
+      store.db
+        .prepare("INSERT INTO assistant_steps VALUES (?,?,?,?,?,?)")
+        .run(
+          turn.id,
+          ++sequence,
+          "response_error",
+          "{}",
+          JSON.stringify(result),
+          store.now(),
+        );
+    };
     try {
-      for (let round = 0; round < 10; round++) {
+      // Corrections have their own small budget and do not consume action rounds.
+      for (let round = 0; round < 10 + corrections; round++) {
         controller.signal.throwIfAborted();
         store.db
-          .prepare("UPDATE profile_turns SET activity='Thinking…' WHERE id=?")
-          .run(turn.id);
-        const output = await (deps.infer || infer)(
-          assistantPrompt({
-            profile: actions.profile,
-            context: turn.context,
-            focus,
-            message,
-            history,
-            steps,
-            attachments: attachments.sources,
-            allowedUrls: [...actions.allowedUrls],
-          }),
-          z.toJSONSchema(stepSchema),
-          { signal: controller.signal, images: attachments.images },
-        );
+          .prepare("UPDATE profile_turns SET activity=? WHERE id=?")
+          .run(
+            correctingResponse ? "Correcting the response…" : "Thinking…",
+            turn.id,
+          );
+        correctingResponse = false;
+        let output: Awaited<ReturnType<AssistantInference>>;
+        try {
+          output = await (deps.infer || infer)(
+            assistantPrompt({
+              profile: actions.profile,
+              context: turn.context,
+              focus,
+              message,
+              history,
+              steps,
+              attachments: attachments.sources,
+              allowedUrls: [...actions.allowedUrls],
+            }),
+            z.toJSONSchema(stepSchema),
+            { signal: controller.signal, images: attachments.images },
+          );
+        } catch (error) {
+          if (turnDetail(turn.id).state !== "running") return true;
+          if (!(error instanceof StructuredResponseError)) throw error;
+          if (error.usage !== undefined) usages.push(error.usage);
+          repairResponse(
+            "Return a complete final JSON object matching the supplied step schema. The previous output could not be parsed as a final structured response.",
+          );
+          continue;
+        }
         if (turnDetail(turn.id).state !== "running") return true;
         usages.push(output.usage);
-        const step = stepSchema.parse(output.result);
+        const parsed = stepSchema.safeParse(output.result);
+        if (!parsed.success) {
+          repairResponse(
+            parsed.error.issues
+              .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+              .join("\n"),
+          );
+          continue;
+        }
+        const step = parsed.data;
+        if (
+          step.done
+            ? step.calls.length > 0 || !step.reply.trim()
+            : !step.calls.length
+        ) {
+          repairResponse(
+            step.done
+              ? "A finished step requires a nonempty reply and no calls. If actions are still needed, use done=false."
+              : "An intermediate step requires at least one call. To answer or ask a question without actions, use done=true and a nonempty reply.",
+          );
+          continue;
+        }
         if (step.done) {
-          if (step.calls.length)
-            throw new Error(
-              "The assistant returned actions after finishing. No changes were saved.",
+          if (actions.failures.size) {
+            repairResponse(
+              `Repair these rejected edits before finishing: ${[...actions.failures.values()].join("\n")}`,
             );
+            continue;
+          }
           store.db
             .prepare(
               "UPDATE profile_turns SET activity='Checking and saving changes…' WHERE id=?",
@@ -340,10 +406,6 @@ export async function processAssistantTurn(
           });
           return true;
         }
-        if (!step.calls.length)
-          throw new Error(
-            "The assistant returned no next action. Retry your message; no changes were saved.",
-          );
         for (const call of step.calls) {
           if (turnDetail(turn.id).state !== "running") return true;
           store.db

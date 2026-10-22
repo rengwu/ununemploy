@@ -102,8 +102,11 @@ export function registerAssistantAttachments(app: FastifyInstance) {
         .filter((a) => a.messageId === body.clientId)
         .map((a) => a.id);
       if (
-        existing.content !==
-          (body.message || "Please read the attached files.") ||
+        (body.message
+          ? existing.content !== body.message
+          : !["Attached files.", "Please read the attached files."].includes(
+              String(existing.content),
+            )) ||
         body.attachments.some((id) => !ids.includes(id)) ||
         ids.length !== body.attachments.length + paths.length
       )
@@ -131,7 +134,7 @@ export function registerAssistantAttachments(app: FastifyInstance) {
         .code(202)
         .send(
           enqueueAssistantMessage(
-            body.message || "Please read the attached files.",
+            body.message || "Attached files.",
             body.clientId,
             body.context,
             [...body.attachments, ...imported],

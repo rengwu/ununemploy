@@ -46,6 +46,7 @@ export type JobLocations = {
 };
 export type CvContext = { profile: Profile; template: Template };
 export type Bootstrap = {
+  build?: { version: string; revision?: string };
   profile: import("./profile/facts.ts").ProfileReadiness & { revision: number };
   jobsRevision: string;
   counts: { total: number; jobs: number; saved: number };

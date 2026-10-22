@@ -57,6 +57,20 @@ test("extracts bounded PDF text and rejects malformed, oversized and non-text up
     files.attachment(attachment.id).text,
     /Synthetic candidate document/,
   );
+  // Repeated/concurrent native PDF initialization and termination previously
+  // crashed the Windows API process when extraction used worker threads.
+  for (let batch = 0; batch < 3; batch++) {
+    const repeated = await Promise.all(
+      Array.from({ length: 2 }, () =>
+        files.storeAttachment("repeat.pdf", Buffer.from(pdf)),
+      ),
+    );
+    for (const value of repeated)
+      assert.match(
+        files.attachment(value.id).text,
+        /Synthetic candidate document/,
+      );
+  }
   await assert.rejects(
     files.storeAttachment("bad.pdf", Buffer.from("%PDF-broken")),
   );
@@ -144,6 +158,24 @@ test("image-only send, idempotency, inference context, follow-up retention and N
     payload,
   });
   assert.equal(sent.statusCode, 202, sent.body);
+  assert.equal(
+    service.assistantState().messages.find((m) => m.id === clientId)?.content,
+    "Attached files.",
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: "/api/assistant/messages",
+        payload,
+      })
+    ).statusCode,
+    202,
+  );
+  // An older client may retry a file-only message stored before the neutral label.
+  store.db
+    .prepare("UPDATE profile_messages SET content=? WHERE id=?")
+    .run("Please read the attached files.", clientId);
   assert.equal(
     (
       await app.inject({

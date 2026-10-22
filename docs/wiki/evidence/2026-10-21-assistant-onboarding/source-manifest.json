@@ -1,0 +1,48 @@
+{
+    "revision":  "159bce03bd1b8f0f68c91a2b22e6b9d4135ccf64",
+    "dirty":  true,
+    "platform":  "Windows x64",
+    "node":  "22.23.3",
+    "files":  [
+                  {
+                      "path":  "core/ai/pi.ts",
+                      "sha256":  "8090c07d052265a130d7910761d7dcff55756ba600bfbbcb56b5b521b4a744af"
+                  },
+                  {
+                      "path":  "core/assistant/prompt.ts",
+                      "sha256":  "b7430ecddedcc518dfa0ac0e693eee91c88348a295ff1f68f2ee2d690c3a53b0"
+                  },
+                  {
+                      "path":  "core/assistant/service.ts",
+                      "sha256":  "cb9c4cc5f0dd595ce25057691f2db7f139cbe085e382ea9f076127237b895160"
+                  },
+                  {
+                      "path":  "core/profile/chat.ts",
+                      "sha256":  "a6774a418d2cbde4e43e4b00e406cdc4068f668cfbdf81e9833031408dc20d1a"
+                  },
+                  {
+                      "path":  "core/profile/skills/build-user-profile/SKILL.md",
+                      "sha256":  "d599ad0a79733fc1e1e9e3306be58e6bc59c61e7b9da093d4eb2b84e0909e7d3"
+                  },
+                  {
+                      "path":  "server/assistant-attachments.ts",
+                      "sha256":  "855564079897e093d6709c2ad0647f1c574714bc0f65924117f7242ad203b73e"
+                  },
+                  {
+                      "path":  "tests/assistant-onboarding.test.ts",
+                      "sha256":  "c129b3e29e8769504c604b1504c775409b125dfa061e61e654e0fd09fb168031"
+                  },
+                  {
+                      "path":  "tests/attachments.test.ts",
+                      "sha256":  "0a4589670e9f3fab03ea730dd7d967af722da9a16eef859e0798fd659ef71bbf"
+                  },
+                  {
+                      "path":  "tests/pi-runtime.test.ts",
+                      "sha256":  "96040a270a6274785a5b44c68be4eba8f40e87fb2d3644426b334e3d6884b980"
+                  },
+                  {
+                      "path":  "scripts/verify-assistant-onboarding.ts",
+                      "sha256":  "11b7f12ed5c68433a82036d4aca139b34678ad300e5690485016021ff3219801"
+                  }
+              ]
+}

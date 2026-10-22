@@ -70,13 +70,22 @@ function Assert-Package([string]$Path) {
   foreach ($required in @(
     'ununemploy.exe', 'install.ps1', 'package.ps1', 'resources/build.json',
     'resources/bin/node.exe', 'resources/bin/tectonic.exe', 'resources/bin/ununemploy-tex-sandbox.exe',
-    'resources/app/core/ai/pi-sdk.ts', 'resources/app/package.json', 'resources/app/package-lock.json',
-    'resources/app/dist/index.html', 'resources/app/server/index.ts', 'resources/app/worker/index.ts',
-    'resources/app/scripts/desktop-service.ts', 'resources/app/scripts/desktop-bootstrap.mjs'
+    'resources/app/package.json', 'resources/app/dist/index.html',
+    'resources/app/scripts/desktop-bootstrap.mjs'
   )) {
     if (!$expected.Contains($required)) { throw "Incomplete package: missing $required" }
   }
-  foreach ($prefix in @('resources/app/node_modules/', 'resources/tex-cache/', 'resources/browsers/')) {
+  $build = Get-Content -LiteralPath (Join-Path $root 'resources/build.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+  $runtimeFiles = @('resources/app/core/ai/pi-sdk.ts', 'resources/app/server/index.ts', 'resources/app/worker/index.ts', 'resources/app/scripts/desktop-service.ts')
+  $prefixes = @('resources/app/node_modules/', 'resources/tex-cache/', 'resources/browsers/')
+  if ($build.packageFormat -eq 2) {
+    $runtimeFiles = @('resources/app/runtime/desktop-service.mjs', 'resources/app/runtime/worker.mjs', 'resources/app/core/assistant/extract-pdf.worker.mjs', 'resources/app/core/latex/starter.tex', 'resources/app/core/profile/skills/build-user-profile/SKILL.md')
+    $prefixes = @('resources/app/node_modules/pdfjs-dist/', 'resources/tex-cache/', 'resources/app/core/db/migrations/')
+  }
+  foreach ($required in $runtimeFiles) {
+    if (!$expected.Contains($required)) { throw "Incomplete package: missing $required" }
+  }
+  foreach ($prefix in $prefixes) {
     if (!@($inventory.files | Where-Object { $_.path.StartsWith($prefix, [StringComparison]::Ordinal) }).Count) {
       throw "Incomplete package: missing $prefix"
     }

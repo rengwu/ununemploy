@@ -224,6 +224,7 @@ func desktopEnvironment(resources, data string) []string {
 	}
 	if runtime.GOOS == "windows" {
 		overrides["JH_LATEX_SANDBOX"] = filepath.Join(resources, "bin", executableName("ununemploy-tex-sandbox"))
+		overrides["JH_WINDOWS_PDF"] = filepath.Join(resources, "..", "ununemploy.exe")
 	}
 	env := []string{}
 	for _, v := range os.Environ() {

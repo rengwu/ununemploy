@@ -1,6 +1,9 @@
-import { parentPort, workerData } from "node:worker_threads";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
+const workerData = await new Promise((resolve) =>
+  process.once("message", resolve),
+);
+process.once("disconnect", () => process.exit(0));
 try {
   const task = getDocument({
     data: new Uint8Array(workerData),
@@ -32,12 +35,12 @@ try {
       throw new Error(
         "This PDF has no extractable text. Attach screenshots of its pages instead.",
       );
-    parentPort.postMessage({ text });
+    process.send({ text });
   } finally {
     await task.destroy();
   }
 } catch (error) {
-  parentPort.postMessage({
+  process.send({
     error: error instanceof Error ? error.message : "Could not read PDF.",
   });
 }

@@ -1,7 +1,7 @@
 ---
 title: App-wide assistant
 section: Features
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 # App-wide assistant
 
@@ -37,6 +37,8 @@ The synthetic UI check does not establish current authentication or every interp
 
 ## Verification history
 
+[Windows delivery - 23 October 2026](../verification/runs/2026-10-23-windows-delivery.md) contains native parser crashes in a separate process and verifies packaged attachment extraction.
+
 [Cursor-inspired UI redesign — 16 October 2026](../verification/runs/2026-10-16-cursor-redesign.md) records the replacement controls, responsive/theme checks, preserved workflows and native installation.
 
 [Assistant consolidation and Jev retirement — 16 October 2026](../verification/runs/2026-10-16-lean-assistant-jev.md): preserved queued/history data, one assistant engine, removed Jev capabilities, 184 tests, build and desktop/mobile browser checks.
@@ -62,7 +64,7 @@ The Assistant button in the top-right page header opens one persistent conversat
 | --- | --- |
 | Find React/TypeScript jobs in Malaysia | Query collected jobs with AND keywords, resolved location filters, match ranking, availability and eligibility. Return real clickable records. This does not start an internet-wide job search or a scan. |
 | Refresh a project from its website/repository | Read supplied/recorded public URLs, follow same-origin links returned by those reads, and inspect commits/PRs within a supplied GitHub repository without asking the user to paste derived URLs. Save attributable project facts without inferring personal authorship or professional production experience. |
-| Add/correct profile information | Read canonical facts, apply field edits supported by quotes from user messages or fetched references, and version the result. The onboarding skill remains active for missing essentials. |
+| Add/correct profile information | Read canonical facts, apply field edits supported by quotes from supplied user messages, attachment text or fetched references, and version the result. The onboarding skill remains active for missing essentials. |
 | Edit the CV | Read and edit the actual master LaTeX source. Preserve unrelated sections and presentation. Compile LaTeX and report diagnostics. Data and HTML CV editing was removed on 8 October 2026. |
 | Rewrite a saved cover letter | Read the existing letter and relevant facts/posting, save a new edited version, and link to Saved → job → Cover letter. No letter is sent or submitted. |
 
@@ -72,9 +74,11 @@ The current page/document is a context hint; explicit user intent persists acros
 
 **Attach files** accepts PDF, UTF-8 text (`txt`, `md`, `csv`, `json`, `tex`), PNG, JPEG and WebP. Pasting an image into the composer attaches it with a preview and Remove action. Files can be sent without additional text. Draft attachment metadata survives reload in the same tab; submitted attachments stay available to follow-ups in the current conversation.
 
+File-only messages use the neutral text “Attached files.” instead of inventing a read-only instruction. Retries of older file-only messages remain idempotent. During profile setup, supplying a personal résumé starts importing its supported facts; if ownership is unclear, an ordinary confirmation continues that request without a prescribed sentence or second import command. An explicit request only to read or review a document remains read-only. The assistant quotes the original attachment evidence for each fact, retains attribution, and asks only for missing essentials. Evidence quotes need not occur in the latest short confirmation. The application registers quoted sources automatically; the assistant edits career fields rather than the source registry.
+
 An absolute path or `~/` path on its own line (or quoted inline) imports exactly that user-supplied file when the request comes from the local computer. This resolves the reported Downloads PDF failure without giving the model a filesystem tool. Paths inside documents or model output are never opened. Credential directories and application-state files are excluded, including resolved symlinks. Home-network clients use Attach files instead of accessing the server's filesystem.
 
-Each file is at most 10 MB; a message has at most five files totalling 20 MB. PDF extraction runs in a bounded worker with a 15-second timeout, 80-page limit and 100,000-character limit. Scanned PDFs without extractable text produce an actionable error; attach screenshots of those pages. Text files also have a 100,000-character limit. Inference retains bounded recent context: at most 20 attachments from the last 40 messages, 180,000 text characters and five images/20 MB, preferring recent attachments. Truncated text is marked.
+Each file is at most 10 MB; a message has at most five files totalling 20 MB. PDF extraction runs in a bounded child process (192 MiB JavaScript heap) with a 15-second timeout, 80-page limit and 100,000-character limit. Scanned PDFs without extractable text produce an actionable error; attach screenshots of those pages. Text files also have a 100,000-character limit. Inference retains bounded recent context: at most 20 attachments from the last 40 messages, 180,000 text characters and five images/20 MB, preferring recent attachments. Truncated text is marked.
 
 Assistant replies render `[attachment:ID]` citations as clickable filenames using current-conversation metadata, including replies saved before this renderer existed. Unknown/deleted IDs show “Attachment unavailable”; code examples remain literal. Filename text is rendered safely, without interpreting it as Markdown. Read-only answers receive no automatic save footer; repeated legacy “No changes saved” footers collapse to one at render time.
 
@@ -93,9 +97,11 @@ The app-wide assistant is the only conversation engine. Old `/api/profile/chat` 
 - Changes stay in memory until completion. Profile, document versions, evidence audit, saved-version receipts and final reply commit together in one SQLite transaction. Nested savepoints allow existing store operations to participate. Conflicting versions, invalid fields, unresolved edit failures, cancellation and restarts do not commit staged edits.
 - PDF compilation happens before commit. The agent can fix diagnostics and recompile. If it finishes with an unavailable/failed compiler, the source is still versioned and the final receipt explicitly says the preview failed; the previous PDF remains available. Successful compilation is not a guarantee that every layout or factual choice is ideal.
 - Migration 009 adds engine/context/activity/receipt fields and an action audit to the existing persistent chat tables. Previous profile conversations and queued legacy turns are retained. The global UI uses `/api/assistant`; existing profile APIs remain compatible. The same active-turn constraint and worker/runtime leases serialize work. The worker checks for queued chat every second and scans yield between sources.
-- A turn has at most ten inference rounds, five actions per round, eight public-reference HTTP requests and bounded document/context sizes. Reference pages are capped at 3 MB and 24,000 extracted characters. The UI shows progress and supports Stop; final replies appear after validation and saving, without token streaming.
+- A turn has at most ten normal inference rounds plus two response-correction rounds, five actions per round, eight public-reference HTTP requests and bounded document/context sizes. Reference pages are capped at 3 MB and 24,000 extracted characters. The UI shows progress and supports Stop; final replies appear after validation and saving, without token streaming.
 
 ## Boundaries and recovery
+
+Completed but unparseable model output, invalid step fields, an empty intermediate step, a contradictory finish, or an attempted finish with unresolved edit errors receives bounded application feedback within the same turn. The UI shows “Correcting the response…” while that correction runs. Successful staged actions remain available and must not be repeated; all changes still commit together only after valid completion. Repeated failure leaves messages/attachments intact and saves nothing. Field-path errors identify the rejected path and how to correct it; they do not ask users for special wording. Authentication, allowance, model access, transport failure, cancellation and interrupted streams do not trigger this correction mechanism. Restart recovery still requires explicit Retry.
 
 Public references are read-only GETs to user-supplied/profile URLs and concrete same-origin links returned by earlier reads (up to 80 links per source). Within a supplied GitHub repository, the assistant may construct commit lists/details and PR lists/details/files URLs; author filters must name an account mentioned by the user. These contribution routes map deterministically to public GitHub API GETs, without credentials; repository roots still map to README. Lists are bounded to 30 results, with the existing eight-request/24,000-character limits, so findings must not imply an exhaustive contribution audit. The assistant should fetch known in-scope URLs itself, asking for content only when retrieval actually fails.
 
@@ -108,6 +114,10 @@ The assistant cannot access app credentials, run shell commands, explore the loc
 All edits create versions. Restore profile/CV/letter versions with their existing editor controls. Saved-version receipts link to the correct view. Clean editors refresh after completion; dirty or historical editors retain their text and show a notice. Manual saves carry expected version identifiers so they cannot silently overwrite an assistant edit. Save a local copy before reloading if concurrent edits need to be reconciled. Retry rereads current records rather than blindly replaying old writes.
 
 ## Verification commands
+
+[Onboarding recovery — 21 October 2026](../verification/runs/2026-10-21-assistant-onboarding.md) records regression reproduction, PDF upload/profile persistence and browser recovery with simulated inference. Live-model onboarding on a clean Windows installation and extraction of the reported original PDF remain unverified.
+
+`npx tsx --test tests/assistant-onboarding.test.ts tests/attachments.test.ts tests/assistant.test.ts tests/profile-chat.test.ts tests/pi-runtime.test.ts` checks the affected boundaries. After `npm run build`, `npx tsx scripts/verify-assistant-onboarding.ts` starts an empty isolated database, uploads a synthetic PDF through the actual picker, sends a natural confirmation, injects an empty-action response, observes automatic correction, and checks the saved profile after reload. It starts no scheduler and uses simulated inference.
 
 [Windows Pi verification — 20 October 2026](../verification/runs/2026-10-20-windows-pi.md) records Windows attachment browser checks and packaged PDF extraction coverage, with live Windows model inference remaining separate.
 

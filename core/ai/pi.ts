@@ -13,6 +13,16 @@ const provider = openaiProvider();
 delete provider.auth!.apiKey;
 models.setProvider(provider);
 class AiRequestError extends Error {}
+// Only completed responses with unusable application output are repairable.
+// Authentication, allowance, transport and cancellation errors are never retried.
+export class StructuredResponseError extends AiRequestError {
+  constructor(
+    message: string,
+    readonly usage?: unknown,
+  ) {
+    super(message);
+  }
+}
 export function inferenceError(message: string) {
   if (
     /subscription_sharing_usage_limit|usage.limit|rate.limit|quota|429/i.test(
@@ -86,7 +96,7 @@ export function finalResponseText(
   const final = blocks.filter((part) => phase(part) === "final_answer");
   if (final.length) return final.map((part) => part.text || "").join("\n");
   if (blocks.some((part) => phase(part) === "commentary"))
-    throw new AiRequestError(
+    throw new StructuredResponseError(
       "The model did not return a final answer. Retry when ready.",
     );
   return contentText(
@@ -166,7 +176,14 @@ export async function infer<T>(
       throw new AiRequestError(
         inferenceError(answer.errorMessage || answer.stopReason),
       );
-    const text = finalResponseText(answer.content);
+    let text: string;
+    try {
+      text = finalResponseText(answer.content);
+    } catch (error) {
+      if (error instanceof StructuredResponseError)
+        throw new StructuredResponseError(error.message, answer.usage);
+      throw error;
+    }
     if (text.length > 2000000)
       throw new AiRequestError(
         "The model returned too much output. Ask for a smaller change.",
@@ -174,8 +191,9 @@ export async function infer<T>(
     try {
       return { result: JSON.parse(text) as T, usage: answer.usage };
     } catch {
-      throw new AiRequestError(
+      throw new StructuredResponseError(
         "The model returned an invalid structured response. Retry when ready.",
+        answer.usage,
       );
     }
   } catch (error) {

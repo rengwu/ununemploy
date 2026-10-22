@@ -474,6 +474,24 @@ export function SettingsPage({
             />
           </section>
           <BackupSettings />
+          {boot.build && (
+            <section>
+              <h2>Version</h2>
+              <p>
+                ununemploy {boot.build.version}
+                {boot.build.revision
+                  ? ` (${boot.build.revision.slice(0, 8)})`
+                  : ""}
+              </p>
+              <a
+                href="https://github.com/rengwu/ununemploy/releases"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Download updates
+              </a>
+            </section>
+          )}
         </div>
         <form
           onSubmit={async (e) => {

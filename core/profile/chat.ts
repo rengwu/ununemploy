@@ -202,7 +202,7 @@ export function applyProfileEdits(
       !evidence.some((e) => e.text.includes(edit.evidenceQuote))
     )
       throw new Error(
-        "A profile change was not supported by a quote from your message. No facts were changed.",
+        `The evidenceQuote for ${edit.path} was not found in the supplied user messages, attachment text or read references. Use an exact supporting excerpt from those sources. This edit batch was not staged; correct it without asking the user to repeat existing evidence.`,
       );
     const parts = edit.path
       .split("/")
@@ -227,7 +227,7 @@ export function applyProfileEdits(
       (root === "basics" && parts[1] === "sources")
     )
       throw new Error(
-        "The assistant attempted an unsupported profile change. No facts were changed.",
+        `Unsupported profile path ${edit.path}. Edit individual fields such as /basics/name or /preferences/roleFamilies, or append a record with /experience/- or /facts/-. Evidence sources are registered automatically; do not edit /sources or /basics/sources. This edit batch was not staged; correct the path using read_profile, not the user's wording.`,
       );
     if (root === "facts" && !next.facts) next.facts = [];
     let parent: any = next;
@@ -238,7 +238,7 @@ export function applyProfileEdits(
         typeof parent[key] !== "object"
       )
         throw new Error(
-          "The profile field to update does not exist. Ask for a more specific correction.",
+          `The parent of ${edit.path} does not exist. Read the current profile and use its schema; append a complete record before editing its fields. This edit batch was not staged.`,
         );
       parent = parent[key];
     }

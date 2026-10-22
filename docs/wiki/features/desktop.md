@@ -1,7 +1,7 @@
 ---
 title: Native desktop app
 section: Features
-updated: 2026-10-20
+updated: 2026-10-23
 ---
 # Native desktop app
 
@@ -92,36 +92,53 @@ Window routing/filter state is tied to the saved local origin. If another applic
 
 ## Windows 11 x64
 
-The local Windows package is `build/desktop/windows/ununemploy.exe`, with `resources/` beside it. Keep the directory together. The Go host uses Win32 and `github.com/wailsapp/go-webview2` v1.0.23 with the installed Microsoft Edge WebView2 Evergreen Runtime. It has ordinary Windows window controls and **File → Quit ununemploy**, without the macOS traffic-light inset. Close hides the window and leaves services running; reopening activates the same instance. Quit checks unsaved edits before stopping services. Local HTTP/blob downloads use native Save As; explicit external HTTP(S) links open the default browser. Scripted remote navigation cannot replace the application.
+The user approved smaller packaging and smooth installation on 23 October. The [delivery journal](../journal/2026-10-21-windows-delivery.md) retains the initial measurements and accepted direction. Download the versioned **setup.exe** from [GitHub Releases](https://github.com/rengwu/ununemploy/releases), run it, and open **ununemploy** from the Start menu. Testers need no ZIP, source checkout, Node, npm, Go or manual folder copying.
 
-Default personal data is `%LOCALAPPDATA%\ununemploy`, including SQLite, `desktop.env`, local logs, instance state, and the `webview2/` browser store. It is outside the installation. `JH_DESKTOP_DATA_DIR` selects isolated data for tests; ordinary new databases start empty. Pi keeps its app-owned connection in `pi-auth/` under appdata; existing Codex authentication remains separate and untouched. No credentials or personal records are included in the package.
+The intermediate build lives in `build/desktop/windows`; setup installs it together. The Go host uses Win32 and go-webview2 v1.0.23 with Microsoft Edge WebView2 Evergreen. Close hides the window and leaves services running; reopening activates the same instance. **File > Quit ununemploy** checks unsaved edits before stopping services. Downloads use native Save As. Explicit HTTP(S) links open the default browser; scripted remote navigation cannot replace the application.
 
-Windows uses `LockFileEx` for one instance per data directory. A plain Node bootstrap waits for the launcher to attach a kill-on-close Job Object before importing application code. The Node API binds loopback, falls back from an occupied preferred port, and publishes its actual address through a private readiness file. Worker IPC provides graceful shutdown; the Job Object reaps remaining descendants on Quit or launcher death. No Unix socket inheritance or process-group signal is assumed on Windows.
+Personal data remains in `%LOCALAPPDATA%\ununemploy`, outside the installation: SQLite, desktop.env, logs, instance state, webview2 and pi-auth. Ordinary new databases start empty. Existing Codex credentials remain separate. `JH_DESKTOP_DATA_DIR` selects isolated test data. No credentials or candidate records enter packages.
 
-The package includes Node, the OpenAI-only pi-ai bundle, checksum-pinned Tectonic 0.15.0, generic offline TeX assets, the Windows compiler isolation helper, and Playwright's headless Chromium. LaTeX uses a Windows AppContainer without network capabilities, private copies of the compiler/cache, an isolated writable work directory, and an atomically attached one-process Job Object. Only the expected bounded PDF returns to the caller. Compiler failure, timeout or unavailable isolation preserves saved source. The generic AppContainer profile is named `ununemploy.tex`; compiler inputs and outputs stay in temporary directories, not that profile. See [LaTeX CV](master-cv.md).
+Windows uses LockFileEx for one instance per data directory. A plain Node bootstrap waits for Job Object ownership before importing application code. The API binds loopback, falls back from an occupied preferred port and publishes readiness privately. Worker IPC supplies graceful shutdown; the Job Object reaps descendants on Quit or launcher death.
+
+### Runtime package
+
+The package includes Node, compiled API/worker code with the selected Pi provider, PDF.js and its Windows native dependency, checksum-pinned Tectonic 0.15.0, generic offline TeX assets and the compiler isolation helper. Frontend dependencies are compiled into web assets. Runtime compilation tools, development source trees and a separate Chromium are absent. Explicit assets include migrations, geography/timezones, the profile skill and LaTeX starter. Third-party notices accompany bundled code.
+
+Cover-letter and legacy HTML CV PDF exports use a short-lived invisible WebView2 with a fresh temporary profile, disabled scripts/host bridges and blocked resource requests/navigation. Only a fixed print operation is exposed, with no debugging port. Native Save As is unchanged. Browser/Unraid and macOS retain Playwright PDF export. PDF attachment extraction runs in a bounded Node child process so a native parser crash cannot terminate the API.
+
+LaTeX remains offline through the bundled compiler/cache. Its Windows AppContainer has no network capabilities, private compiler/cache copies, an isolated work directory and an atomically attached one-process Job Object. Only a bounded PDF returns. Failures preserve saved source. The generic profile is named ununemploy.tex; private input/output stays in temporary directories. See [LaTeX CV](master-cv.md).
 
 ### Build, install and update
 
-Build on Windows x64 with Node 22.19+, npm dependencies and Go 1.24+. The build generates the OpenAI-only Pi module. Go race tests additionally need a compatible C compiler. The [20 October Windows check](../verification/runs/2026-10-20-windows-pi.md) uses Node 22.23.3, Go 1.26.5 and pi-ai 1.3.0, with a fresh staged production dependency installation. Initial build downloads generic compiler/browser resources.
+Build on Windows x64 with Node 22.19+, npm dependencies, Go 1.24+ and Inno Setup. The release workflow pins Node 22.23.3 and Go 1.26.5; pi-ai remains 1.3.0. Initial builds download generic TeX resources and retain them under build/desktop/windows-compiler.
 
 ```powershell
 npm ci
-npm run desktop:build
-npm run desktop:test
-node --import tsx scripts/verify-desktop-windows.ts
-npm run desktop:install
+npm run desktop:build:windows
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-windows-builder.ps1
+npm run desktop:setup:windows
+node --import tsx scripts/verify-windows-setup.ts
+node --import tsx scripts/verify-windows-pdf.ts
 ```
 
-`desktop:build:windows` is an explicit equivalent. `--reuse-runtimes` reuses matching production npm dependencies; compiler/browser download caches are retained under `build/desktop/`. Building stages a complete package before replacement and refuses to replace a running built app. Build metadata records runtime versions and executable hashes in `resources/build.json`.
+The builder stages a complete package and refuses to replace a running built app. It bundles from the current installed lockfile dependencies on every build. Build metadata records version, source revision and hashes; Settings > General displays version/revision and links to downloads.
 
-`desktop:install` runs the package's `install.ps1`. It installs per user under `%LOCALAPPDATA%\Programs\ununemploy` and creates a Start-menu shortcut. Quit the installed app before updating. Installation stages the complete directory and uses same-volume directory renames, restoring the previous package if publication fails. Locked files cannot cause a partial recursive move. It never imports, overwrites or deletes personal records. The Windows installer does not repoint the development `.env`. Use Settings ZIP export/import for deliberate personal-data transfer. From an extracted package, run `powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1`; `-Destination <directory> -NoShortcut` supports isolated installation tests. Keep installation and appdata separate.
+Setup output is `build/releases/ununemploy-<version>-windows-x64-setup.exe`, a SHA-256 file and windows-release.json with measured sizes. The builder helper downloads Inno Setup 7.1.0 from its immutable official release, checks SHA-256 and publisher signature, and installs it under build/tools/inno. Alternatively set ISCC to an existing compiler. Testers do not need this tooling.
 
-The builder records every package file's path, size and SHA-256 in `resources/package-files.json`, excluding the inventory itself. Installation validates the source and staged copy before replacing an application. Missing, altered or unlisted files, duplicate/traversing inventory paths, and package or installation-path junctions are rejected. Existing older packages can be replaced or repaired without requiring the new inventory. The inventory detects incomplete copies and accidental changes; it does not authenticate an unsigned publisher. If cleanup of retired application files fails after a successful publication, installation reports their retained path rather than claiming the update failed.
+Setup installs per user under `%LOCALAPPDATA%\Programs\ununemploy`, creates a Start menu shortcut and registers a Windows uninstaller. Quit before updating: closing the window keeps services running. No elevated installation or application login is required. Setup verifies checksums before changing files, stages the complete package, and uses same-volume directory renames with rollback. The previous package is retained until setup finishes; cancellation or an installation error restores it. Uninstall checks running processes and unsafe paths before removing application files. Both preserve personal data; use Settings ZIP export/import for deliberate data transfer.
 
-Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Check` from the package directory for a read-only checksum/prerequisite check. The installer checks Windows x64 and Microsoft's documented per-user/per-machine Evergreen WebView2 registrations before modifying the destination. If WebView2 is missing, it supplies the official download URL; no runtime is silently downloaded or installed. [Microsoft's distribution guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution) describes these registry checks and the manual-install option.
+The inventory records every package file's relative path, length and SHA-256. Missing, altered or unlisted files, duplicate/traversing paths and junctions are rejected. Older packages can be repaired without requiring their original hashes. Checksums detect incomplete copies and accidental changes, not publisher authenticity. Failed cleanup after a successful update reports the retired directory.
 
-The Windows package is unsigned. WebView2 must already be installed. Clean-machine installation, Windows versions other than the tested Windows 11 x64 build, ARM64, signing, automatic updates and a newly signed-out interactive login remain unverified. This local port does not establish a supported public release or reverify macOS.
+The compiled setup checks Microsoft's per-user/per-machine Evergreen registrations. If absent, it downloads the official WebView2 bootstrapper, validates its Microsoft publisher signature, installs per user and checks readiness. That step needs internet access. A failed prerequisite leaves an actionable setup error. Existing WebView2 requires no additional browser download. See [Microsoft's distribution guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution).
 
-[Pi runtime and attachments — 19 October 2026](../verification/runs/2026-10-19-pi-attachments.md) records the Mac runtime replacement, attachment lifecycle, native installation and preserved data.
+The lower-level `npm run desktop:install` PowerShell path remains available for developers; it requires WebView2 already installed. Its `-Destination`, `-NoShortcut` and `-Check` options support diagnostics and isolated checks. It does not repoint the development .env or touch personal data.
 
-[Windows Pi verification — 20 October 2026](../verification/runs/2026-10-20-windows-pi.md) records the current build, installer, credential ACL/CRLF repairs and native/UI regressions. The unpacked Windows package is 678.0 MiB, about 32.4% smaller than the earlier Codex package. Completed Windows account sign-in and live inference remain separate from the verified OAuth start/cancel path.
+### Release automation and limits
+
+`.github/workflows/windows-release.yml` builds on Windows from a version tag or manual run, tests code and the installed native application, retains the setup artifact, and publishes tag builds as prereleases after checks pass. Tags must match package.json. The [release notes](https://github.com/rengwu/ununemploy/releases) identify the exact delivered build.
+
+The installer is an unsigned beta; Windows may show a publisher/reputation prompt. A separate clean Windows machine, missing-WebView2 provisioning, completed interactive ChatGPT sign-in and live inference remain unverified locally. ARM64, signing and automatic/delta updates are outside this delivery. Windows changes do not reverify macOS.
+
+[Compact Windows setup - 23 October 2026](../verification/runs/2026-10-23-windows-delivery.md) records the size reduction, installed native checks, update/uninstall retention, PDF export/isolation, and remaining live-machine limits.
+
+[Windows Pi verification - 20 October 2026](../verification/runs/2026-10-20-windows-pi.md) records the earlier 678 MiB package, credential ACL/CRLF repairs and native regressions. [Pi runtime and attachments - 19 October](../verification/runs/2026-10-19-pi-attachments.md) records the Mac migration. These are historical builds, not current package measurements.

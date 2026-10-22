@@ -1,7 +1,7 @@
 ---
 title: ununemploy wiki
 section: Overview
-updated: 2026-10-20
+updated: 2026-10-23
 order: 0
 ---
 # ununemploy wiki
@@ -25,6 +25,12 @@ Local job discovery, fit assessment, private cover-letter drafting and master CV
 - [Limitations](reference/limitations.md) and [open follow-up](discussions/open-questions.md)
 
 ## Verification and history
+
+- [Compact Windows setup - 23 October 2026](verification/runs/2026-10-23-windows-delivery.md)
+
+- [Windows delivery and package reduction — 21 October 2026](journal/2026-10-21-windows-delivery.md)
+
+- [Assistant onboarding recovery — 21 October 2026](verification/runs/2026-10-21-assistant-onboarding.md)
 
 - [Windows Pi build and bug fixes — 20 October 2026](verification/runs/2026-10-20-windows-pi.md)
 
