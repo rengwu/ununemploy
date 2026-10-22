@@ -47,6 +47,9 @@ func (w *nativeWindow) installDownloads() error {
 			return cancel()
 		}
 		uri, err := comString(uintptr(unsafe.Pointer(operation)), 9)
+		if w.debug {
+			w.traceDownload(operation)
+		}
 		operation.vtable[2].Call(uintptr(unsafe.Pointer(operation)))
 		if err != nil || (!sameOrigin(uri, w.origin) && !stringsHasLocalBlob(uri, w.origin)) {
 			log.Print("Download origin rejected")
@@ -67,7 +70,12 @@ func (w *nativeWindow) installDownloads() error {
 		w.dispatch(func() {
 			defer obj.vtable[2].Call(args)
 			defer deferral.vtable[2].Call(uintptr(unsafe.Pointer(deferral)))
-			defer deferral.vtable[3].Call(uintptr(unsafe.Pointer(deferral)))
+			defer func() {
+				hr, _, _ := deferral.vtable[3].Call(uintptr(unsafe.Pointer(deferral)))
+				if w.debug {
+					log.Printf("Download deferral completed: %x", hr)
+				}
+			}()
 			buffer := make([]uint16, 32768)
 			name, _ := windows.UTF16FromString(filepath.Base(filename))
 			copy(buffer, name)
@@ -83,6 +91,9 @@ func (w *nativeWindow) installDownloads() error {
 			}
 			if ok != 0 {
 				hr, _, _ := obj.vtable[7].Call(args, uintptr(unsafe.Pointer(&buffer[0])))
+				if w.debug {
+					log.Printf("Download destination: %q; result: %x", windows.UTF16ToString(buffer), hr)
+				}
 				if int32(hr) >= 0 {
 					obj.vtable[5].Call(args, 0)
 				} else {
@@ -99,6 +110,26 @@ func (w *nativeWindow) installDownloads() error {
 		return fmt.Errorf("Could not install native Save As: %x", hr)
 	}
 	return nil
+}
+
+// Enabled only with the isolated native verification endpoint. Ordinary
+// launches do not log document paths or retain diagnostic download handlers.
+func (w *nativeWindow) traceDownload(operation *webObject) {
+	handler := newCOMHandler(mustGUID("{81336594-7ede-4ba9-bf71-acf0a95b58dd}"), func(sender, _ uintptr) uintptr {
+		obj := (*webObject)(unsafe.Pointer(sender))
+		var state, reason int32
+		obj.vtable[16].Call(sender, uintptr(unsafe.Pointer(&state)))
+		obj.vtable[17].Call(sender, uintptr(unsafe.Pointer(&reason)))
+		path, _ := comString(sender, 15)
+		log.Printf("Download state: %d; interrupt: %d; path: %q", state, reason, path)
+		return 0
+	})
+	w.handlers = append(w.handlers, handler)
+	var token int64
+	hr, _, _ := operation.vtable[7].Call(uintptr(unsafe.Pointer(operation)), uintptr(unsafe.Pointer(handler)), uintptr(unsafe.Pointer(&token)))
+	if int32(hr) < 0 {
+		log.Printf("Download diagnostics unavailable: %x", hr)
+	}
 }
 
 func stringsHasLocalBlob(raw, origin string) bool {

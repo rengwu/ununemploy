@@ -369,6 +369,8 @@ try {
     });
   });
   await page.getByRole("button", { name: "Download PDF", exact: true }).click();
+  if (process.env.JH_WINDOWS_SAVE_DELAY_MS)
+    await delay(Number(process.env.JH_WINDOWS_SAVE_DELAY_MS));
   await until(async () => {
     await windowAction(first.state.pid, "save-download", downloaded);
     return true;

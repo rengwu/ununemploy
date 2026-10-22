@@ -48,6 +48,7 @@ type nativeWindow struct {
 	tasks        chan func()
 	handlers     []*comHandler
 	checkingQuit bool
+	debug        bool
 	closed       chan struct{}
 	closeOnce    sync.Once
 }
@@ -183,6 +184,7 @@ func runNativeWindow(s *supervisor, origin string) error {
 	chromium.DataPath = filepath.Join(s.data, "webview2")
 	// Opt-in local verification only; ordinary launches expose no debugging port.
 	if port, err := strconv.Atoi(os.Getenv("JH_DESKTOP_DEBUG_PORT")); err == nil && port > 1024 && port < 65536 && os.Getenv("JH_DESKTOP_DATA_DIR") != "" {
+		w.debug = true
 		chromium.AdditionalBrowserArgs = []string{fmt.Sprintf("--remote-debugging-port=%d", port), "--remote-debugging-address=127.0.0.1"}
 	}
 	chromium.SetGlobalPermission(edge.CoreWebView2PermissionStateDeny)

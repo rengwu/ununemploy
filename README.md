@@ -8,9 +8,11 @@ For daily use on macOS, open **ununemploy.app** from Applications or Spotlight. 
 
 On Windows 11 x64, download the **setup.exe** from [Releases](https://github.com/rengwu/ununemploy/releases), run it, then open **ununemploy** from the Start menu. No ZIP, folder copying or developer tools are needed. Setup installs Microsoft WebView2 automatically if needed. For updates, use **File → Quit ununemploy**, then run the new setup. Installation and uninstall preserve personal data. Beta installers are unsigned. See [Windows build, installation and verification](docs/wiki/features/desktop.md#windows-11-x64).
 
+On first launch, connect your ChatGPT subscription in **Settings → AI**, then use the assistant to build your profile or attach your résumé.
+
 For development:
 
-Requires Node 22.19+. Connect your ChatGPT subscription in Settings → AI.
+Requires Node 22.19+.
 
 ```sh
 npm ci
