@@ -133,6 +133,34 @@ try {
       boot = await fetch(state.url + "/api/bootstrap").then((r) => r.json());
     }
     assert.equal(boot.counts.total, 0);
+    if (boot.ai.state !== "signed_out") {
+      // Diagnose only this empty synthetic fixture, never the user's appdata.
+      const probe = await exec(
+        process.execPath,
+        [
+          "--import",
+          "tsx",
+          "--input-type=module",
+          "-e",
+          "const {credentials}=await import('./core/ai/pi-credentials.ts'); try { console.log(await credentials.read('openai')); } catch(error) { console.error(error); process.exitCode=1; }",
+        ],
+        {
+          env: { ...freshEnv, JH_DATA_DIR: personal, JH_PROFILE_SEED: "" },
+          windowsHide: true,
+        },
+      ).catch((error) => error);
+      console.error(
+        "Synthetic first-run credential diagnostic:",
+        boot.ai,
+        probe.stdout,
+        probe.stderr,
+      );
+      console.error(
+        await readFile(join(personal, "desktop.log"), "utf8").catch(
+          () => "No synthetic desktop log",
+        ),
+      );
+    }
     assert.equal(boot.ai.state, "signed_out");
     await exec(executable, ["--quit"], { env: freshEnv, windowsHide: true });
     await Promise.race([

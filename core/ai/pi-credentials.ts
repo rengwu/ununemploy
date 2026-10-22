@@ -84,10 +84,14 @@ function privateDirectory() {
         maxBuffer: 16000,
       },
     );
-  })().catch(() => {
+  })().catch((cause) => {
     directoryReady = undefined;
+    // The fixed permission script never receives tokens. Keep its actual failure
+    // in the private desktop log while the user receives an actionable message.
+    console.error("ChatGPT credential permission check failed:", cause);
     throw new Error(
       "Cannot secure the ChatGPT connection files. Check appdata permissions.",
+      { cause },
     );
   }));
 }
@@ -155,6 +159,7 @@ export const credentials = {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
       throw new Error(
         "Cannot read the saved ChatGPT connection. Sign in again.",
+        { cause: error },
       );
     }
   },
