@@ -1,4 +1,6 @@
 # Read-only package/prerequisite checks, shared by install.ps1 and its tests.
+# Use this shell's modules even when launched through Node from PowerShell 7.
+$env:PSModulePath = $PSHOME + '\Modules'
 function Assert-PlainPath([string]$Path) {
   $cursor = [IO.Path]::GetFullPath($Path)
   while ($cursor) {

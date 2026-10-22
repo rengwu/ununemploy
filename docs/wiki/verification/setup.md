@@ -1,7 +1,7 @@
 ---
 title: Verification setup
 section: Verification
-updated: 2026-10-20
+updated: 2026-10-23
 ---
 # Verification setup
 
@@ -33,7 +33,7 @@ Use `noDefaults:true` when attaching Playwright so it does not replace native do
 
 The Windows driver also asserts the opening Jobs heading, checks timezone-map keyboard input, starts/cancels the actual bundled Pi OAuth flow twice without opening the external sign-in page, checks private host-ID permissions, and attaches its downloaded synthetic PDF to verify extraction and draft reload. `JH_WINDOWS_VERIFY_OUTPUT` selects an alternative local evidence directory. It does not complete account authentication or send model requests.
 
-For the full Node suite with bundled document runtimes, set `PLAYWRIGHT_BROWSERS_PATH`, `JH_TECTONIC_BIN`, `JH_LATEX_CACHE` and `JH_LATEX_SANDBOX` to their `build/desktop/windows/resources/` paths, then run `npm test`. Windows tests use real filesystem URLs, a synthetic Pi transport response and ACL assertions; the Homebrew-only scenario skips on Windows. To separately verify actual subscription/model access, `JH_PI_VERIFY_CREDENTIALS=/private/path/credentials.json npx tsx scripts/verify-pi-app.ts` exercises the current runtime with synthetic PDF/image data (set `JH_PI_VERIFY_APP` to a built app root to verify its bundle) and consumes ChatGPT allowance. It sends no candidate facts and does not switch model or billing method.
+For the full Node suite, install the development Playwright Chromium with `npx playwright install chromium`; the compact Windows package no longer ships a separate browser. Set `JH_TECTONIC_BIN`, `JH_LATEX_CACHE` and `JH_LATEX_SANDBOX` to their `build/desktop/windows/resources/` paths, then run `npm test`. Windows tests use real filesystem URLs, a synthetic Pi transport response and ACL assertions; the Homebrew-only scenario skips on Windows. To separately verify actual subscription/model access, `JH_PI_VERIFY_CREDENTIALS=/private/path/credentials.json npx tsx scripts/verify-pi-app.ts` exercises the current runtime with synthetic PDF/image data (set `JH_PI_VERIFY_APP` to a built app root to verify its bundle) and consumes ChatGPT allowance. It sends no candidate facts and does not switch model or billing method.
 
 For installation tests, run the built `install.ps1` with a fresh workspace-local `-Destination` and `-NoShortcut`, then pass its executable to the native driver. Repeat installation only after Quit and verify replacement hashes and separate fixture-data retention. These tests do not establish clean-machine or fresh-login support.
 
@@ -41,7 +41,7 @@ For installation tests, run the built `install.ps1` with a fresh workspace-local
 
 ### Shared browser and API
 
-`npx tsx scripts/verify-assistant-onboarding.ts` uses an empty temporary database with scanning disabled. It exercises the initial open assistant, PDF file picker/extraction, a natural ownership follow-up, correction progress after a simulated empty-action response, save receipts, reload and visible canonical facts. Model inference is simulated. It writes synthetic evidence under `.local-data/verification/assistant-onboarding/` and closes its browser/server/database. On Windows with only bundled runtimes available, use `build/desktop/windows/resources/bin/node.exe --import tsx` instead of `npx tsx`, and set `PLAYWRIGHT_BROWSERS_PATH` to the bundled `resources/browsers` directory.
+`npx tsx scripts/verify-assistant-onboarding.ts` uses an empty temporary database with scanning disabled. It exercises the initial open assistant, PDF file picker/extraction, a natural ownership follow-up, correction progress after a simulated empty-action response, save receipts, reload and visible canonical facts. Model inference is simulated. It writes synthetic evidence under `.local-data/verification/assistant-onboarding/` and closes its browser/server/database. On Windows, the packaged `build/desktop/windows/resources/bin/node.exe --import tsx` can replace `npx tsx` when running from this checkout with development dependencies installed. This browser driver requires a separate development Playwright Chromium installation; the compact application uses system WebView2.
 
 `npx tsx scripts/verify-timezone-ui.ts` uses synthetic Malaysia, Nepal, US and Worldwide jobs with scanning/inference disabled. It checks pointer and keyboard range/offset input, fixed handle coordinates with effective rotated labels, wrapped map geometry, identical full-turn endpoints, matching map countries, filtering, independent range/offset reload/Saved persistence, Escape focus return, light/dark/mobile layout, map error/retry and clearing. Build first. Evidence goes to `.local-data/verification/timezone-labels/`; the driver removes its temporary database and browser/server. `tests/timezones.test.ts` checks seasonal offsets, multi-zone countries, shared map/server matching, date-line equivalence and unresolved locations; `tests/job-query.test.ts` checks API composition, serialized offsets, wrapped rotation and invalid inputs.
 

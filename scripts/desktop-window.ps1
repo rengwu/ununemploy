@@ -4,6 +4,7 @@ param(
   [string]$SavePath
 )
 $ErrorActionPreference = 'Stop'
+$env:PSModulePath = $PSHOME + '\Modules'
 if ($Action -eq 'processes') {
   $processes = @(Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId)
   $owned = [System.Collections.Generic.HashSet[int]]::new()

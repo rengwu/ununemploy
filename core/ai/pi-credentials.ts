@@ -49,6 +49,9 @@ function privateDirectory() {
         "-Command",
         `
         $ErrorActionPreference = 'Stop'
+        # A PowerShell 7 parent can pass incompatible modules through Node.
+        # This fixed Windows PowerShell script needs only its system modules.
+        $env:PSModulePath = $PSHOME + '\\Modules'
         $directory = Get-Item -LiteralPath $env:JH_PI_AUTH_DIRECTORY -Force
         $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User
         $items = @($directory)

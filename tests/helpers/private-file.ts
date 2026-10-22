@@ -14,6 +14,7 @@ export function assertPrivateFile(path: string) {
       "-NoProfile",
       "-Command",
       [
+        "$env:PSModulePath = $PSHOME + '\\Modules'",
         "$acl = Get-Acl -LiteralPath $env:JH_TEST_PRIVATE_FILE",
         "$rules = @($acl.Access | Where-Object { $_.AccessControlType -eq 'Allow' -and ($_.FileSystemRights -band 1) -ne 0 } | ForEach-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value })",
         "ConvertTo-Json -Compress -InputObject @($rules | Where-Object { $_ -in @('S-1-1-0','S-1-5-11','S-1-5-32-545') })",

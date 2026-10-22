@@ -34,7 +34,7 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: node -e "if ('v'+require('./package.json').version !== process.env.RELEASE_TAG) throw Error('Tag and package version differ')"
       - name: Tests
-        run: node --import tsx --test tests/assistant-onboarding.test.ts tests/assistant.test.ts tests/profile-chat.test.ts tests/attachments.test.ts tests/pi-runtime.test.ts
+        run: node --import tsx --test tests/assistant-onboarding.test.ts tests/assistant.test.ts tests/profile-chat.test.ts tests/attachments.test.ts tests/pi-runtime.test.ts tests/pi-windows-environment.test.ts
       - name: Native tests
         working-directory: desktop
         run: go test ./...
@@ -50,6 +50,17 @@ jobs:
         run: node --import tsx scripts/verify-windows-pdf.ts
       - name: Installer integrity regressions
         run: node --import tsx --test tests/windows-installer.test.ts
+      - name: Retain verification results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-verification
+          path: |
+            .local-data/verification/setup/results.json
+            .local-data/verification/setup/partial-results.json
+            .local-data/verification/setup/native/results.json
+            .local-data/verification/windows-pdf/results.json
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: ununemploy-windows-setup

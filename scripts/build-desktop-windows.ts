@@ -56,7 +56,7 @@ const processes: string[] = JSON.parse(
     [
       "-NoProfile",
       "-Command",
-      "ConvertTo-Json -Compress -InputObject @(Get-CimInstance Win32_Process -Filter \"Name='ununemploy.exe'\" | Select-Object -ExpandProperty ExecutablePath)",
+      "$env:PSModulePath = $PSHOME + '\\Modules'; ConvertTo-Json -Compress -InputObject @(Get-CimInstance Win32_Process -Filter \"Name='ununemploy.exe'\" | Select-Object -ExpandProperty ExecutablePath)",
     ],
     { encoding: "utf8", windowsHide: true },
   ),
