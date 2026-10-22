@@ -62,7 +62,7 @@ Native UI checks: open the app, edit/save a synthetic LaTeX CV, compile and insp
 
 ## Coverage and limitations
 
-The user chose to implement/evaluate a lighter Pi runtime on Mac first on 18 October. The [package-size assessment and handoff](../journal/2026-10-18-pi-runtime-handoff.md) records the measured Windows payload and the proposed `pi-ai` starting point. The 19 October implementation replaces the runtime on Mac; Windows packaging is updated in source and requires a new Windows-machine verification. See [AI runtime](ai-runtime.md).
+The user chose to implement/evaluate a lighter Pi runtime on Mac first on 18 October. The [package-size assessment and handoff](../journal/2026-10-18-pi-runtime-handoff.md) records the original Windows payload and proposed `pi-ai` starting point. Mac implementation followed on 19 October and [Windows verification](../verification/runs/2026-10-20-windows-pi.md) on 20 October. The current compact Windows package is described below. See [AI runtime](ai-runtime.md).
 
 The macOS bundle is approximately 1.1 GB because it includes the model/runtime and document-export dependencies. Its native UI uses the system webview. The Mac build is locally ad-hoc signed, not Developer ID signed or notarized for distribution. No Linux desktop package, automatic update system, login item, or tray icon is provided. Unraid remains an independent hosting target; no server deployment is implied.
 
@@ -106,7 +106,7 @@ The package includes Node, compiled API/worker code with the selected Pi provide
 
 Cover-letter and legacy HTML CV PDF exports use a short-lived invisible WebView2 with a fresh temporary profile, disabled scripts/host bridges and blocked resource requests/navigation. Only a fixed print operation is exposed, with no debugging port. Native Save As is unchanged. Browser/Unraid and macOS retain Playwright PDF export. PDF attachment extraction runs in a bounded Node child process so a native parser crash cannot terminate the API.
 
-LaTeX remains offline through the bundled compiler/cache. Its Windows AppContainer has no network capabilities, private compiler/cache copies, an isolated work directory and an atomically attached one-process Job Object. Only a bounded PDF returns. Failures preserve saved source. The generic profile is named ununemploy.tex; private input/output stays in temporary directories. See [LaTeX CV](master-cv.md).
+LaTeX remains offline through the bundled compiler/cache. Its Windows AppContainer has no network capabilities, private compiler/cache copies, an isolated work directory and an atomically attached one-process Job Object. Only a bounded PDF returns. Failures preserve saved source. The generic profile is named ununemploy.tex; private input/output stays in temporary directories. The native launcher resolves the per-user Windows LocalAppData known folder for compiler temporary files, independently of inherited TEMP aliases or custom parent folders; each isolated work directory is removed after use. See [LaTeX CV](master-cv.md).
 
 ### Build, install and update
 

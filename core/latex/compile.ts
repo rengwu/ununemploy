@@ -102,7 +102,11 @@ export async function compileLatex(
         503,
       );
     });
-    work = await realpath(await mkdtemp(join(tmpdir(), "ununemploy-latex-")));
+    const temporary =
+      process.platform === "win32" && process.env.JH_LATEX_TEMP
+        ? process.env.JH_LATEX_TEMP
+        : tmpdir();
+    work = await realpath(await mkdtemp(join(temporary, "ununemploy-latex-")));
     await mkdir(join(work, "out"));
     await writeFile(join(work, "resume.tex"), source, { mode: 0o600 });
     const compilerArgs = [

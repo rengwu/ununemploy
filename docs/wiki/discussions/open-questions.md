@@ -1,7 +1,7 @@
 ---
 title: Open questions and follow-up
 section: Discussions
-updated: 2026-10-21
+updated: 2026-10-23
 ---
 # Open questions and follow-up
 
@@ -10,7 +10,7 @@ This page distinguishes unfinished verification and implementation from decision
 | Item | Current state | Next evidence needed |
 | --- | --- | --- |
 | Fresh Windows résumé onboarding | User reported attachment-reading, special-phrase demands, rejected profile edits and empty-action failures on another clean installation. Contradictory evidence guidance, misleading path errors, invented file-only instructions and missing bounded response correction are repaired locally; see the [21 October run](../verification/runs/2026-10-21-assistant-onboarding.md) | Verify a complete live-model onboarding conversation on a clean Windows installation. The original PDF and remote-machine action trace were not available; extraction quality and the exact rejected path remain unverified. |
-| Pi runtime and package size | Mac implementation and live exact-model compatibility are verified. The Windows package now has compiled runtime code and system WebView2 PDF export; the initial setup prototype is about 46 MiB downloaded and 208 MiB unpacked. See the [23 October delivery run](../verification/runs/2026-10-23-windows-delivery.md). Pi Durable remains deferred | Complete fresh Windows ChatGPT sign-in and live inference before claiming authenticated Windows compatibility. See [AI runtime](../features/ai-runtime.md) and the historical [Mac-first handoff](../journal/2026-10-18-pi-runtime-handoff.md). |
+| Pi runtime and package size | Mac implementation and live exact-model compatibility are verified. The compact Windows package has compiled runtime code and system WebView2 PDF export; the measured local setup is about 46 MiB downloaded and 209 MiB unpacked. See the [23 October delivery run](../verification/runs/2026-10-23-windows-delivery.md). Pi Durable remains deferred | Complete fresh Windows ChatGPT sign-in and live inference before claiming authenticated Windows compatibility. See [AI runtime](../features/ai-runtime.md) and the historical [Mac-first handoff](../journal/2026-10-18-pi-runtime-handoff.md). |
 | Actual Unraid installation | Unverified; local container checks exist | Run on the intended server, verify persistence and native Landlock compilation; [guide](../guides/unraid.md). |
 | Windows and Linux native releases | Windows now produces a single compiled per-user setup executable, a conventional uninstaller and versioned release automation, with tested integrity, replacement and retention. Linux remains an assessed future option | Clean-machine installation/WebView2 provisioning, fresh interactive ChatGPT login, signing and a macOS regression run remain. See the [Windows run](../verification/runs/2026-10-17-windows-port.md) and [installer follow-up](../verification/runs/2026-10-17-windows-installer.md). |
 | Web3.career authentication | Implemented, authenticated collection unverified | Configure a local token and record a bounded live scan. |

@@ -52,6 +52,14 @@ func runtimePath(resources string) string {
 	return filepath.Join(resources, "bin") + string(os.PathListSeparator) + os.Getenv("PATH")
 }
 func (s *supervisor) prepareService(port int) (func(), error) {
+	local, err := windows.KnownFolderPath(windows.FOLDERID_LocalAppData, 0)
+	if err != nil {
+		return nil, fmt.Errorf("resolve Windows compiler temporary directory: %w", err)
+	}
+	compilerTemp := filepath.Join(local, "Temp")
+	if err = os.MkdirAll(compilerTemp, 0700); err != nil {
+		return nil, fmt.Errorf("prepare Windows compiler temporary directory: %w", err)
+	}
 	job, err := windows.CreateJobObject(nil, nil)
 	if err != nil {
 		return nil, err
@@ -67,7 +75,9 @@ func (s *supervisor) prepareService(port int) (func(), error) {
 	s.cmd = exec.Command(filepath.Join(s.resources, "bin/node.exe"), "scripts/desktop-bootstrap.mjs")
 	s.cmd.Dir = filepath.Join(s.resources, "app")
 	s.cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: windows.CREATE_NO_WINDOW}
-	s.cmd.Env = append(desktopEnvironment(s.resources, s.data), "JH_DESKTOP_PORT="+strconv.Itoa(port), "JH_DESKTOP_READY="+s.platform.ready)
+	// Arbitrary TEMP parents can prevent AppContainer format-cache access.
+	// Use Windows' per-user location, independently of inherited shell variables.
+	s.cmd.Env = append(desktopEnvironment(s.resources, s.data), "JH_LATEX_TEMP="+compilerTemp, "JH_DESKTOP_PORT="+strconv.Itoa(port), "JH_DESKTOP_READY="+s.platform.ready)
 	return func() { _ = os.Remove(s.platform.ready) }, nil
 }
 func (s *supervisor) serviceStarted() error {

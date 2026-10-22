@@ -39,6 +39,7 @@ jobs:
         working-directory: desktop
         run: go test ./...
       - name: Build application
+        id: application
         run: npm run desktop:build:windows
       - name: Prepare setup compiler
         run: ./scripts/setup-windows-builder.ps1
@@ -47,8 +48,10 @@ jobs:
       - name: Exercise setup and installed application
         run: node --import tsx scripts/verify-windows-setup.ts
       - name: Verify PDF export and isolation
+        if: ${{ !cancelled() && steps.application.outcome == 'success' }}
         run: node --import tsx scripts/verify-windows-pdf.ts
       - name: Installer integrity regressions
+        if: ${{ !cancelled() && steps.application.outcome == 'success' }}
         run: node --import tsx --test tests/windows-installer.test.ts
       - name: Retain verification results
         if: always()
@@ -59,6 +62,8 @@ jobs:
             .local-data/verification/setup/results.json
             .local-data/verification/setup/partial-results.json
             .local-data/verification/setup/native/results.json
+            .local-data/verification/setup/native/partial-results.json
+            .local-data/verification/setup/native/failed-desktop.log
             .local-data/verification/windows-pdf/results.json
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4

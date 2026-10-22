@@ -91,7 +91,7 @@ async function windowAction(pid: number, action: string, savePath?: string) {
       action,
       ...(savePath ? ["-SavePath", savePath] : []),
     ],
-    { windowsHide: true },
+    { windowsHide: true, timeout: 10000 },
   );
   return JSON.parse(result.stdout);
 }
@@ -218,6 +218,8 @@ try {
         .find((page) => page.url().startsWith(first.state.url)),
     "Local page not loaded in WebView2",
   );
+  await windowAction(first.state.pid, "activate");
+  await page.waitForFunction(() => document.visibilityState === "visible");
   await page
     .getByRole("button", { name: "Open assistant", exact: true })
     .waitFor();
@@ -535,9 +537,29 @@ try {
   );
   console.log(JSON.stringify(results, null, 2));
 } catch (error) {
+  const visiblePages = await Promise.all(
+    (browser?.contexts().flatMap((context) => context.pages()) || []).map(
+      async (page) => ({
+        visibility: await page
+          .evaluate(() => document.visibilityState)
+          .catch(() => "unavailable"),
+        text: await page
+          .locator("body")
+          .innerText({ timeout: 2000 })
+          .catch(() => "unavailable"),
+      }),
+    ),
+  );
+  const nativeWindows = children[0]?.pid
+    ? await windowAction(children[0].pid, "inspect").catch(() => null)
+    : null;
   await writeFile(
     join(output, "partial-results.json"),
-    JSON.stringify({ results, files: await readdir(data) }, null, 2),
+    JSON.stringify(
+      { results, files: await readdir(data), visiblePages, nativeWindows },
+      null,
+      2,
+    ),
   );
   await writeFile(
     join(output, "failed-desktop.log"),
