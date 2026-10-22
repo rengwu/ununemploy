@@ -1,5 +1,5 @@
 {
-  "builtAt": "2026-10-22T17:43:16.921Z",
+  "builtAt": "2026-10-22T17:51:45.937Z",
   "platform": "win32",
   "arch": "x64",
   "node": "v22.23.3",
@@ -26,8 +26,8 @@
     "sandbox": "0bfbaeacd3395a342ed861bfd77f725e91435e5255171d3f482f01569f3ccb7b"
   },
   "installer": "ununemploy-0.2.0-beta.1-windows-x64-setup.exe",
-  "sha256": "a95743a47170bd74b620c0092a990c8033527b0bf0ed3dc9312441ade5446dca",
-  "downloadBytes": 48241624,
-  "unpackedBytes": 219403995,
+  "sha256": "9f12acd633e3afa709c6636764bed72ac7dba25bcbef20ccad163bc2cdbf786b",
+  "downloadBytes": 48238919,
+  "unpackedBytes": 219404401,
   "files": 572
 }
