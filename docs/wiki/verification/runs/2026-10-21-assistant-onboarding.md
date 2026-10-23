@@ -1,7 +1,7 @@
 ---
 title: Assistant onboarding recovery
 section: Verification
-updated: 2026-10-21
+updated: 2026-10-23
 result: Untested
 ---
 # Assistant onboarding recovery
@@ -51,3 +51,7 @@ node docs/wiki/_build.mjs --check
 ```
 
 The browser driver uses `PLAYWRIGHT_BROWSERS_PATH=build/desktop/windows/resources/browsers`. It closes its own browser/server/database and removes its temporary fixtures. Real user appdata and credentials were not modified. No new installer, native installation, clean-machine distribution, commit, push or deployment was performed. The existing installed package therefore does not contain this source fix. A live end-to-end conversation and original-document extraction check remain necessary before claiming the reported experience fully resolved.
+
+## Delivery follow-up - 23 October 2026
+
+The preceding delivery status describes the original source-only verification. These repairs now ship in [v0.2.0-beta.7](https://github.com/rengwu/ununemploy/releases/tag/v0.2.0-beta.7), clean revision `125446e992552a774ec95718690a8b3bf8a3d865`. The [Windows delivery run](2026-10-23-windows-delivery.md) records the compact installer, hosted installed-application checks, anonymous public download and later PDF process-containment repair. Original-file extraction quality and live-model interpretation remain untested; publication does not change those results.

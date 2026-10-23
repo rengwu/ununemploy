@@ -1,0 +1,31 @@
+{
+  "result": "Passed",
+  "workflow": "https://github.com/rengwu/ununemploy/actions/runs/39853817046",
+  "revision": "125446e992552a774ec95718690a8b3bf8a3d865",
+  "dirty": false,
+  "tag": "v0.2.0-beta.7",
+  "runner": "windows-2025",
+  "focusedTests": {
+    "passed": 47,
+    "failed": 0
+  },
+  "nativePackages": [
+    "ununemploy/desktop",
+    "ununemploy/desktop/internal/texsandbox"
+  ],
+  "installerTests": {
+    "passed": 12,
+    "failed": 0
+  },
+  "applicationBuild": "Passed",
+  "setupBuild": "Passed",
+  "installedApplication": "Passed",
+  "pdfIsolation": "Passed",
+  "prereleasePublication": "Passed",
+  "publishedAt": "2026-10-22T21:09:46Z",
+  "limits": [
+    "Missing-WebView2 provisioning untested",
+    "Completed live ChatGPT sign-in and original resume interpretation untested",
+    "Unsigned beta"
+  ]
+}

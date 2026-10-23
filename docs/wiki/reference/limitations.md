@@ -1,7 +1,7 @@
 ---
 title: Limitations and pending verification
 section: Reference
-updated: 2026-10-16
+updated: 2026-10-23
 ---
 # Limitations and pending verification
 
@@ -16,7 +16,7 @@ updated: 2026-10-16
 
 ## Pending integration and deployment checks
 
-- The Windows local port is verified on Windows 11 x64 build 26200. Clean-machine installation, WebView2 provisioning, fresh interactive ChatGPT login and signed distribution remain unverified; shared macOS changes need a Mac regression run. See [Windows verification](../verification/runs/2026-10-17-windows-port.md).
+- The published Windows beta passed local Windows 11 native checks and hosted Windows 2025 fresh installation, update, rollback, document workflows and uninstall. Anonymous download/checksum verification passed. Missing-WebView2 provisioning and completed live ChatGPT/original-résumé onboarding on the user's other machine remain unverified. The installer is unsigned; shared macOS changes need a Mac regression run. See [delivery verification](../verification/runs/2026-10-23-windows-delivery.md).
 
 - Actual Unraid installation and native amd64 LaTeX compilation remain unverified. The host must support Landlock.
 - Authenticated Web3.career collection remains unverified. Historical Jev responses were observed locally during the [accounting investigation](../verification/runs/2026-10-07T180900Z-jev-accounting.md), but assessment quality and provider billing reconciliation remain unverified; no new live inference was performed.

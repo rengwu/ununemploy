@@ -66,7 +66,7 @@ The user chose to implement/evaluate a lighter Pi runtime on Mac first on 18 Oct
 
 The macOS bundle is approximately 1.1 GB because it includes the model/runtime and document-export dependencies. Its native UI uses the system webview. The Mac build is locally ad-hoc signed, not Developer ID signed or notarized for distribution. No Linux desktop package, automatic update system, login item, or tray icon is provided. Unraid remains an independent hosting target; no server deployment is implied.
 
-The [Windows and Linux assessment](../journal/2026-10-16-desktop-portability.md) records the original plan. The [paused checkpoint](../journal/2026-10-17-windows-checkpoint.md) is historical: the user subsequently authorized resuming. The Windows local build now includes its runtimes and installer. Clean-machine distribution remains unverified; Linux desktop remains unimplemented.
+The [Windows and Linux assessment](../journal/2026-10-16-desktop-portability.md) records the original plan. The [paused checkpoint](../journal/2026-10-17-windows-checkpoint.md) is historical: the user subsequently authorized resuming. The published Windows beta includes its runtimes and installer; fresh installation and the native workflow passed on a hosted Windows 2025 runner. Live onboarding on the user's other Windows 11 machine and missing-WebView2 provisioning remain unverified. Linux desktop remains unimplemented.
 
 Window routing/filter state is tied to the saved local origin. If another application occupies its port, a new port is used and origin-specific browser preferences may start afresh; SQLite records remain intact. Service failure requires quitting/reopening the app after the displayed error. Existing startup recovery preserves queued work and pauses interrupted model jobs.
 
@@ -93,6 +93,8 @@ Window routing/filter state is tied to the saved local origin. If another applic
 ## Windows 11 x64
 
 The user approved smaller packaging and smooth installation on 23 October. The [delivery journal](../journal/2026-10-21-windows-delivery.md) retains the initial measurements and accepted direction. Download the versioned **setup.exe** from [GitHub Releases](https://github.com/rengwu/ununemploy/releases), run it, and open **ununemploy** from the Start menu. Testers need no ZIP, source checkout, Node, npm, Go or manual folder copying.
+
+The first published installer is [v0.2.0-beta.7](https://github.com/rengwu/ununemploy/releases/tag/v0.2.0-beta.7): **46.00 MiB downloaded, 209.26 MiB unpacked and 572 files**, compared with the previous 677.95 MiB and 31,696 files unpacked. It retains offline LaTeX and includes the résumé onboarding/response-recovery repairs. [Release metadata](../evidence/2026-10-23-windows-delivery/hosted-release.json) identifies clean revision `125446e992552a774ec95718690a8b3bf8a3d865`; anonymous download and checksum verification passed.
 
 The intermediate build lives in `build/desktop/windows`; setup installs it together. The Go host uses Win32 and go-webview2 v1.0.23 with Microsoft Edge WebView2 Evergreen. Close hides the window and leaves services running; reopening activates the same instance. **File > Quit ununemploy** checks unsaved edits before stopping services. Downloads use native Save As. Explicit HTTP(S) links use target=_blank and the user-initiated new-window handler to open the default browser. Remote top-level navigation is always cancelled and cannot open an external browser or replace the application. External browsers belong to the user and are not terminated when the app quits.
 
@@ -137,7 +139,7 @@ The lower-level `npm run desktop:install` PowerShell path remains available for 
 
 `.github/workflows/windows-release.yml` builds on Windows from a version tag or manual run, tests code and the installed native application, retains the setup artifact, and publishes tag builds as prereleases after checks pass. Tags must match package.json. The [release notes](https://github.com/rengwu/ununemploy/releases) identify the exact delivered build.
 
-The installer is an unsigned beta; Windows may show a publisher/reputation prompt. A separate clean Windows machine, missing-WebView2 provisioning, completed interactive ChatGPT sign-in and live inference remain unverified locally. ARM64, signing and automatic/delta updates are outside this delivery. Windows changes do not reverify macOS.
+The installer is an unsigned beta; Windows may show a publisher/reputation prompt. Hosted Windows 2025 checks passed fresh installation, three empty first runs, update, interruption rollback, the installed native/document workflow, PDF isolation and uninstall with personal-data retention. Local Windows 11 native checks also passed. Missing-WebView2 provisioning, completed interactive ChatGPT sign-in and original-résumé interpretation on the user's other machine remain unverified. ARM64, signing and automatic/delta updates are outside this delivery. Windows changes do not reverify macOS.
 
 [Compact Windows setup - 23 October 2026](../verification/runs/2026-10-23-windows-delivery.md) records the size reduction, installed native checks, update/uninstall retention, PDF export/isolation, and remaining live-machine limits.
 
